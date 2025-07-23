@@ -554,9 +554,13 @@ class MessageHandler {
     const data = this.parsePostbackData(event.postback.data);
 
     console.log('🎯 收到Postback:', data);
+    console.log('👤 用户ID:', userId);
+    console.log('🔖 Reply Token:', event.replyToken);
 
     try {
+      console.log('📝 开始获取用户信息...');
       const user = await this.ensureUserExists(userId);
+      console.log('✅ 用户信息获取成功:', user.id);
 
       switch (data.action) {
         // 新的Rich Menu postback动作
@@ -578,6 +582,10 @@ class MessageHandler {
           
         case 'share':
           await this.handleRichMenuShareAction(event, user);
+          break;
+          
+        case 'status_check':
+          await this.handleStatusCheck(event, user);
           break;
 
         // 原有动作保持不变
@@ -2056,27 +2064,41 @@ class MessageHandler {
   async handleRichMenuWaveAction(event, user) {
     try {
       console.log('👋 Rich Menu: 手振り动作被点击');
+      console.log('👤 用户:', user.id, user.line_user_id);
       
       // 设置用户状态
+      console.log('📝 设置用户状态...');
       await this.db.setUserState(user.id, 'waiting_wave_photo', { action: 'wave' });
+      console.log('✅ 用户状态设置成功');
       
       // 机器人主动发送消息
+      console.log('📤 发送回复消息...');
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
         text: '👋【手振り動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐに手を振る動画の制作を開始いたします！\n\n✨ 自然な笑顔で手を振る素敵な動画を作成いたします。'
       });
+      console.log('✅ 回复消息发送成功');
       
       // 记录交互
+      console.log('📊 记录交互日志...');
       await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_wave_action', {
         timestamp: new Date().toISOString()
       });
+      console.log('✅ 交互日志记录成功');
       
     } catch (error) {
-      console.error('❌ Rich Menu Wave动作处理错误:', error);
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
-      });
+      console.error('❌ Rich Menu Wave动作处理错误:', error.message);
+      console.error('❌ 错误堆栈:', error.stack);
+      
+      // 只有在还没有回复的情况下才发送错误消息
+      try {
+        await this.client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
+        });
+      } catch (replyError) {
+        console.error('❌ 发送错误回复失败:', replyError.message);
+      }
     }
   }
   
