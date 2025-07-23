@@ -1866,7 +1866,7 @@ class MessageHandler {
     // 设置用户状态
     await this.db.setUserState(user.id, 'waiting_custom_photo', { action: 'custom' });
     
-    await this.client.replyMessage(event, {
+    await this.client.replyMessage(event.replyToken, {
       type: 'text',
       text: '🎨【パーソナライズ動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐにパーソナライズ動画の制作を開始いたします！\n\n💭 その後、ご希望の動画内容をお聞かせください。'
     });
