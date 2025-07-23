@@ -42,7 +42,7 @@ async function handleEvent(event) {
  * 需要在 LINE Developers Console 将 Webhook URL 设置为：
  * https://<project>.vercel.app/api/webhook
  */
-module.exports = async (req, res) => {
+export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.status(405).send('Method Not Allowed');
     return;
@@ -57,4 +57,4 @@ module.exports = async (req, res) => {
 
   // LINE 要求 200 OK
   res.status(200).json({ success: true });
-}; 
+} 
