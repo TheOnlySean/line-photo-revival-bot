@@ -559,6 +559,28 @@ class MessageHandler {
       const user = await this.ensureUserExists(userId);
 
       switch (data.action) {
+        // 新的Rich Menu postback动作
+        case 'wave':
+          await this.handleRichMenuWaveAction(event, user);
+          break;
+          
+        case 'group':
+          await this.handleRichMenuGroupAction(event, user);
+          break;
+          
+        case 'custom':
+          await this.handleRichMenuCustomAction(event, user);
+          break;
+          
+        case 'credits':
+          await this.handleRichMenuCreditsAction(event, user);
+          break;
+          
+        case 'share':
+          await this.handleRichMenuShareAction(event, user);
+          break;
+
+        // 原有动作保持不变
         case 'wave_hello':
           await this.handleWaveHello(event, user);
           break;
@@ -2026,6 +2048,143 @@ class MessageHandler {
         }
       }
     };
+  }
+
+  // ==== Rich Menu Postback动作处理器 ====
+  
+  // 处理Rich Menu手振り动作
+  async handleRichMenuWaveAction(event, user) {
+    try {
+      console.log('👋 Rich Menu: 手振り动作被点击');
+      
+      // 设置用户状态
+      await this.db.setUserState(user.id, 'waiting_wave_photo', { action: 'wave' });
+      
+      // 机器人主动发送消息
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '👋【手振り動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐに手を振る動画の制作を開始いたします！\n\n✨ 自然な笑顔で手を振る素敵な動画を作成いたします。'
+      });
+      
+      // 记录交互
+      await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_wave_action', {
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ Rich Menu Wave动作处理错误:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
+      });
+    }
+  }
+  
+  // 处理Rich Menu寄り添い动作
+  async handleRichMenuGroupAction(event, user) {
+    try {
+      console.log('🤝 Rich Menu: 寄り添い动作被点击');
+      
+      // 设置用户状态
+      await this.db.setUserState(user.id, 'waiting_group_photo', { action: 'group' });
+      
+      // 机器人主动发送消息
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '🤝【寄り添い動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐに寄り添い動画の制作を開始いたします！\n\n💕 温かい雰囲気の素敵な動画を作成いたします。'
+      });
+      
+      // 记录交互
+      await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_group_action', {
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ Rich Menu Group动作处理错误:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
+      });
+    }
+  }
+  
+  // 处理Rich Menu个性化动作
+  async handleRichMenuCustomAction(event, user) {
+    try {
+      console.log('🎨 Rich Menu: 个性化动作被点击');
+      
+      // 设置用户状态
+      await this.db.setUserState(user.id, 'waiting_custom_photo', { action: 'custom' });
+      
+      // 机器人主动发送消息
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '🎨【パーソナライズ動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐにパーソナライズ動画の制作を開始いたします！\n\n💭 その後、ご希望の動画内容をお聞かせください。'
+      });
+      
+      // 记录交互
+      await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_custom_action', {
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ Rich Menu Custom动作处理错误:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
+      });
+    }
+  }
+  
+  // 处理Rich Menu充值动作
+  async handleRichMenuCreditsAction(event, user) {
+    try {
+      console.log('💎 Rich Menu: 充值动作被点击');
+      
+      // 机器人主动发送充值信息
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: `💎 ポイント購入についてのご案内\n\n現在のポイント: ${user.credits}ポイント\n\n🌐 詳しい料金プランは公式サイトをご確認ください：https://angelsphoto.ai`
+      });
+      
+      // 记录交互
+      await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_credits_action', {
+        currentCredits: user.credits,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ Rich Menu Credits动作处理错误:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
+      });
+    }
+  }
+  
+  // 处理Rich Menu分享动作
+  async handleRichMenuShareAction(event, user) {
+    try {
+      console.log('🎁 Rich Menu: 分享动作被点击');
+      
+      // 机器人主动发送分享信息
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '🎁 写真復活サービスを友達にシェアしていただき、ありがとうございます！\n\n✨ より多くの方に素敵な動画体験をお届けします。'
+      });
+      
+      // 记录交互
+      await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_share_action', {
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ Rich Menu Share动作处理错误:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
+      });
+    }
   }
 }
 

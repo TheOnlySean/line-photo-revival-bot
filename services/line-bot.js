@@ -31,8 +31,10 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "uri",
-              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/liff/wave`
+              type: "postback",
+              label: "手振り動画生成",
+              data: "action=wave&mode=video_generation",
+              displayText: ""
             }
           },
           {
@@ -43,8 +45,10 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "uri",
-              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/liff/group`
+              type: "postback",
+              label: "寄り添い動画生成",
+              data: "action=group&mode=video_generation", 
+              displayText: ""
             }
           },
           {
@@ -55,8 +59,10 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "uri",
-              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/liff/custom`
+              type: "postback",
+              label: "パーソナライズ動画生成",
+              data: "action=custom&mode=video_generation",
+              displayText: ""
             }
           },
           {
@@ -67,8 +73,10 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "uri",
-              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/liff/credits`
+              type: "postback",
+              label: "ポイント購入",
+              data: "action=credits&mode=purchase",
+              displayText: ""
             }
           },
           {
@@ -91,8 +99,10 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "uri",
-              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/liff/share`
+              type: "postback",
+              label: "友達にシェア",
+              data: "action=share&mode=referral",
+              displayText: ""
             }
           }
         ]

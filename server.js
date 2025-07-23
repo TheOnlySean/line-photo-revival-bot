@@ -261,7 +261,7 @@ app.use((error, req, res, next) => {
   });
 });
 
-// LIFF页面路由
+// 保留LIFF页面作为备用方案（可选）
 app.get('/liff/:action', (req, res) => {
   const action = req.params.action;
   const actionTitles = {
@@ -273,122 +273,43 @@ app.get('/liff/:action', (req, res) => {
   };
   
   const title = actionTitles[action] || 'アクション';
-  const html = `
+  
+  res.send(`
     <!DOCTYPE html>
     <html lang="ja">
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <title>${title}</title>
-        <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+        <style>
+            body { 
+                font-family: 'Hiragino Sans', sans-serif;
+                text-align: center; 
+                padding: 50px; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                min-height: 100vh;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .container { 
+                background: rgba(255,255,255,0.95); 
+                padding: 30px; 
+                border-radius: 15px; 
+                color: #333;
+            }
+        </style>
     </head>
     <body>
-        <div id="status">初期化中...</div>
-        
-        <script>
-            async function initializeLiff() {
-                try {
-                    await liff.init({ liffId: '${process.env.LIFF_ID || 'YOUR_LIFF_ID'}' });
-                    
-                    if (liff.isLoggedIn()) {
-                        const profile = await liff.getProfile();
-                        
-                        // 直接调用我们的API发送消息给用户
-                        const response = await fetch('/api/liff-action', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                action: '${action}',
-                                userId: profile.userId,
-                                displayName: profile.displayName
-                            })
-                        });
-                        
-                        const result = await response.json();
-                        if (result.success) {
-                            document.getElementById('status').textContent = '✅ ${title}を開始しました！';
-                            // 关闭LIFF窗口
-                            setTimeout(() => liff.closeWindow(), 1000);
-                        } else {
-                            document.getElementById('status').textContent = '❌ エラーが発生しました';
-                        }
-                    } else {
-                        liff.login();
-                    }
-                } catch (error) {
-                    console.error('LIFF初期化エラー:', error);
-                    document.getElementById('status').textContent = '❌ 初期化エラー';
-                }
-            }
-            
-            initializeLiff();
-        </script>
+        <div class="container">
+            <h2>📱 ${title}</h2>
+            <p>現在、Rich Menu Postback方式を使用しています。</p>
+            <p>LINEアプリでメニューボタンをタップしてください。</p>
+        </div>
     </body>
     </html>
-  `;
-  res.send(html);
-});
-
-// LIFF动作API
-app.post('/api/liff-action', async (req, res) => {
-  try {
-    const { action, userId, displayName } = req.body;
-    
-    console.log('🎯 LIFF动作请求:', action, userId);
-    
-    // 确保用户存在
-    const user = await messageHandler.ensureUserExists(userId);
-    
-    // 根据动作类型进行不同处理
-    if (['wave', 'group', 'custom'].includes(action)) {
-      // 视频生成类动作
-      const messages = {
-        wave: '👋【手振り動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐに手を振る動画の制作を開始いたします！\n\n✨ 自然な笑顔で手を振る素敵な動画を作成いたします。',
-        group: '🤝【寄り添い動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐに寄り添い動画の制作を開始いたします！\n\n💕 温かい雰囲気の素敵な動画を作成いたします。',
-        custom: '🎨【パーソナライズ動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐにパーソナライズ動画の制作を開始いたします！\n\n💭 その後、ご希望の動画内容をお聞かせください。'
-      };
-      
-      // 设置用户状态
-      await db.setUserState(user.id, `waiting_${action}_photo`, { action });
-      
-      // 主动发送消息给用户
-      await client.pushMessage(userId, {
-        type: 'text',
-        text: messages[action]
-      });
-      
-    } else if (action === 'credits') {
-      // 充值功能 - 直接发送充值信息
-      const creditsMessage = {
-        type: 'text',
-        text: `💎 ポイント購入についてのご案内\n\n現在のポイント: ${user.credits}ポイント\n\n🌐 詳しい料金プランは公式サイトをご確認ください：https://angelsphoto.ai`
-      };
-      await client.pushMessage(userId, creditsMessage);
-      
-    } else if (action === 'share') {
-      // 分享功能 - 直接发送分享信息
-      const shareMessage = {
-        type: 'text',
-        text: '🎁 写真復活サービスを友達にシェアしていただき、ありがとうございます！\n\n✨ より多くの方に素敵な動画体験をお届けします。'
-      };
-      await client.pushMessage(userId, shareMessage);
-      
-    } else {
-      res.json({ success: false, message: '無効なアクション' });
-      return;
-    }
-    
-    // 记录交互
-    await db.logInteraction(userId, user.id, `${action}_action_liff`, {
-      displayName
-    });
-    
-    res.json({ success: true, message: 'メッセージを送信しました' });
-    
-  } catch (error) {
-    console.error('❌ LIFF动作处理错误:', error);
-    res.json({ success: false, message: error.message });
-  }
+  `);
 });
 
 // Rich Menu动作处理路由（保留作为备用）
