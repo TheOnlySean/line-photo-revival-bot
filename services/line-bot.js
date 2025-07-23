@@ -695,7 +695,7 @@ class LineBot {
   createPresetVideoConfirmCard(imageUrl, prompt, actionName, creditsNeeded) {
     return {
       type: "flex",
-      altText: "确认生成预设视频",
+      altText: "動画生成確認",
       contents: {
         type: "bubble",
         hero: {
@@ -711,7 +711,7 @@ class LineBot {
           contents: [
             {
               type: "text",
-              text: `${actionName} 视频生成`,
+              text: `${actionName}生成`,
               weight: "bold",
               size: "xl",
               color: "#1DB446",
@@ -733,7 +733,7 @@ class LineBot {
                   contents: [
                     {
                       type: "text",
-                      text: "生成类型:",
+                      text: "生成タイプ:",
                       size: "sm",
                       color: "#666666",
                       flex: 3
@@ -754,14 +754,14 @@ class LineBot {
                   contents: [
                     {
                       type: "text",
-                      text: "消耗点数:",
+                      text: "必要ポイント:",
                       size: "sm",
                       color: "#666666",
                       flex: 3
                     },
                     {
                       type: "text",
-                      text: `${creditsNeeded}点`,
+                      text: `${creditsNeeded}ポイント`,
                       size: "sm",
                       weight: "bold",
                       color: "#FF6B35",
@@ -771,7 +771,7 @@ class LineBot {
                 },
                 {
                   type: "text",
-                  text: "💡 使用预设提示词，自动生成精美效果",
+                  text: "💡 プリセットプロンプトで自動的に美しい効果を生成",
                   size: "xs",
                   color: "#999999",
                   wrap: true,
@@ -790,7 +790,7 @@ class LineBot {
               type: "button",
               action: {
                 type: "postback",
-                label: "🚀 立即生成视频",
+                label: "🚀 動画を生成する",
                 data: `action=confirm_preset_generate&image_url=${encodeURIComponent(imageUrl)}&prompt=${encodeURIComponent(prompt)}&credits=${creditsNeeded}`
               },
               style: "primary",
@@ -1362,21 +1362,21 @@ class LineBot {
       case 'processing':
         message = {
           type: 'text',
-          text: `🔄 生成进度更新: ${progress || '处理中'}%\n⏱️ 预计还需要${Math.ceil((100 - (progress || 0)) / 2)}秒...`
+          text: `🔄 生成進度更新: ${progress || '処理中'}%\n⏱️ 残り時間約${Math.ceil((100 - (progress || 0)) / 2)}秒...`
         };
         break;
         
       case 'finalizing':
         message = {
           type: 'text',
-          text: '🎯 视频生成即将完成...\n正在进行最后的优化处理'
+          text: '🎯 動画生成がもうすぐ完了します...\n最終的な最適化処理を行っています'
         };
         break;
         
       case 'completed':
         message = {
           type: 'text',
-          text: '🎉 视频生成完成！\n正在发送给您...'
+          text: '🎉 動画生成完了！\nお送りしています...'
         };
         break;
         

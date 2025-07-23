@@ -451,6 +451,8 @@ class MessageHandler {
 
   // 处理挥手照片接收
   async handleWavePhotoReceived(event, user, imageUrl) {
+    console.log('👋 处理挥手照片:', imageUrl);
+    
     // 检查点数
     if (user.credits < 1) {
       await this.sendInsufficientCreditsMessage(event.replyToken, user.credits, 1);
@@ -460,43 +462,47 @@ class MessageHandler {
     // 自动使用挥手微笑的prompt生成视频
     const wavePrompt = "A person waving hand with a warm smile, gentle and natural movement, friendly greeting gesture";
     
-    const confirmCard = this.lineBot.createPresetVideoConfirmCard(imageUrl, wavePrompt, "👋 挥手微笑", 1);
+    const confirmCard = this.lineBot.createPresetVideoConfirmCard(imageUrl, wavePrompt, "👋 手振り動画", 1);
 
     await this.client.replyMessage(event.replyToken, [
       {
         type: 'text',
-        text: '👋 准备生成挥手微笑视频！'
+        text: '📸 写真を受信しました！\n\n👋 手振り動画を生成する準備が整いました。下のボタンで確認してください。'
       },
       confirmCard
     ]);
 
     // 清除用户状态
     await this.db.clearUserState(user.id);
+    console.log('✅ 挥手照片处理完成');
   }
 
   // 处理肩并肩照片接收
   async handleGroupPhotoReceived(event, user, imageUrl) {
+    console.log('🤝 处理寄り添い照片:', imageUrl);
+    
     // 检查点数
     if (user.credits < 1) {
       await this.sendInsufficientCreditsMessage(event.replyToken, user.credits, 1);
       return;
     }
 
-    // 自动使用肩并肩的prompt生成视频
+    // 自动使用寄り添い的prompt生成视频
     const groupPrompt = "People standing together with warm interaction, shoulder to shoulder, showing mutual support and closeness, gentle movements expressing togetherness";
     
-    const confirmCard = this.lineBot.createPresetVideoConfirmCard(imageUrl, groupPrompt, "🤝 肩并肩互相依靠", 1);
+    const confirmCard = this.lineBot.createPresetVideoConfirmCard(imageUrl, groupPrompt, "🤝 寄り添い動画", 1);
 
     await this.client.replyMessage(event.replyToken, [
       {
         type: 'text',
-        text: '🤝 准备生成肩并肩互相依靠视频！'
+        text: '📸 写真を受信しました！\n\n🤝 寄り添い動画を生成する準備が整いました。下のボタンで確認してください。'
       },
       confirmCard
     ]);
 
     // 清除用户状态
     await this.db.clearUserState(user.id);
+    console.log('✅ 寄り添い照片处理完成');
   }
 
   // 处理个性化生成照片接收
@@ -944,6 +950,8 @@ class MessageHandler {
   // 处理确认预设prompt生成
   async handleConfirmPresetGenerate(event, user, data) {
     try {
+      console.log('🚀 开始预设视频生成确认:', data);
+      
       const imageUrl = decodeURIComponent(data.image_url);
       const prompt = decodeURIComponent(data.prompt);
       const creditsNeeded = parseInt(data.credits);
@@ -952,31 +960,40 @@ class MessageHandler {
       if (user.credits < creditsNeeded) {
         await this.client.replyMessage(event.replyToken, {
           type: 'text',
-          text: `❌ 点数不足，需要${creditsNeeded}点数`
+          text: `❌ ポイントが不足しています。${creditsNeeded}ポイントが必要です`
         });
         return;
       }
 
       // 显示生成进度消息
+      console.log('📤 发送处理中消息...');
       await this.lineBot.sendProcessingMessage(event.replyToken);
       
+      // 切换到处理中Rich Menu
+      console.log('🔄 切换到处理中菜单...');
+      await this.lineBot.switchToProcessingMenu(user.line_user_id);
+      
       // 扣除点数
+      console.log('💰 扣除点数:', creditsNeeded);
       await this.db.updateUserCredits(user.id, -creditsNeeded);
       
       // 异步开始视频生成
+      console.log('🎬 开始视频生成流程...');
       this.startVideoGenerationWithPrompt(user, imageUrl, prompt, creditsNeeded);
 
-      await this.db.logInteraction(user.line_id, user.id, 'preset_video_generation_started', {
+      await this.db.logInteraction(user.line_user_id, user.id, 'preset_video_generation_started', {
         imageUrl: imageUrl,
         prompt: prompt,
         creditsUsed: creditsNeeded
       });
+      
+      console.log('✅ 预设视频生成确认处理完成');
 
     } catch (error) {
       console.error('❌ 处理预设生成确认失败:', error);
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '❌ 生成视频时发生错误，请稍后再试'
+        text: '❌ 動画生成中にエラーが発生しました。しばらくしてから再度お試しください'
       });
     }
   }
