@@ -171,7 +171,9 @@ class LineBot {
 
       return { mainRichMenuId, processingRichMenuId };
     } catch (error) {
-      console.error('❌ Rich Menu设置失败:', error);
+      console.error('❌ Rich Menu设置失败:', error.message);
+      console.error('❌ 错误状态码:', error.response?.status);
+      console.error('❌ 错误详情:', error.response?.data || error);
       throw error;
     }
   }
@@ -227,14 +229,18 @@ class LineBot {
   // 删除现有Rich Menu
   async deleteExistingRichMenus() {
     try {
+      console.log('🗑️ 开始检查现有Rich Menu...');
       const richMenus = await this.client.getRichMenuList();
+      console.log('📋 发现', richMenus.length, '个现有Rich Menu');
       
       for (const menu of richMenus) {
+        console.log('🗑️ 删除Rich Menu:', menu.richMenuId, menu.name);
         await this.client.deleteRichMenu(menu.richMenuId);
-        console.log('🗑️ 删除旧Rich Menu:', menu.richMenuId);
       }
+      console.log('✅ Rich Menu清理完成');
     } catch (error) {
-      console.log('⚠️ 删除Rich Menu时发生错误（可能不存在）:', error.message);
+      console.error('❌ 删除Rich Menu失败:', error.message);
+      console.error('❌ 错误详情:', error.response?.data || error);
     }
   }
 
