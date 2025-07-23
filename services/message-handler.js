@@ -2066,12 +2066,7 @@ class MessageHandler {
       console.log('👋 Rich Menu: 手振り动作被点击');
       console.log('👤 用户:', user.id, user.line_user_id);
       
-      // 设置用户状态
-      console.log('📝 设置用户状态...');
-      await this.db.setUserState(user.id, 'waiting_wave_photo', { action: 'wave' });
-      console.log('✅ 用户状态设置成功');
-      
-      // 机器人主动发送消息
+      // 先发送回复消息（核心功能）
       console.log('📤 发送回复消息...');
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
@@ -2079,18 +2074,26 @@ class MessageHandler {
       });
       console.log('✅ 回复消息发送成功');
       
-      // 记录交互
-      console.log('📊 记录交互日志...');
-      await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_wave_action', {
-        timestamp: new Date().toISOString()
-      });
-      console.log('✅ 交互日志记录成功');
+      // 异步执行数据库操作（避免阻塞回复）
+      try {
+        console.log('📝 设置用户状态...');
+        await this.db.setUserState(user.id, 'waiting_wave_photo', { action: 'wave' });
+        console.log('✅ 用户状态设置成功');
+        
+        console.log('📊 记录交互日志...');
+        await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_wave_action', {
+          timestamp: new Date().toISOString()
+        });
+        console.log('✅ 交互日志记录成功');
+      } catch (dbError) {
+        console.error('⚠️ 数据库操作失败，但不影响主要功能:', dbError.message);
+      }
       
     } catch (error) {
       console.error('❌ Rich Menu Wave动作处理错误:', error.message);
       console.error('❌ 错误堆栈:', error.stack);
       
-      // 只有在还没有回复的情况下才发送错误消息
+      // 发送错误回复
       try {
         await this.client.replyMessage(event.replyToken, {
           type: 'text',

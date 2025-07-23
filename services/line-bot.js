@@ -35,7 +35,9 @@ class LineBot {
             },
             action: {
               type: "postback",
-              data: "action=wave&mode=video_generation"
+              label: "手振り動画生成",
+              data: "action=wave&mode=video_generation",
+              displayText: "手振り動画生成"
             }
           },
           // 第一行：中 (833-1666)  
@@ -48,7 +50,9 @@ class LineBot {
             },
             action: {
               type: "postback",
-              data: "action=group&mode=video_generation"
+              label: "寄り添い動画生成",
+              data: "action=group&mode=video_generation",
+              displayText: "寄り添い動画生成"
             }
           },
           // 第一行：右 (1666-2500)
@@ -61,7 +65,9 @@ class LineBot {
             },
             action: {
               type: "postback",
-              data: "action=custom&mode=video_generation"
+              label: "パーソナライズ動画生成",
+              data: "action=custom&mode=video_generation",
+              displayText: "パーソナライズ動画生成"
             }
           },
           // 第二行：左 (0-833)
@@ -74,7 +80,9 @@ class LineBot {
             },
             action: {
               type: "postback",
-              data: "action=credits&mode=purchase"
+              label: "ポイント購入",
+              data: "action=credits&mode=purchase",
+              displayText: "ポイント購入"
             }
           },
           // 第二行：中 (833-1666)
@@ -100,7 +108,9 @@ class LineBot {
             },
             action: {
               type: "postback",
-              data: "action=share&mode=referral"
+              label: "友達にシェア",
+              data: "action=share&mode=referral",
+              displayText: "友達にシェア"
             }
           }
         ]
@@ -129,7 +139,9 @@ class LineBot {
             },
             action: {
               type: "postback",
-              data: "action=status_check"
+              label: "進捗確認",
+              data: "action=status_check",
+              displayText: "進捗確認"
             }
           }
         ]
