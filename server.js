@@ -30,10 +30,12 @@ app.use(bodyParser.urlencoded({ extended: true }));
 
 // 健康检查端点
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'ok', 
+  res.json({
+    status: 'ok',
     service: 'LINE Bot - 写真復活',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    version: '1.0.1-postback-fix',
+    lastUpdate: '2025-01-23T15:20:00Z'
   });
 });
 
