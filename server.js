@@ -259,6 +259,46 @@ app.get('/api/check-rich-menu-images', async (req, res) => {
   }
 });
 
+// 测试Rich Menu权限
+app.get('/api/test-rich-menu-permissions', async (req, res) => {
+  try {
+    console.log('🔍 测试Rich Menu权限...');
+    
+    // 测试获取Rich Menu列表
+    const richMenus = await client.getRichMenuList();
+    console.log('📋 现有Rich Menu:', richMenus.length, '个');
+    
+    // 测试获取默认Rich Menu
+    let defaultRichMenu = null;
+    try {
+      defaultRichMenu = await client.getDefaultRichMenu();
+      console.log('🎯 默认Rich Menu:', defaultRichMenu.richMenuId);
+    } catch (error) {
+      console.log('ℹ️ 无默认Rich Menu:', error.message);
+    }
+    
+    res.json({
+      success: true,
+      permissions: 'OK',
+      existingMenus: richMenus.length,
+      defaultMenu: defaultRichMenu?.richMenuId || null,
+      menus: richMenus.map(menu => ({
+        id: menu.richMenuId,
+        name: menu.name,
+        chatBarText: menu.chatBarText
+      }))
+    });
+    
+  } catch (error) {
+    console.error('❌ Rich Menu权限测试失败:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Rich Menu权限测试失败: ' + error.message,
+      details: error.response?.data || error
+    });
+  }
+});
+
 // 用户统计端点
 app.get('/api/stats', async (req, res) => {
   try {
