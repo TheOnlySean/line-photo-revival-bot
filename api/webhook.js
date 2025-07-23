@@ -14,6 +14,22 @@ const client = new Client({
 const lineBot = new LineBot(client, db);
 const messageHandler = new MessageHandler(client, db, lineBot);
 
+// Rich Menu初始化 (只初始化一次)
+let richMenuInitialized = false;
+async function ensureRichMenuInitialized() {
+  if (!richMenuInitialized) {
+    try {
+      console.log('🎨 初始化Rich Menu...');
+      await lineBot.setupRichMenu();
+      richMenuInitialized = true;
+      console.log('✅ Rich Menu初始化成功');
+    } catch (error) {
+      console.error('❌ Rich Menu初始化失败:', error.message);
+      // 不阻塞webhook处理，继续执行
+    }
+  }
+}
+
 /**
  * 通用事件分发器（从 server.js 拷贝并精简）
  */
@@ -60,10 +76,13 @@ module.exports = async function handler(req, res) {
   }
   
   try {
+    // 确保Rich Menu已初始化
+    await ensureRichMenuInitialized();
+    
     console.log('📦 Request body:', req.body);
     
     // LINE 平台发送的 JSON
-    const body = req.body || {};
+    const body = req.body || {};  
     const events = body.events || [];
     
     console.log(`📨 收到 ${events.length} 个事件`);

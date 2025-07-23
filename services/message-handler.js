@@ -889,7 +889,7 @@ class MessageHandler {
       
       // 切换到处理中Rich Menu
       console.log('🔄 切换到处理中菜单...');
-      await this.lineBot.switchToProcessingMenu(user.line_user_id);
+      await this.lineBot.switchToProcessingMenu(user.line_id);
       
       // 扣除点数
       console.log('💰 扣除点数:', creditsNeeded);
