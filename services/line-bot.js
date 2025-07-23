@@ -1,4 +1,6 @@
 const lineConfig = require('../config/line-config');
+const fs = require('fs');
+const path = require('path');
 
 class LineBot {
   constructor(client, db) {
@@ -141,11 +143,23 @@ class LineBot {
       const processingRichMenuId = await this.client.createRichMenu(processingRichMenu);
       console.log('✅ 生成中Rich Menu创建成功:', processingRichMenuId);
 
-      // TODO: 这里需要上传Rich Menu图片
-      // 暂时跳过图片上传，可以在LINE Developer Console手动上传
-      console.log('⚠️ 请在LINE Developer Console手动上传两个Rich Menu图片');
-      console.log('📋 主要菜单ID:', mainRichMenuId);
-      console.log('📋 生成中菜单ID:', processingRichMenuId);
+      // 上传Rich Menu图片
+      console.log('📤 开始上传Rich Menu图片...');
+      try {
+        await this.uploadRichMenuImage(mainRichMenuId, 'main');
+        console.log('✅ 主菜单图片上传成功');
+      } catch (error) {
+        console.log('⚠️ 主菜单图片上传失败，请手动上传:', error.message);
+        console.log('📋 主要菜单ID:', mainRichMenuId);
+      }
+
+      try {
+        await this.uploadRichMenuImage(processingRichMenuId, 'processing');
+        console.log('✅ 生成中菜单图片上传成功');
+      } catch (error) {
+        console.log('⚠️ 生成中菜单图片上传失败，请手动上传:', error.message);
+        console.log('📋 生成中菜单ID:', processingRichMenuId);
+      }
 
       // 设置主菜单为默认Rich Menu
       await this.client.setDefaultRichMenu(mainRichMenuId);
@@ -1357,6 +1371,87 @@ class LineBot {
     }
 
     await this.client.pushMessage(userId, message);
+  }
+  // 上传Rich Menu图片
+  async uploadRichMenuImage(richMenuId, imageType) {
+    try {
+      // 确定图片文件路径
+      const imageFileName = imageType === 'main' ? 'richmenu-main.png' : 'richmenu-processing.png';
+      const imagePath = path.join(__dirname, '..', 'assets', imageFileName);
+      
+      console.log('📤 尝试上传图片:', imagePath);
+      
+      // 检查文件是否存在
+      if (!fs.existsSync(imagePath)) {
+        throw new Error(`图片文件不存在: ${imagePath}`);
+      }
+      
+      // 检查文件大小（最大1MB）
+      const stats = fs.statSync(imagePath);
+      if (stats.size > 1024 * 1024) {
+        throw new Error(`图片文件过大: ${(stats.size / 1024 / 1024).toFixed(2)}MB > 1MB`);
+      }
+      
+      // 读取图片文件
+      const imageBuffer = fs.readFileSync(imagePath);
+      
+      // 确定图片类型
+      const contentType = imagePath.endsWith('.png') ? 'image/png' : 'image/jpeg';
+      
+      console.log(`📤 正在上传 ${imageType} 图片...`);
+      console.log(`📊 文件大小: ${(stats.size / 1024).toFixed(2)}KB`);
+      console.log(`🎨 内容类型: ${contentType}`);
+      
+      // 上传图片到LINE
+      await this.client.setRichMenuImage(richMenuId, imageBuffer, contentType);
+      
+      console.log(`✅ ${imageType} 图片上传成功`);
+      return true;
+      
+    } catch (error) {
+      console.error(`❌ ${imageType} 图片上传失败:`, error.message);
+      throw error;
+    }
+  }
+
+  // 检查必需的图片文件
+  checkRequiredImages() {
+    const requiredImages = [
+      { type: 'main', file: 'richmenu-main.png' },
+      { type: 'processing', file: 'richmenu-processing.png' }
+    ];
+    
+    const results = [];
+    
+    for (const img of requiredImages) {
+      const imagePath = path.join(__dirname, '..', 'assets', img.file);
+      const exists = fs.existsSync(imagePath);
+      
+      if (exists) {
+        const stats = fs.statSync(imagePath);
+        results.push({
+          type: img.type,
+          file: img.file,
+          exists: true,
+          path: imagePath,
+          size: `${(stats.size / 1024).toFixed(2)}KB`,
+          sizeBytes: stats.size,
+          valid: stats.size <= 1024 * 1024 // 1MB limit
+        });
+      } else {
+        results.push({
+          type: img.type,
+          file: img.file,
+          exists: false,
+          path: imagePath,
+          size: 'N/A',
+          sizeBytes: 0,
+          valid: false
+        });
+      }
+    }
+    
+    return results;
   }
 }
 

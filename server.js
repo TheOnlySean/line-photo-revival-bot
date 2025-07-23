@@ -218,10 +218,10 @@ app.post('/api/demo-contents', async (req, res) => {
 // Rich Menu设置端点
 app.post('/api/setup-rich-menu', async (req, res) => {
   try {
-    const richMenuId = await lineBot.setupRichMenu();
+    const result = await lineBot.setupRichMenu();
     res.json({
       success: true,
-      richMenuId: richMenuId,
+      ...result,
       message: 'Rich Menu设置成功'
     });
   } catch (error) {
@@ -229,6 +229,32 @@ app.post('/api/setup-rich-menu', async (req, res) => {
     res.status(500).json({
       success: false,
       error: '设置Rich Menu失败: ' + error.message
+    });
+  }
+});
+
+// 检查Rich Menu图片状态
+app.get('/api/check-rich-menu-images', async (req, res) => {
+  try {
+    const imageStatus = lineBot.checkRequiredImages();
+    const allValid = imageStatus.every(img => img.exists && img.valid);
+    
+    res.json({
+      success: true,
+      allImagesReady: allValid,
+      images: imageStatus,
+      requirements: {
+        format: 'PNG or JPEG',
+        dimensions: '2500x1686 pixels',
+        maxSize: '1MB',
+        location: 'assets/ directory'
+      }
+    });
+  } catch (error) {
+    console.error('❌ 检查图片状态失败:', error);
+    res.status(500).json({
+      success: false,
+      error: '检查图片状态失败: ' + error.message
     });
   }
 });
