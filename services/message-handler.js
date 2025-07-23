@@ -413,33 +413,22 @@ class MessageHandler {
 
       console.log('🖼️ 用户状态:', userState.state, '图片URL:', imageUrl);
 
-      // 支持新的URI流程状态
-      if (userState.state && userState.state.startsWith('waiting_') && userState.state.endsWith('_photo')) {
-        // 用户正在特定的流程中（来自URI点击）
-        const action = userState.state.replace('waiting_', '').replace('_photo', '');
-        await this.handlePhotoWithAction(event, user, imageUrl, action);
-        return;
-      }
-
+      // 检查用户状态，确定要执行哪个照片处理流程
       switch (userState.state) {
         case 'waiting_wave_photo':
-          await this.handleWavePhotoReceived(event, user, imageUrl);
+          await this.handlePhotoUploadForAction(event, user, imageUrl, 'wave');
           break;
-
         case 'waiting_group_photo':
-          await this.handleGroupPhotoReceived(event, user, imageUrl);
+          await this.handlePhotoUploadForAction(event, user, imageUrl, 'group');
           break;
-
-        case 'waiting_custom_input':
-          await this.handleCustomPhotoReceived(event, user, imageUrl);
+        case 'waiting_custom_photo':
+          await this.handlePhotoUploadForAction(event, user, imageUrl, 'custom');
           break;
-
         default:
-          // 默认情况：用户直接发送图片但没有选择功能
+          // 如果没有明确状态，但用户发送了图片，可以提供一个通用的选择
           await this.handleGeneralImageUpload(event, user, imageUrl);
           break;
       }
-
     } catch (error) {
       console.error('❌ 处理图片消息失败:', error);
       await this.client.replyMessage(event.replyToken, {
@@ -449,385 +438,293 @@ class MessageHandler {
     }
   }
 
-  // 处理挥手照片接收
-  async handleWavePhotoReceived(event, user, imageUrl) {
-    console.log('👋 处理挥手照片:', imageUrl);
-    
-    // 检查点数
-    if (user.credits < 1) {
-      await this.sendInsufficientCreditsMessage(event.replyToken, user.credits, 1);
-      return;
-    }
-
-    // 自动使用挥手微笑的prompt生成视频
-    const wavePrompt = "A person waving hand with a warm smile, gentle and natural movement, friendly greeting gesture";
-    
-    const confirmCard = this.lineBot.createPresetVideoConfirmCard(imageUrl, wavePrompt, "👋 手振り動画", 1);
-
-    await this.client.replyMessage(event.replyToken, [
-      {
-        type: 'text',
-        text: '📸 写真を受信しました！\n\n👋 手振り動画を生成する準備が整いました。下のボタンで確認してください。'
-      },
-      confirmCard
-    ]);
-
-    // 清除用户状态
-    await this.db.clearUserState(user.id);
-    console.log('✅ 挥手照片处理完成');
-  }
-
-  // 处理肩并肩照片接收
-  async handleGroupPhotoReceived(event, user, imageUrl) {
-    console.log('🤝 处理寄り添い照片:', imageUrl);
-    
-    // 检查点数
-    if (user.credits < 1) {
-      await this.sendInsufficientCreditsMessage(event.replyToken, user.credits, 1);
-      return;
-    }
-
-    // 自动使用寄り添い的prompt生成视频
-    const groupPrompt = "People standing together with warm interaction, shoulder to shoulder, showing mutual support and closeness, gentle movements expressing togetherness";
-    
-    const confirmCard = this.lineBot.createPresetVideoConfirmCard(imageUrl, groupPrompt, "🤝 寄り添い動画", 1);
-
-    await this.client.replyMessage(event.replyToken, [
-      {
-        type: 'text',
-        text: '📸 写真を受信しました！\n\n🤝 寄り添い動画を生成する準備が整いました。下のボタンで確認してください。'
-      },
-      confirmCard
-    ]);
-
-    // 清除用户状态
-    await this.db.clearUserState(user.id);
-    console.log('✅ 寄り添い照片处理完成');
-  }
-
-  // 处理个性化生成照片接收
-  async handleCustomPhotoReceived(event, user, imageUrl) {
-    // 检查点数
-    if (user.credits < 2) {
-      await this.sendInsufficientCreditsMessage(event.replyToken, user.credits, 2);
-      return;
-    }
-
-    // 保存图片URL到用户状态数据中，等待用户输入prompt
-    await this.db.setUserState(user.id, 'waiting_custom_prompt', { imageUrl: imageUrl });
-
-    await this.client.replyMessage(event.replyToken, {
-      type: 'text',
-      text: '📸 图片已收到！\n\n💭 现在请发送您的创意提示词\n例如：\n• "在海滩上快乐地奔跑"\n• "在咖啡厅里优雅地看书"\n• "在花园里轻松地散步"'
-    });
-  }
-
-  // 处理一般图片上传（用户没有选择具体功能）
-  async handleGeneralImageUpload(event, user, imageUrl) {
-    // 检查点数
-    if (user.credits < 1) {
-      await this.sendInsufficientCreditsMessage(event.replyToken, user.credits, 1);
-      return;
-    }
-
-    // 显示功能选择菜单
-    const selectionCard = this.lineBot.createImageFunctionSelectionCard(imageUrl);
-
-    await this.client.replyMessage(event.replyToken, [
-      {
-        type: 'text',
-        text: '📸 图片已收到！请选择生成类型：'
-      },
-      selectionCard
-    ]);
-  }
-
-  // 发送点数不足消息的辅助方法
-  async sendInsufficientCreditsMessage(replyToken, currentCredits, neededCredits) {
-    const insufficientCard = this.lineBot.createInsufficientCreditsCard(currentCredits, neededCredits);
-    await this.client.replyMessage(replyToken, [
-      {
-        type: 'text',
-        text: `💸 您的点数不足，需要${neededCredits}点数`
-      },
-      insufficientCard
-    ]);
-  }
-
-  // 处理Postback事件
-  async handlePostback(event) {
-    const userId = event.source.userId;
-    const data = this.parsePostbackData(event.postback.data);
-
-    console.log('🎯 收到Postback:', data);
-    console.log('👤 用户ID:', userId);
-    console.log('🔖 Reply Token:', event.replyToken);
-
+  /**
+   * 统一处理所有需要上传照片的动作
+   * @param {object} event - LINE webhook event
+   * @param {object} user - 用户信息
+   * @param {string} imageUrl - 上传后的图片URL
+   * @param {string} action - 动作类型 ('wave', 'group', 'custom')
+   */
+  async handlePhotoUploadForAction(event, user, imageUrl, action) {
     try {
-      console.log('📝 开始获取用户信息...');
-      const user = await this.ensureUserExists(userId);
-      console.log('✅ 用户信息获取成功:', user.id);
+      console.log(`📸 收到 ${action} 类型的照片:`, imageUrl);
 
-      switch (data.action) {
-        // 新的Rich Menu postback动作
-        case 'wave':
-          await this.handleRichMenuWaveAction(event, user);
-          break;
-          
-        case 'group':
-          await this.handleRichMenuGroupAction(event, user);
-          break;
-          
-        case 'custom':
-          await this.handleRichMenuCustomAction(event, user);
-          break;
-          
-        case 'credits':
-          await this.handleRichMenuCreditsAction(event, user);
-          break;
-          
-        case 'share':
-          await this.handleRichMenuShareAction(event, user);
-          break;
-          
-        case 'status_check':
-          await this.handleStatusCheck(event, user);
-          break;
-
-        // 原有动作保持不变
-        case 'wave_hello':
-          await this.handleWaveHello(event, user);
-          break;
-          
-        case 'group_support':
-          await this.handleGroupSupport(event, user);
-          break;
-          
-        case 'custom_generate':
-          await this.handleCustomGenerate(event, user);
-          break;
-          
-        case 'buy_credits':
-          await this.handleBuyCredits(event, user);
-          break;
-          
-        case 'share_bot':
-          await this.handleShareBot(event, user);
-          break;
-          
-        case 'demo_generate':
-          await this.handleDemoGenerate(event, user, data.demo_id);
-          break;
-          
-        case 'confirm_generate':
-          await this.handleConfirmGenerate(event, user, data);
-          break;
-          
-        case 'confirm_preset_generate':
-          await this.handleConfirmPresetGenerate(event, user, data);
-          break;
-
-        case 'confirm_custom_generate':
-          await this.handleConfirmCustomGenerate(event, user, data);
-          break;
-
-        // 新的URI流程确认动作
-        case 'confirm_wave_generate':
-          await this.handleConfirmWaveGenerate(event, user, data);
-          break;
-          
-        case 'confirm_group_generate':
-          await this.handleConfirmGroupGenerate(event, user, data);
-          break;
-          
-        case 'confirm_custom_generate':
-          await this.handleConfirmCustomGenerate(event, user, data);
-          break;
-
-        case 'select_wave':
-          await this.handleSelectWave(event, user, data);
-          break;
-
-        case 'select_group':
-          await this.handleSelectGroup(event, user, data);
-          break;
-
-        case 'select_custom':
-          await this.handleSelectCustom(event, user, data);
-          break;
-          
-        case 'cancel':
-          await this.client.replyMessage(event.replyToken, {
-            type: 'text',
-            text: '✅ 操作已取消'
-          });
-          break;
-          
-        default:
-          console.log('⚠️ 未知Postback动作:', data.action);
-          break;
-      }
-    } catch (error) {
-      console.error('❌ 处理Postback失败:', error);
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '❌ 处理请求时发生错误，请稍后再试'
-      });
-    }
-  }
-
-  // 处理免费体验
-  async handleFreeTrial(event, user) {
-    try {
-      const demoContents = await this.db.getDemoContents();
-      
-      if (demoContents.length === 0) {
-        await this.client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: '❌ 暂时没有可用的演示内容，请稍后再试'
-        });
+      // 检查点数是否足够
+      const requiredCredits = action === 'custom' ? 2 : 1;
+      if (user.credits < requiredCredits) {
+        await this.sendInsufficientCreditsMessage(event.replyToken, user.credits, requiredCredits);
         return;
       }
 
-      const carousel = this.lineBot.createDemoSelectionCarousel(demoContents);
+      // 生成白色确认卡片
+      const confirmationCard = this.createActionConfirmationCard(imageUrl, action, user);
+
+      await this.client.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: '📸 写真を受信しました！\n\n以下の内容で動画を生成しますか？'
+        },
+        confirmationCard
+      ]);
+
+      // 清除用户之前的状态，防止重复触发
+      await this.db.clearUserState(user.id);
+
+    } catch (error) {
+      console.error(`❌ 处理 ${action} 照片失败:`, error);
+      throw error; // 向上层抛出错误，由 handleImageMessage 统一处理回复
+    }
+  }
+
+  // 处理生成视频请求
+  async handleGenerateVideoRequest(event, user) {
+    try {
+      // 检查用户点数
+      if (user.credits < 1) {
+        const insufficientCard = this.lineBot.createInsufficientCreditsCard(user.credits, 1);
+        await this.client.replyMessage(event.replyToken, [
+          {
+            type: 'text',
+            text: '💸 您的点数不足，无法生成视频'
+          },
+          insufficientCard
+        ]);
+        return;
+      }
+
+      // 发送上传引导消息
+      const uploadGuide = this.lineBot.createUploadGuideMessage();
       
       await this.client.replyMessage(event.replyToken, [
         {
           type: 'text',
-          text: '🎁 选择一张照片体验高性价比AI视频生成：'
+          text: '🎬 开始创建您的专属AI视频！\n\n📸 请上传一张清晰的照片：'
         },
-        carousel
+        uploadGuide
       ]);
 
-      await this.db.logInteraction(user.line_id, user.id, 'demo_view', {
-        contentCount: demoContents.length
+      await this.db.logInteraction(user.line_id, user.id, 'generate_request', {
+        credits: user.credits
       });
 
     } catch (error) {
-      console.error('❌ 处理免费体验失败:', error);
+      console.error('❌ 处理生成视频请求失败:', error);
       throw error;
     }
   }
 
-  // 处理确认生成视频
-  async handleConfirmGenerate(event, user, data) {
+  // 处理演示视频生成
+  async handleDemoGenerate(event, user, demoId) {
     try {
-      const imageUrl = decodeURIComponent(data.image_url);
+      const demoContents = await this.db.getDemoContents();
+      const demo = demoContents.find(d => d.id == demoId);
       
-      // 再次检查用户点数
-      if (user.credits < 1) {
+      if (!demo) {
         await this.client.replyMessage(event.replyToken, {
           type: 'text',
-          text: '❌ 点数不足，无法生成视频'
+          text: '❌ 找不到指定的演示内容'
         });
         return;
       }
 
-      // 显示生成进度消息
+      // 发送处理中消息
       await this.lineBot.sendProcessingMessage(event.replyToken);
-      
+
+      // 延迟发送，模拟真实处理时间
+      setTimeout(async () => {
+        try {
+          await this.client.pushMessage(user.line_id, [
+            {
+              type: 'text',
+              text: `✅ 视频生成完成！\n\n📸 ${demo.title}\n🎬 这是您的AI生成视频：`
+            },
+            {
+              type: 'video',
+              originalContentUrl: demo.video_url,
+              previewImageUrl: demo.image_url
+            },
+            {
+              type: 'text',
+              text: '🎉 体验完成！\n\n💎 想要生成更多个性化视频？\n请点击"充值点数"购买点数后上传您的照片'
+            }
+          ]);
+
+          // 记录交互
+          await this.db.logInteraction(user.line_id, user.id, 'demo_generate', {
+            demoId: demo.id,
+            demoTitle: demo.title
+          });
+
+        } catch (error) {
+          console.error('❌ 发送演示视频失败:', error);
+          await this.client.pushMessage(user.line_id, {
+            type: 'text',
+            text: '❌ 视频发送失败，请稍后再试'
+          });
+        }
+      }, 3000); // 3秒后发送
+
+    } catch (error) {
+      console.error('❌ 处理演示生成失败:', error);
+      throw error;
+    }
+  }
+
+  // 处理生成视频请求
+  async handleGenerateVideo(event, user) {
+    await this.client.replyMessage(event.replyToken, {
+      type: 'text',
+      text: '📸 请上传您的照片\n\n💡 建议：\n• 清晰的人物照片\n• 正面或侧面肖像\n• 光线充足\n• 建议尺寸：512x512或以上'
+    });
+  }
+
+  // 处理确认生成
+  async handleConfirmGenerate(event, user, imageUrl) {
+    try {
+      // 检查点数
+      if (user.credits < 1) {
+        const insufficientCard = this.lineBot.createInsufficientCreditsCard(user.credits, 1);
+        await this.client.replyMessage(event.replyToken, [
+          {
+            type: 'text',
+            text: '💸 您的点数不足'
+          },
+          insufficientCard
+        ]);
+        return;
+      }
+
+      // 发送处理中消息
+      await this.lineBot.sendProcessingMessage(event.replyToken);
+
       // 扣除点数
       await this.db.updateUserCredits(user.id, -1);
-      
-      // 异步开始视频生成（带进度更新）
-      this.startVideoGeneration(user, imageUrl);
 
-      await this.db.logInteraction(user.line_id, user.id, 'video_generation_started', {
+      // 创建视频生成记录
+      const videoRecord = await this.db.createVideoGeneration(
+        user.id,
+        `Photo revival from ${imageUrl}`,
+        false,
+        1
+      );
+
+      // 开始生成视频
+      await this.videoGenerator.generateVideo(user.line_id, imageUrl, videoRecord.id);
+
+      // 记录交互
+      await this.db.logInteraction(user.line_id, user.id, 'video_request', {
         imageUrl: imageUrl,
-        creditsUsed: 1
+        videoId: videoRecord.id
       });
 
     } catch (error) {
       console.error('❌ 处理确认生成失败:', error);
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '❌ 生成视频时发生错误，请稍后再试'
-      });
+      throw error;
     }
   }
 
-  // 开始视频生成（异步处理带进度更新）
-  async startVideoGeneration(user, imageUrl) {
-    try {
-      // 定期发送进度更新
-      const progressInterval = setInterval(async () => {
-        const randomProgress = Math.floor(Math.random() * 30) + 20; // 20-50%的随机进度
-        await this.lineBot.sendGenerationStatusUpdate(user.line_id, 'processing', randomProgress);
-      }, 15000); // 每15秒更新一次进度
+  // 处理充值点数
+  async handleBuyCredits(event, user) {
+    // TODO: 集成支付系统
+    await this.client.replyMessage(event.replyToken, {
+      type: 'text',
+      text: '💎 充值功能开发中...\n\n📞 如需充值，请联系客服\n或访问我们的官网完成充值'
+    });
+  }
 
-      // 调用视频生成服务
-      const result = await this.videoGenerator.generateVideo(
-        imageUrl,
-        'A person with natural expressions and subtle movements, high quality video generation'
+  // 处理查看点数
+  async handleCheckCredits(event, user) {
+    await this.sendUserInfo(event.replyToken, user);
+  }
+
+  // 处理我的视频
+  async handleMyVideos(event, user) {
+    try {
+      const videos = await this.db.query(
+        'SELECT * FROM videos WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5',
+        [user.id]
       );
 
-      // 清除进度更新定时器
-      clearInterval(progressInterval);
-
-      if (result.success) {
-        // 发送完成状态
-        await this.lineBot.sendGenerationStatusUpdate(user.line_id, 'completed');
-        
-        // 发送视频
-        await this.client.pushMessage(user.line_id, [
-          {
-            type: 'text',
-            text: '🎉 您的专属AI视频已生成完成！'
-          },
-          {
-            type: 'video',
-            originalContentUrl: result.videoUrl,
-            previewImageUrl: imageUrl
-          },
-          {
-            type: 'text',
-            text: '💡 如需生成更多视频，请点击底部菜单的"生成视频"按钮'
-          }
-        ]);
-
-        // 保存视频记录
-        await this.db.saveVideo(user.id, {
-          originalImageUrl: imageUrl,
-          videoUrl: result.videoUrl,
-          prompt: 'User uploaded photo generation',
-          model: 'runway',
-          status: 'completed'
-        });
-
-        await this.db.logInteraction(user.line_id, user.id, 'video_generation_completed', {
-          videoUrl: result.videoUrl,
-          success: true
-        });
-
-      } else {
-        // 清除进度更新定时器
-        clearInterval(progressInterval);
-        
-        // 生成失败，退还点数
-        await this.db.updateUserCredits(user.id, 1);
-
-        await this.client.pushMessage(user.line_id, {
+      if (videos.rows.length === 0) {
+        await this.client.replyMessage(event.replyToken, {
           type: 'text',
-          text: `❌ 视频生成失败: ${result.error}\n💰 已退还1点到您的账户`
+          text: '📹 您还没有生成过视频\n\n点击"生成视频"开始创作您的第一个AI视频！'
         });
-
-        await this.db.logInteraction(user.line_id, user.id, 'video_generation_failed', {
-          error: result.error,
-          creditsRefunded: 1
-        });
+        return;
       }
 
-    } catch (error) {
-      console.error('❌ 视频生成过程出错:', error);
-      
-      // 退还点数
-      await this.db.updateUserCredits(user.id, 1);
-
-      await this.client.pushMessage(user.line_id, {
-        type: 'text',
-        text: '❌ 视频生成过程中发生错误\n💰 已退还1点到您的账户\n请稍后再试'
+      let message = '📹 您的最近视频：\n\n';
+      videos.rows.forEach((video, index) => {
+        const status = video.status === 'completed' ? '✅' : 
+                      video.status === 'processing' ? '⏳' : '❌';
+        message += `${index + 1}. ${status} ${video.original_prompt}\n`;
+        message += `   ${new Date(video.created_at).toLocaleDateString()}\n\n`;
       });
+
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: message
+      });
+
+    } catch (error) {
+      console.error('❌ 获取用户视频失败:', error);
+      throw error;
     }
+  }
+
+  // 发送帮助消息
+  async sendHelpMessage(replyToken) {
+    await this.client.replyMessage(replyToken, {
+      type: 'text',
+      text: '💡 写真復活使用指南：\n\n🎁 免费体验\n   • 选择预设照片体验高性价比AI视频生成\n   • 完全免费，立即生成\n\n🎬 生成视频\n   • 上传您的照片\n   • 消耗1点数\n   • 生成个性化视频\n\n💎 充值点数\n   • 购买点数生成更多视频\n   • 新用户注册即送100点数\n\n📊 查看信息\n   • 查看剩余点数\n   • 查看生成历史\n\n❓ 如有疑问，请联系客服'
+    });
+  }
+
+  // 发送用户信息
+  async sendUserInfo(replyToken, user) {
+    const userCard = await this.lineBot.createUserInfoCard(user);
+    await this.client.replyMessage(replyToken, [
+      {
+        type: 'text',
+        text: '📊 您的账户信息：'
+      },
+      userCard
+    ]);
+  }
+
+  // 确保用户存在于数据库中
+  async ensureUserExists(lineUserId) {
+    let user = await this.db.getUserByLineId(lineUserId);
+    
+    if (!user) {
+      try {
+        const profile = await this.client.getProfile(lineUserId);
+        user = await this.db.createLineUser(
+          lineUserId,
+          profile.displayName,
+          profile.pictureUrl
+        );
+      } catch (error) {
+        console.error('❌ 创建用户失败:', error);
+        // 创建基础用户记录
+        user = await this.db.createLineUser(lineUserId, 'LINE用户', null);
+      }
+    }
+    
+    return user;
+  }
+
+  // 解析Postback数据
+  parsePostbackData(data) {
+    const params = {};
+    const pairs = data.split('&');
+    
+    for (const pair of pairs) {
+      const [key, value] = pair.split('=');
+      params[key] = decodeURIComponent(value || '');
+    }
+    
+    return params;
   }
 
   // 处理挥手功能 - 上传照片自动生成挥手视频
@@ -1277,100 +1174,6 @@ class MessageHandler {
   }
 
   // 处理生成视频请求
-  async handleGenerateVideoRequest(event, user) {
-    try {
-      // 检查用户点数
-      if (user.credits < 1) {
-        const insufficientCard = this.lineBot.createInsufficientCreditsCard(user.credits, 1);
-        await this.client.replyMessage(event.replyToken, [
-          {
-            type: 'text',
-            text: '💸 您的点数不足，无法生成视频'
-          },
-          insufficientCard
-        ]);
-        return;
-      }
-
-      // 发送上传引导消息
-      const uploadGuide = this.lineBot.createUploadGuideMessage();
-      
-      await this.client.replyMessage(event.replyToken, [
-        {
-          type: 'text',
-          text: '🎬 开始创建您的专属AI视频！\n\n📸 请上传一张清晰的照片：'
-        },
-        uploadGuide
-      ]);
-
-      await this.db.logInteraction(user.line_id, user.id, 'generate_request', {
-        credits: user.credits
-      });
-
-    } catch (error) {
-      console.error('❌ 处理生成视频请求失败:', error);
-      throw error;
-    }
-  }
-
-  // 处理演示视频生成
-  async handleDemoGenerate(event, user, demoId) {
-    try {
-      const demoContents = await this.db.getDemoContents();
-      const demo = demoContents.find(d => d.id == demoId);
-      
-      if (!demo) {
-        await this.client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: '❌ 找不到指定的演示内容'
-        });
-        return;
-      }
-
-      // 发送处理中消息
-      await this.lineBot.sendProcessingMessage(event.replyToken);
-
-      // 延迟发送，模拟真实处理时间
-      setTimeout(async () => {
-        try {
-          await this.client.pushMessage(user.line_id, [
-            {
-              type: 'text',
-              text: `✅ 视频生成完成！\n\n📸 ${demo.title}\n🎬 这是您的AI生成视频：`
-            },
-            {
-              type: 'video',
-              originalContentUrl: demo.video_url,
-              previewImageUrl: demo.image_url
-            },
-            {
-              type: 'text',
-              text: '🎉 体验完成！\n\n💎 想要生成更多个性化视频？\n请点击"充值点数"购买点数后上传您的照片'
-            }
-          ]);
-
-          // 记录交互
-          await this.db.logInteraction(user.line_id, user.id, 'demo_generate', {
-            demoId: demo.id,
-            demoTitle: demo.title
-          });
-
-        } catch (error) {
-          console.error('❌ 发送演示视频失败:', error);
-          await this.client.pushMessage(user.line_id, {
-            type: 'text',
-            text: '❌ 视频发送失败，请稍后再试'
-          });
-        }
-      }, 3000); // 3秒后发送
-
-    } catch (error) {
-      console.error('❌ 处理演示生成失败:', error);
-      throw error;
-    }
-  }
-
-  // 处理生成视频请求
   async handleGenerateVideo(event, user) {
     await this.client.replyMessage(event.replyToken, {
       type: 'text',
@@ -1378,194 +1181,141 @@ class MessageHandler {
     });
   }
 
-  // 处理确认生成
-  async handleConfirmGenerate(event, user, imageUrl) {
-    try {
-      // 检查点数
-      if (user.credits < 1) {
-        const insufficientCard = this.lineBot.createInsufficientCreditsCard(user.credits, 1);
-        await this.client.replyMessage(event.replyToken, [
-          {
-            type: 'text',
-            text: '💸 您的点数不足'
-          },
-          insufficientCard
-        ]);
-        return;
-      }
-
-      // 发送处理中消息
-      await this.lineBot.sendProcessingMessage(event.replyToken);
-
-      // 扣除点数
-      await this.db.updateUserCredits(user.id, -1);
-
-      // 创建视频生成记录
-      const videoRecord = await this.db.createVideoGeneration(
-        user.id,
-        `Photo revival from ${imageUrl}`,
-        false,
-        1
-      );
-
-      // 开始生成视频
-      await this.videoGenerator.generateVideo(user.line_id, imageUrl, videoRecord.id);
-
-      // 记录交互
-      await this.db.logInteraction(user.line_id, user.id, 'video_request', {
-        imageUrl: imageUrl,
-        videoId: videoRecord.id
-      });
-
-    } catch (error) {
-      console.error('❌ 处理确认生成失败:', error);
-      throw error;
-    }
-  }
-
-  // 处理充值点数
-  async handleBuyCredits(event, user) {
-    // TODO: 集成支付系统
-    await this.client.replyMessage(event.replyToken, {
-      type: 'text',
-      text: '💎 充值功能开发中...\n\n📞 如需充值，请联系客服\n或访问我们的官网完成充值'
-    });
-  }
-
-  // 处理查看点数
-  async handleCheckCredits(event, user) {
-    await this.sendUserInfo(event.replyToken, user);
-  }
-
-  // 处理我的视频
-  async handleMyVideos(event, user) {
-    try {
-      const videos = await this.db.query(
-        'SELECT * FROM videos WHERE user_id = $1 ORDER BY created_at DESC LIMIT 5',
-        [user.id]
-      );
-
-      if (videos.rows.length === 0) {
-        await this.client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: '📹 您还没有生成过视频\n\n点击"生成视频"开始创作您的第一个AI视频！'
-        });
-        return;
-      }
-
-      let message = '📹 您的最近视频：\n\n';
-      videos.rows.forEach((video, index) => {
-        const status = video.status === 'completed' ? '✅' : 
-                      video.status === 'processing' ? '⏳' : '❌';
-        message += `${index + 1}. ${status} ${video.original_prompt}\n`;
-        message += `   ${new Date(video.created_at).toLocaleDateString()}\n\n`;
-      });
-
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: message
-      });
-
-    } catch (error) {
-      console.error('❌ 获取用户视频失败:', error);
-      throw error;
-    }
-  }
-
-  // 发送帮助消息
-  async sendHelpMessage(replyToken) {
-    await this.client.replyMessage(replyToken, {
-      type: 'text',
-      text: '💡 写真復活使用指南：\n\n🎁 免费体验\n   • 选择预设照片体验高性价比AI视频生成\n   • 完全免费，立即生成\n\n🎬 生成视频\n   • 上传您的照片\n   • 消耗1点数\n   • 生成个性化视频\n\n💎 充值点数\n   • 购买点数生成更多视频\n   • 新用户注册即送100点数\n\n📊 查看信息\n   • 查看剩余点数\n   • 查看生成历史\n\n❓ 如有疑问，请联系客服'
-    });
-  }
-
-  // 发送用户信息
-  async sendUserInfo(replyToken, user) {
-    const userCard = await this.lineBot.createUserInfoCard(user);
+  // 发送点数不足消息的辅助方法
+  async sendInsufficientCreditsMessage(replyToken, currentCredits, neededCredits) {
+    const insufficientCard = this.lineBot.createInsufficientCreditsCard(currentCredits, neededCredits);
     await this.client.replyMessage(replyToken, [
       {
         type: 'text',
-        text: '📊 您的账户信息：'
+        text: `💸 您的点数不足，需要${neededCredits}点数`
       },
-      userCard
+      insufficientCard
     ]);
   }
 
-  // 确保用户存在于数据库中
-  async ensureUserExists(lineUserId) {
-    let user = await this.db.getUserByLineId(lineUserId);
-    
-    if (!user) {
-      try {
-        const profile = await this.client.getProfile(lineUserId);
-        user = await this.db.createLineUser(
-          lineUserId,
-          profile.displayName,
-          profile.pictureUrl
-        );
-      } catch (error) {
-        console.error('❌ 创建用户失败:', error);
-        // 创建基础用户记录
-        user = await this.db.createLineUser(lineUserId, 'LINE用户', null);
-      }
-    }
-    
-    return user;
-  }
+  // 处理Postback事件
+  async handlePostback(event) {
+    const userId = event.source.userId;
+    const data = this.parsePostbackData(event.postback.data);
 
-  // 解析Postback数据
-  parsePostbackData(data) {
-    const params = {};
-    const pairs = data.split('&');
-    
-    for (const pair of pairs) {
-      const [key, value] = pair.split('=');
-      params[key] = decodeURIComponent(value || '');
-    }
-    
-    return params;
-  }
-  // 处理特定动作的照片（URI流程）
-  async handlePhotoWithAction(event, user, imageUrl, action) {
+    console.log('🎯 收到Postback:', data);
+    console.log('👤 用户ID:', userId);
+    console.log('🔖 Reply Token:', event.replyToken);
+
     try {
-      console.log('🎯 处理特定动作的照片:', action, imageUrl);
+      console.log('📝 开始获取用户信息...');
+      const user = await this.ensureUserExists(userId);
+      console.log('✅ 用户信息获取成功:', user.id);
 
-      // 创建确认卡片
-      const confirmationCard = this.createActionConfirmationCard(imageUrl, action, user);
-      
-      const actionMessages = {
-        wave: '📸 素敵な写真ですね！\n\n✨ 手を振る動画を生成いたします。',
-        group: '📸 素敵な写真ですね！\n\n💕 寄り添い動画を生成いたします。',
-        custom: '📸 素敵な写真ですね！\n\n🎨 パーソナライズ動画を生成いたします。'
-      };
+      switch (data.action) {
+        // 新的Rich Menu postback动作
+        case 'wave':
+          await this.handleRichMenuWaveAction(event, user);
+          break;
+          
+        case 'group':
+          await this.handleRichMenuGroupAction(event, user);
+          break;
+          
+        case 'custom':
+          await this.handleRichMenuCustomAction(event, user);
+          break;
+          
+        case 'credits':
+          await this.handleRichMenuCreditsAction(event, user);
+          break;
+          
+        case 'share':
+          await this.handleRichMenuShareAction(event, user);
+          break;
+          
+        case 'status_check':
+          await this.handleStatusCheck(event, user);
+          break;
 
-      await this.client.replyMessage(event.replyToken, [
-        {
-          type: 'text',
-          text: actionMessages[action] || '📸 写真を受信しました！'
-        },
-        confirmationCard
-      ]);
+        // 原有动作保持不变
+        case 'wave_hello':
+          await this.handleWaveHello(event, user);
+          break;
+          
+        case 'group_support':
+          await this.handleGroupSupport(event, user);
+          break;
+          
+        case 'custom_generate':
+          await this.handleCustomGenerate(event, user);
+          break;
+          
+        case 'buy_credits':
+          await this.handleBuyCredits(event, user);
+          break;
+          
+        case 'share_bot':
+          await this.handleShareBot(event, user);
+          break;
+          
+        case 'demo_generate':
+          await this.handleDemoGenerate(event, user, data.demo_id);
+          break;
+          
+        case 'confirm_generate':
+          await this.handleConfirmGenerate(event, user, data);
+          break;
+          
+        case 'confirm_preset_generate':
+          await this.handleConfirmPresetGenerate(event, user, data);
+          break;
 
-      // 更新用户状态为等待确认
-      await this.db.setUserState(user.id, `confirming_${action}`, { 
-        imageUrl, 
-        action 
-      });
+        case 'confirm_custom_generate':
+          await this.handleConfirmCustomGenerate(event, user, data);
+          break;
 
-      await this.db.logInteraction(user.line_id, user.id, `${action}_photo_received`, {
-        imageUrl,
-        fromUri: true
-      });
+        // 新的URI流程确认动作
+        case 'confirm_wave_generate':
+          await this.handleConfirmWaveGenerate(event, user, data);
+          break;
+          
+        case 'confirm_group_generate':
+          await this.handleConfirmGroupGenerate(event, user, data);
+          break;
+          
+        case 'confirm_custom_generate':
+          await this.handleConfirmCustomGenerate(event, user, data);
+          break;
 
+        case 'select_wave':
+          await this.handleSelectWave(event, user, data);
+          break;
+
+        case 'select_group':
+          await this.handleSelectGroup(event, user, data);
+          break;
+
+        case 'select_custom':
+          await this.handleSelectCustom(event, user, data);
+          break;
+          
+        case 'cancel':
+          await this.client.replyMessage(event.replyToken, {
+            type: 'text',
+            text: '✅ 操作已取消'
+          });
+          break;
+          
+        default:
+          console.log('⚠️ 未知Postback动作:', data.action);
+          break;
+      }
     } catch (error) {
-      console.error('❌ 处理特定动作照片失败:', error);
-      throw error;
+      console.error('❌ 处理Postback失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 处理请求时发生错误，请稍后再试'
+      });
     }
   }
 
-    // 处理挥手生成确认（URI流程）
+  // 处理挥手生成确认（URI流程）
   async handleConfirmWaveGenerate(event, user, data) {
     try {
       const imageUrl = decodeURIComponent(data.image_url);
