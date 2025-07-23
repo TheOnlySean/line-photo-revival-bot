@@ -31,8 +31,8 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "postback",
-              data: "action=wave_hello"
+              type: "uri",
+              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/action/wave`
             }
           },
           {
@@ -43,8 +43,8 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "postback",
-              data: "action=group_support"
+              type: "uri",
+              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/action/group`
             }
           },
           {
@@ -55,8 +55,8 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "postback",
-              data: "action=custom_generate"
+              type: "uri",
+              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/action/custom`
             }
           },
           {
@@ -67,8 +67,8 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "postback",
-              data: "action=buy_credits"
+              type: "uri",
+              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/action/credits`
             }
           },
           {
@@ -91,8 +91,8 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "postback",
-              data: "action=share_bot"
+              type: "uri",
+              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/action/share`
             }
           }
         ]

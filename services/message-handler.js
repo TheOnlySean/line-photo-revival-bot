@@ -71,6 +71,14 @@ class MessageHandler {
       // 确保用户存在于数据库中
       const user = await this.ensureUserExists(userId);
 
+      // 检查是否有待处理的动作
+      if (global.pendingAction && (Date.now() - global.pendingAction.timestamp) < 300000) { // 5分钟有效
+        console.log('🎯 检测到待处理动作:', global.pendingAction);
+        await this.handlePendingAction(event, user, global.pendingAction);
+        global.pendingAction = null; // 清除待处理动作
+        return;
+      }
+
       switch (messageType) {
         case 'text':
           await this.handleTextMessage(event, user);
@@ -83,7 +91,7 @@ class MessageHandler {
         default:
           await this.client.replyMessage(event.replyToken, {
             type: 'text',
-            text: '❌ 抱歉，我只能处理文字和图片消息\n请使用底部菜单进行操作'
+            text: '❌ 申し訳ございませんが、テキストと画像のみ対応しております\n\n📱 下部メニューをご利用ください'
           });
           break;
       }
@@ -91,7 +99,7 @@ class MessageHandler {
       console.error('❌ 处理消息失败:', error);
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '❌ 处理消息时发生错误，请稍后再试'
+        text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
       });
     }
   }
@@ -231,6 +239,58 @@ class MessageHandler {
     return 'unknown';
   }
 
+  // 处理待处理的动作
+  async handlePendingAction(event, user, pendingAction) {
+    try {
+      const { action } = pendingAction;
+      
+      console.log('🎯 处理待处理动作:', action);
+
+      // 根据动作类型发送相应的日语消息
+      const actionMessages = {
+        wave: '📸 写真をアップロードしていただければ、すぐに手振り動画の制作を開始いたします！\n\n✨ 自然な笑顔で手を振る素敵な動画を作成いたします。',
+        group: '👥 複数人の写真をアップロードしていただければ、すぐに寄り添い動画の制作を開始いたします！\n\n💕 温かい雰囲気の素敵な動画を作成いたします。',
+        custom: '🎨 写真をアップロードしていただければ、すぐにパーソナライズ動画の制作を開始いたします！\n\n💭 その後、ご希望の動画内容をお聞かせください。',
+        credits: '💎 ポイント購入についてのご案内\n\n現在のポイント: ' + user.credits + 'ポイント\n\n🌐 詳しい料金プランは公式サイトをご確認ください：https://angelsphoto.ai',
+        share: '🎁 写真復活サービスを友達にシェアしていただき、ありがとうございます！\n\n✨ より多くの方に素敵な動画体験をお届けします。'
+      };
+
+      const message = actionMessages[action];
+      if (!message) {
+        await this.client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '❌ 無効なアクションです。下部メニューをご利用ください。'
+        });
+        return;
+      }
+
+      // 对于credits和share，直接发送消息
+      if (action === 'credits') {
+        await this.handleBuyCredits(event, user);
+        return;
+      }
+      
+      if (action === 'share') {
+        await this.handleShareBot(event, user);
+        return;
+      }
+
+      // 对于其他动作，设置用户状态并发送引导消息
+      await this.db.setUserState(user.id, `waiting_${action}_photo`, { action });
+      
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: message
+      });
+
+      await this.db.logInteraction(user.line_id, user.id, `${action}_guide_sent`, { message });
+
+    } catch (error) {
+      console.error('❌ 处理待处理动作失败:', error);
+      throw error;
+    }
+  }
+
   // 处理个性化生成中用户输入的自定义prompt
   async handleCustomPromptReceived(event, user, customPrompt, stateData) {
     try {
@@ -288,6 +348,16 @@ class MessageHandler {
       const imageBuffer = await this.client.getMessageContent(event.message.id);
       const imageUrl = await this.imageUploader.uploadImage(imageBuffer);
 
+      console.log('🖼️ 用户状态:', userState.state, '图片URL:', imageUrl);
+
+      // 支持新的URI流程状态
+      if (userState.state && userState.state.startsWith('waiting_') && userState.state.endsWith('_photo')) {
+        // 用户正在特定的流程中（来自URI点击）
+        const action = userState.state.replace('waiting_', '').replace('_photo', '');
+        await this.handlePhotoWithAction(event, user, imageUrl, action);
+        return;
+      }
+
       switch (userState.state) {
         case 'waiting_wave_photo':
           await this.handleWavePhotoReceived(event, user, imageUrl);
@@ -311,7 +381,7 @@ class MessageHandler {
       console.error('❌ 处理图片消息失败:', error);
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '❌ 图片处理失败，请稍后再试'
+        text: '❌ 写真の処理に失敗しました。少々お待ちいただいてから再度お試しください'
       });
     }
   }
@@ -458,6 +528,19 @@ class MessageHandler {
           await this.handleConfirmPresetGenerate(event, user, data);
           break;
 
+        case 'confirm_custom_generate':
+          await this.handleConfirmCustomGenerate(event, user, data);
+          break;
+
+        // 新的URI流程确认动作
+        case 'confirm_wave_generate':
+          await this.handleConfirmWaveGenerate(event, user, data);
+          break;
+          
+        case 'confirm_group_generate':
+          await this.handleConfirmGroupGenerate(event, user, data);
+          break;
+          
         case 'confirm_custom_generate':
           await this.handleConfirmCustomGenerate(event, user, data);
           break;
@@ -1332,6 +1415,363 @@ class MessageHandler {
     }
     
     return params;
+  }
+  // 处理特定动作的照片（URI流程）
+  async handlePhotoWithAction(event, user, imageUrl, action) {
+    try {
+      console.log('🎯 处理特定动作的照片:', action, imageUrl);
+
+      // 创建确认卡片
+      const confirmationCard = this.createActionConfirmationCard(imageUrl, action, user);
+      
+      const actionMessages = {
+        wave: '📸 素敵な写真ですね！\n\n✨ 手を振る動画を生成いたします。',
+        group: '📸 素敵な写真ですね！\n\n💕 寄り添い動画を生成いたします。',
+        custom: '📸 素敵な写真ですね！\n\n🎨 パーソナライズ動画を生成いたします。'
+      };
+
+      await this.client.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: actionMessages[action] || '📸 写真を受信しました！'
+        },
+        confirmationCard
+      ]);
+
+      // 更新用户状态为等待确认
+      await this.db.setUserState(user.id, `confirming_${action}`, { 
+        imageUrl, 
+        action 
+      });
+
+      await this.db.logInteraction(user.line_id, user.id, `${action}_photo_received`, {
+        imageUrl,
+        fromUri: true
+      });
+
+    } catch (error) {
+      console.error('❌ 处理特定动作照片失败:', error);
+      throw error;
+    }
+  }
+
+  // 处理挥手生成确认（URI流程）
+  async handleConfirmWaveGenerate(event, user, data) {
+    try {
+      const imageUrl = decodeURIComponent(data.image_url);
+      
+      // 检查点数
+      if (user.credits < 1) {
+        await this.client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '💸 ポイントが不足しています。\n\n現在のポイント: 0\n必要なポイント: 1\n\n🌐 ポイント購入は公式サイトをご確認ください。'
+        });
+        return;
+      }
+
+      // 扣除点数
+      await this.db.updateUserCredits(user.id, -1);
+      
+      // 清除用户状态
+      await this.db.clearUserState(user.id);
+      
+      // 发送生成中的GIF和确认消息
+      await this.client.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: '🎬 手振り動画の生成を開始いたします！\n\n⏱️ 生成には約30-60秒かかります。完成次第お送りいたします。'
+        },
+        {
+          type: 'image',
+          originalContentUrl: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/line-demo/processing.gif',
+          previewImageUrl: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/line-demo/processing.gif'
+        }
+      ]);
+
+      // 异步生成视频
+      this.generateVideoAsync(user, imageUrl, 'wave');
+      
+    } catch (error) {
+      console.error('❌ 处理挥手生成确认失败:', error);
+      throw error;
+    }
+  }
+
+  // 处理肩并肩生成确认（URI流程）
+  async handleConfirmGroupGenerate(event, user, data) {
+    try {
+      const imageUrl = decodeURIComponent(data.image_url);
+      
+      // 检查点数
+      if (user.credits < 1) {
+        await this.client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '💸 ポイントが不足しています。\n\n現在のポイント: 0\n必要なポイント: 1\n\n🌐 ポイント購入は公式サイトをご確認ください。'
+        });
+        return;
+      }
+
+      // 扣除点数
+      await this.db.updateUserCredits(user.id, -1);
+      
+      // 清除用户状态
+      await this.db.clearUserState(user.id);
+      
+      // 发送生成中的GIF和确认消息
+      await this.client.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: '🎬 寄り添い動画の生成を開始いたします！\n\n⏱️ 生成には約30-60秒かかります。完成次第お送りいたします。'
+        },
+        {
+          type: 'image',
+          originalContentUrl: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/line-demo/processing.gif',
+          previewImageUrl: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/line-demo/processing.gif'
+        }
+      ]);
+
+      // 异步生成视频
+      this.generateVideoAsync(user, imageUrl, 'group');
+      
+    } catch (error) {
+      console.error('❌ 处理肩并肩生成确认失败:', error);
+      throw error;
+    }
+  }
+
+  // 处理个性化生成确认（URI流程）  
+  async handleConfirmCustomGenerate(event, user, data) {
+    try {
+      const imageUrl = decodeURIComponent(data.image_url);
+      
+      // 检查点数
+      if (user.credits < 2) {
+        await this.client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '💸 ポイントが不足しています。\n\n現在のポイント: ' + user.credits + '\n必要なポイント: 2\n\n🌐 ポイント購入は公式サイトをご確認ください。'
+        });
+        return;
+      }
+
+      // 设置用户状态为等待自定义提示词
+      await this.db.setUserState(user.id, 'waiting_custom_prompt', { 
+        imageUrl,
+        action: 'custom'
+      });
+      
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '🎨 パーソナライズ動画生成を開始いたします！\n\n💭 ご希望の動画内容を日本語でお教えください。\n\n例：\n「海辺で微笑みながら手を振る」\n「カフェで本を読んでいる」\n「桜の下で踊っている」'
+      });
+      
+    } catch (error) {
+      console.error('❌ 处理个性化生成确认失败:', error);
+      throw error;
+    }
+  }
+
+  // 异步生成视频
+  async generateVideoAsync(user, imageUrl, type) {
+    try {
+      console.log('🎬 开始异步生成视频:', type, imageUrl);
+      
+      const prompts = {
+        wave: 'A person naturally waving hand with a warm smile, subtle head movement, friendly gesture, high quality portrait video',
+        group: 'People standing close together in a warm, supportive pose, gentle movements showing closeness and friendship, heartwarming scene'
+      };
+      
+      const prompt = prompts[type] || prompts.wave;
+      
+      // 调用视频生成API
+      const result = await this.videoGenerator.generateVideo({
+        imageUrl,
+        prompt,
+        model: 'runway' // 使用高性价比的Runway模型
+      });
+      
+      if (result.success) {
+        // 生成成功，发送视频给用户
+        await this.client.pushMessage(user.line_id, [
+          {
+            type: 'text',
+            text: '✅ 動画生成が完了いたしました！\n\n🎬 素敵な動画をお楽しみください！'
+          },
+          {
+            type: 'video',
+            originalContentUrl: result.videoUrl,
+            previewImageUrl: imageUrl
+          }
+        ]);
+
+        await this.db.logInteraction(user.line_id, user.id, 'video_generated', {
+          type,
+          imageUrl,
+          videoUrl: result.videoUrl,
+          success: true
+        });
+        
+      } else {
+        // 生成失败，退还点数
+        const refundAmount = type === 'custom' ? 2 : 1;
+        await this.db.updateUserCredits(user.id, refundAmount);
+        
+        await this.client.pushMessage(user.line_id, {
+          type: 'text',
+          text: `❌ 動画生成に失敗いたしました。\n\n💰 ${refundAmount}ポイントを返却いたしました。\n\n少々お待ちいただいてから再度お試しください。`
+        });
+
+        await this.db.logInteraction(user.line_id, user.id, 'video_generation_failed', {
+          type,
+          error: result.error,
+          refundAmount
+        });
+      }
+      
+    } catch (error) {
+      console.error('❌ 异步视频生成失败:', error);
+      
+      // 出错时退还点数
+      const refundAmount = type === 'custom' ? 2 : 1;
+      await this.db.updateUserCredits(user.id, refundAmount);
+      
+      await this.client.pushMessage(user.line_id, {
+        type: 'text',
+        text: `❌ 動画生成中にエラーが発生いたしました。\n\n💰 ${refundAmount}ポイントを返却いたしました。`
+      });
+    }
+  }
+
+  // 创建动作确认卡片
+  createActionConfirmationCard(imageUrl, action, user) {
+    const actionInfo = {
+      wave: {
+        title: '手振り動画生成',
+        description: '自然な笑顔で手を振る動画',
+        icon: '👋',
+        cost: 1
+      },
+      group: {
+        title: '寄り添い動画生成',
+        description: '温かい雰囲気の寄り添い動画',
+        icon: '🤝',
+        cost: 1
+      },
+      custom: {
+        title: 'パーソナライズ動画生成',
+        description: 'オリジナルの創作動画',
+        icon: '🎨',
+        cost: 2
+      }
+    };
+
+    const info = actionInfo[action];
+    if (!info) return null;
+
+    return {
+      type: 'flex',
+      altText: `${info.title}確認`,
+      contents: {
+        type: 'bubble',
+        hero: {
+          type: 'image',
+          url: imageUrl,
+          size: 'full',
+          aspectRatio: '20:13',
+          aspectMode: 'cover'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: `${info.icon} ${info.title}`,
+              weight: 'bold',
+              size: 'lg',
+              color: '#333333'
+            },
+            {
+              type: 'text',
+              text: info.description,
+              size: 'sm',
+              color: '#666666',
+              margin: 'md'
+            },
+            {
+              type: 'box',
+              layout: 'horizontal',
+              margin: 'lg',
+              spacing: 'sm',
+              contents: [
+                {
+                  type: 'text',
+                  text: `消費ポイント:`,
+                  size: 'sm',
+                  color: '#666666',
+                  flex: 2
+                },
+                {
+                  type: 'text',
+                  text: `${info.cost}ポイント`,
+                  size: 'sm',
+                  color: '#FF6B35',
+                  weight: 'bold',
+                  flex: 1
+                }
+              ]
+            },
+            {
+              type: 'box',
+              layout: 'horizontal',
+              spacing: 'sm',
+              contents: [
+                {
+                  type: 'text',
+                  text: `残りポイント:`,
+                  size: 'sm',
+                  color: '#666666',
+                  flex: 2
+                },
+                {
+                  type: 'text',
+                  text: `${user.credits}ポイント`,
+                  size: 'sm',
+                  color: '#42C76A',
+                  weight: 'bold',
+                  flex: 1
+                }
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              action: {
+                type: 'postback',
+                label: `🎬 生成開始 (${info.cost}ポイント)`,
+                data: `action=confirm_${action}_generate&image_url=${encodeURIComponent(imageUrl)}`
+              },
+              style: 'primary',
+              color: '#42C76A'
+            },
+            {
+              type: 'button',
+              action: {
+                type: 'postback',
+                label: '❌ キャンセル',
+                data: 'action=cancel'
+              },
+              style: 'secondary'
+            }
+          ]
+        }
+      }
+    };
   }
 }
 
