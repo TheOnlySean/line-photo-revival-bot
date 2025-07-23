@@ -119,6 +119,12 @@ class MessageHandler {
       return;
     }
     
+    // 处理Rich Menu动作关键字
+    if (this.isRichMenuActionKeyword(text)) {
+      await this.handleRichMenuActionKeyword(event, user, text);
+      return;
+    }
+    
     // 处理Rich Menu动作文字（支持多种格式）
     if (this.isRichMenuAction(text)) {
       await this.handleRichMenuAction(event, user, text);
@@ -134,9 +140,23 @@ class MessageHandler {
       // 默认引导用户使用菜单
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '💡 请使用底部菜单进行操作：\n\n👋 挥手 - 自动生成挥手微笑视频\n🤝 肩并肩 - 多人互相依靠视频\n🎨 个性化 - 输入创意提示词生成'
+        text: '💡 下部メニューをご利用ください：\n\n👋 手を振る - 自然な手振り動画\n🤝 寄り添う - 温かい寄り添い動画\n🎨 パーソナライズ - オリジナル創作動画'
       });
     }
+  }
+
+  // 检查是否为Rich Menu动作关键字
+  isRichMenuActionKeyword(text) {
+    const keywords = [
+      'WAVE_ACTION',
+      'GROUP_ACTION', 
+      'CUSTOM_ACTION',
+      'CREDITS_ACTION',
+      'SHARE_ACTION',
+      'STATUS_CHECK'
+    ];
+    
+    return keywords.includes(text);
   }
 
   // 检查是否为Rich Menu动作文字
@@ -157,6 +177,49 @@ class MessageHandler {
     ];
     
     return actionPatterns.some(pattern => text.includes(pattern));
+  }
+
+  // 处理Rich Menu动作关键字
+  async handleRichMenuActionKeyword(event, user, keyword) {
+    try {
+      console.log('🎯 处理Rich Menu关键字:', keyword);
+
+      switch (keyword) {
+        case 'WAVE_ACTION':
+          await this.handleWaveActionKeyword(event, user);
+          break;
+          
+        case 'GROUP_ACTION':
+          await this.handleGroupActionKeyword(event, user);
+          break;
+          
+        case 'CUSTOM_ACTION':
+          await this.handleCustomActionKeyword(event, user);
+          break;
+          
+        case 'CREDITS_ACTION':
+          await this.handleCreditsActionKeyword(event, user);
+          break;
+          
+        case 'SHARE_ACTION':
+          await this.handleShareActionKeyword(event, user);
+          break;
+          
+        case 'STATUS_CHECK':
+          await this.handleStatusCheck(event, user);
+          break;
+          
+        default:
+          console.log('⚠️ 未知关键字:', keyword);
+          break;
+      }
+    } catch (error) {
+      console.error('❌ 处理Rich Menu关键字失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
+      });
+    }
   }
 
   // 处理Rich Menu动作文字
@@ -1455,7 +1518,7 @@ class MessageHandler {
     }
   }
 
-  // 处理挥手生成确认（URI流程）
+    // 处理挥手生成确认（URI流程）
   async handleConfirmWaveGenerate(event, user, data) {
     try {
       const imageUrl = decodeURIComponent(data.image_url);
@@ -1475,18 +1538,14 @@ class MessageHandler {
       // 清除用户状态
       await this.db.clearUserState(user.id);
       
-      // 发送生成中的GIF和确认消息
-      await this.client.replyMessage(event.replyToken, [
-        {
-          type: 'text',
-          text: '🎬 手振り動画の生成を開始いたします！\n\n⏱️ 生成には約30-60秒かかります。完成次第お送りいたします。'
-        },
-        {
-          type: 'image',
-          originalContentUrl: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/line-demo/processing.gif',
-          previewImageUrl: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/line-demo/processing.gif'
-        }
-      ]);
+      // 切换到生成中Rich Menu
+      await this.lineBot.switchToProcessingMenu(user.line_id);
+      
+      // 发送生成中的确认消息
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '🎬 手振り動画の生成を開始いたします！\n\n⏱️ 生成には約30-60秒かかります。完成次第お送りいたします。'
+      });
 
       // 异步生成视频
       this.generateVideoAsync(user, imageUrl, 'wave');
@@ -1517,18 +1576,14 @@ class MessageHandler {
       // 清除用户状态
       await this.db.clearUserState(user.id);
       
-      // 发送生成中的GIF和确认消息
-      await this.client.replyMessage(event.replyToken, [
-        {
-          type: 'text',
-          text: '🎬 寄り添い動画の生成を開始いたします！\n\n⏱️ 生成には約30-60秒かかります。完成次第お送りいたします。'
-        },
-        {
-          type: 'image',
-          originalContentUrl: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/line-demo/processing.gif',
-          previewImageUrl: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/line-demo/processing.gif'
-        }
-      ]);
+      // 切换到生成中Rich Menu
+      await this.lineBot.switchToProcessingMenu(user.line_id);
+      
+      // 发送生成中的确认消息
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '🎬 寄り添い動画の生成を開始いたします！\n\n⏱️ 生成には約30-60秒かかります。完成次第お送りいたします。'
+      });
 
       // 异步生成视频
       this.generateVideoAsync(user, imageUrl, 'group');
@@ -1589,6 +1644,9 @@ class MessageHandler {
         model: 'runway' // 使用高性价比的Runway模型
       });
       
+      // 切换回主要Rich Menu
+      await this.lineBot.switchToMainMenu(user.line_id);
+      
       if (result.success) {
         // 生成成功，发送视频给用户
         await this.client.pushMessage(user.line_id, [
@@ -1629,6 +1687,9 @@ class MessageHandler {
       
     } catch (error) {
       console.error('❌ 异步视频生成失败:', error);
+      
+      // 切换回主要Rich Menu
+      await this.lineBot.switchToMainMenu(user.line_id);
       
       // 出错时退还点数
       const refundAmount = type === 'custom' ? 2 : 1;
@@ -1767,6 +1828,199 @@ class MessageHandler {
                 data: 'action=cancel'
               },
               style: 'secondary'
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  // 处理挥手动作关键字
+  async handleWaveActionKeyword(event, user) {
+    // 设置用户状态
+    await this.db.setUserState(user.id, 'waiting_wave_photo', { action: 'wave' });
+    
+    await this.client.replyMessage(event.replyToken, {
+      type: 'text',
+      text: '👋【手振り動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐに手を振る動画の制作を開始いたします！\n\n✨ 自然な笑顔で手を振る素敵な動画を作成いたします。'
+    });
+
+    await this.db.logInteraction(user.line_id, user.id, 'wave_action_selected', {});
+  }
+
+  // 处理肩并肩动作关键字
+  async handleGroupActionKeyword(event, user) {
+    // 设置用户状态
+    await this.db.setUserState(user.id, 'waiting_group_photo', { action: 'group' });
+    
+    await this.client.replyMessage(event.replyToken, {
+      type: 'text',
+      text: '🤝【寄り添い動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐに寄り添い動画の制作を開始いたします！\n\n💕 温かい雰囲気の素敵な動画を作成いたします。'
+    });
+
+    await this.db.logInteraction(user.line_id, user.id, 'group_action_selected', {});
+  }
+
+  // 处理个性化动作关键字
+  async handleCustomActionKeyword(event, user) {
+    // 设置用户状态
+    await this.db.setUserState(user.id, 'waiting_custom_photo', { action: 'custom' });
+    
+    await this.client.replyMessage(event, {
+      type: 'text',
+      text: '🎨【パーソナライズ動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐにパーソナライズ動画の制作を開始いたします！\n\n💭 その後、ご希望の動画内容をお聞かせください。'
+    });
+
+    await this.db.logInteraction(user.line_id, user.id, 'custom_action_selected', {});
+  }
+
+  // 处理充值动作关键字
+  async handleCreditsActionKeyword(event, user) {
+    await this.handleBuyCredits(event, user);
+  }
+
+  // 处理分享动作关键字
+  async handleShareActionKeyword(event, user) {
+    await this.handleShareBot(event, user);
+  }
+
+  // 处理状态检查
+  async handleStatusCheck(event, user) {
+    await this.client.replyMessage(event.replyToken, {
+      type: 'text',
+      text: '🎬 動画を生成中です...\n\n⏱️ もうしばらくお待ちください。完成次第お送りいたします。'
+    });
+  }
+
+  // 更新确认卡片样式（白色框风格）
+  createActionConfirmationCard(imageUrl, action, user) {
+    const actionInfo = {
+      wave: {
+        title: '手振り動画生成',
+        description: '自然な笑顔で手を振る動画',
+        icon: '👋',
+        cost: 1
+      },
+      group: {
+        title: '寄り添い動画生成',
+        description: '温かい雰囲気の寄り添い動画',
+        icon: '🤝',
+        cost: 1  
+      },
+      custom: {
+        title: 'パーソナライズ動画生成',
+        description: 'オリジナルの創作動画',
+        icon: '🎨',
+        cost: 2
+      }
+    };
+
+    const info = actionInfo[action];
+    if (!info) return null;
+
+    return {
+      type: 'flex',
+      altText: `${info.title}確認`,
+      contents: {
+        type: 'bubble',
+        styles: {
+          body: {
+            backgroundColor: '#FFFFFF'
+          },
+          footer: {
+            backgroundColor: '#FFFFFF'
+          }
+        },
+        hero: {
+          type: 'image',
+          url: imageUrl,
+          size: 'full',
+          aspectRatio: '20:13',
+          aspectMode: 'cover'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '20px',
+          contents: [
+            {
+              type: 'text',
+              text: '以下の内容で動画を生成します',
+              size: 'md',
+              color: '#333333',
+              weight: 'bold'
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
+              spacing: 'sm',
+              contents: [
+                {
+                  type: 'box',
+                  layout: 'baseline',
+                  contents: [
+                    {
+                      type: 'text',
+                      text: '選択したテイスト：',
+                      size: 'sm',
+                      color: '#666666',
+                      flex: 5
+                    },
+                    {
+                      type: 'text',
+                      text: info.title,
+                      size: 'sm',
+                      color: '#333333',
+                      weight: 'bold',
+                      flex: 7
+                    }
+                  ]
+                },
+                {
+                  type: 'box',
+                  layout: 'baseline',
+                  contents: [
+                    {
+                      type: 'text',
+                      text: '消費ポイント：',
+                      size: 'sm',
+                      color: '#666666',
+                      flex: 5
+                    },
+                    {
+                      type: 'text',
+                      text: `${info.cost}ポイント`,
+                      size: 'sm',
+                      color: '#FF6B35',
+                      weight: 'bold',
+                      flex: 7
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          paddingAll: '20px',
+          contents: [
+            {
+              type: 'button',
+              action: {
+                type: 'postback',
+                label: '動画を生成する',
+                data: `action=confirm_${action}_generate&image_url=${encodeURIComponent(imageUrl)}`
+              },
+              style: 'primary',
+              color: '#42C76A',
+              height: 'md'
             }
           ]
         }

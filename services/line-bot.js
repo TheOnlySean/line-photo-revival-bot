@@ -31,8 +31,8 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "uri",
-              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/action/wave`
+              type: "message",
+              text: "WAVE_ACTION"
             }
           },
           {
@@ -43,8 +43,8 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "uri",
-              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/action/group`
+              type: "message",
+              text: "GROUP_ACTION"
             }
           },
           {
@@ -55,8 +55,8 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "uri",
-              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/action/custom`
+              type: "message",
+              text: "CUSTOM_ACTION"
             }
           },
           {
@@ -67,8 +67,8 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "uri",
-              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/action/credits`
+              type: "message",
+              text: "CREDITS_ACTION"
             }
           },
           {
@@ -91,29 +91,112 @@ class LineBot {
               height: 843
             },
             action: {
-              type: "uri",
-              uri: `${process.env.APP_BASE_URL || 'https://line-photo-revival-bot.vercel.app'}/action/share`
+              type: "message",
+              text: "SHARE_ACTION"
             }
           }
         ]
       };
 
-      console.log('🎨 创建Rich Menu...');
-      const richMenuId = await this.client.createRichMenu(richMenu);
-      console.log('✅ Rich Menu创建成功:', richMenuId);
+      console.log('🎨 创建主要Rich Menu...');
+      const mainRichMenuId = await this.client.createRichMenu(richMenu);
+      console.log('✅ 主要Rich Menu创建成功:', mainRichMenuId);
+
+      // 创建生成中Rich Menu
+      const processingRichMenu = {
+        size: {
+          width: 2500,
+          height: 1686
+        },
+        selected: false,
+        name: "写真復活 Processing Menu",
+        chatBarText: "生成中...",
+        areas: [
+          {
+            bounds: {
+              x: 0,
+              y: 0,
+              width: 2500,
+              height: 1686
+            },
+            action: {
+              type: "message",
+              text: "STATUS_CHECK"
+            }
+          }
+        ]
+      };
+
+      console.log('🎨 创建生成中Rich Menu...');
+      const processingRichMenuId = await this.client.createRichMenu(processingRichMenu);
+      console.log('✅ 生成中Rich Menu创建成功:', processingRichMenuId);
 
       // TODO: 这里需要上传Rich Menu图片
       // 暂时跳过图片上传，可以在LINE Developer Console手动上传
-      console.log('⚠️ 请在LINE Developer Console手动上传Rich Menu图片');
+      console.log('⚠️ 请在LINE Developer Console手动上传两个Rich Menu图片');
+      console.log('📋 主要菜单ID:', mainRichMenuId);
+      console.log('📋 生成中菜单ID:', processingRichMenuId);
 
-      // 设置为默认Rich Menu
-      await this.client.setDefaultRichMenu(richMenuId);
-      console.log('✅ Rich Menu设置为默认菜单');
+      // 设置主菜单为默认Rich Menu
+      await this.client.setDefaultRichMenu(mainRichMenuId);
+      console.log('✅ 主要Rich Menu设置为默认菜单');
 
-      return richMenuId;
+      // 保存菜单ID供后续使用
+      this.mainRichMenuId = mainRichMenuId;
+      this.processingRichMenuId = processingRichMenuId;
+
+      return { mainRichMenuId, processingRichMenuId };
     } catch (error) {
       console.error('❌ Rich Menu设置失败:', error);
       throw error;
+    }
+  }
+
+  // 切换到生成中Rich Menu
+  async switchToProcessingMenu(userId = null) {
+    try {
+      if (!this.processingRichMenuId) {
+        console.log('⚠️ 生成中Rich Menu未设置');
+        return false;
+      }
+
+      if (userId) {
+        // 为特定用户设置
+        await this.client.linkRichMenuToUser(userId, this.processingRichMenuId);
+        console.log('🔄 用户切换到生成中菜单:', userId);
+      } else {
+        // 设置为默认菜单
+        await this.client.setDefaultRichMenu(this.processingRichMenuId);
+        console.log('🔄 全局切换到生成中菜单');
+      }
+      return true;
+    } catch (error) {
+      console.error('❌ 切换到生成中菜单失败:', error);
+      return false;
+    }
+  }
+
+  // 切换回主要Rich Menu
+  async switchToMainMenu(userId = null) {
+    try {
+      if (!this.mainRichMenuId) {
+        console.log('⚠️ 主要Rich Menu未设置');
+        return false;
+      }
+
+      if (userId) {
+        // 为特定用户设置
+        await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
+        console.log('🔄 用户切换回主菜单:', userId);
+      } else {
+        // 设置为默认菜单
+        await this.client.setDefaultRichMenu(this.mainRichMenuId);
+        console.log('🔄 全局切换回主菜单');
+      }
+      return true;
+    } catch (error) {
+      console.error('❌ 切换回主菜单失败:', error);
+      return false;
     }
   }
 
