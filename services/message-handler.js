@@ -1754,7 +1754,7 @@ class MessageHandler {
     const actionInfo = {
       wave: {
         title: '手振り動画生成',
-        description: '自然な笑顔で手を振る動画',
+        description: '選択したテイスト: 人物',
         icon: '👋',
         cost: 1
       },
@@ -1780,73 +1780,74 @@ class MessageHandler {
       altText: `${info.title}確認`,
       contents: {
         type: 'bubble',
-        hero: {
-          type: 'image',
-          url: imageUrl,
-          size: 'full',
-          aspectRatio: '20:13',
-          aspectMode: 'cover'
-        },
         body: {
           type: 'box',
           layout: 'vertical',
+          backgroundColor: '#FFFFFF',
+          cornerRadius: 'lg',
+          paddingAll: 'xl',
           contents: [
             {
               type: 'text',
-              text: `${info.icon} ${info.title}`,
+              text: '以下の内容で動画を生成します',
               weight: 'bold',
-              size: 'lg',
-              color: '#333333'
+              size: 'md',
+              color: '#333333',
+              wrap: true
             },
             {
-              type: 'text',
-              text: info.description,
-              size: 'sm',
-              color: '#666666',
+              type: 'separator',
               margin: 'md'
             },
             {
               type: 'box',
-              layout: 'horizontal',
+              layout: 'vertical',
               margin: 'lg',
               spacing: 'sm',
               contents: [
                 {
-                  type: 'text',
-                  text: `消費ポイント:`,
-                  size: 'sm',
-                  color: '#666666',
-                  flex: 2
+                  type: 'box',
+                  layout: 'baseline',
+                  spacing: 'sm',
+                  contents: [
+                    {
+                      type: 'text',
+                      text: '選択したテイスト',
+                      color: '#aaaaaa',
+                      size: 'sm',
+                      flex: 5
+                    },
+                    {
+                      type: 'text',
+                      text: '人物',
+                      wrap: true,
+                      color: '#666666',
+                      size: 'sm',
+                      flex: 5
+                    }
+                  ]
                 },
                 {
-                  type: 'text',
-                  text: `${info.cost}ポイント`,
-                  size: 'sm',
-                  color: '#FF6B35',
-                  weight: 'bold',
-                  flex: 1
-                }
-              ]
-            },
-            {
-              type: 'box',
-              layout: 'horizontal',
-              spacing: 'sm',
-              contents: [
-                {
-                  type: 'text',
-                  text: `残りポイント:`,
-                  size: 'sm',
-                  color: '#666666',
-                  flex: 2
-                },
-                {
-                  type: 'text',
-                  text: `${user.credits}ポイント`,
-                  size: 'sm',
-                  color: '#42C76A',
-                  weight: 'bold',
-                  flex: 1
+                  type: 'box',
+                  layout: 'baseline',
+                  spacing: 'sm',
+                  contents: [
+                    {
+                      type: 'text',
+                      text: '動画のお題',
+                      color: '#aaaaaa',
+                      size: 'sm',
+                      flex: 5
+                    },
+                    {
+                      type: 'text',
+                      text: '手振り動画', // Placeholder
+                      wrap: true,
+                      color: '#666666',
+                      size: 'sm',
+                      flex: 5
+                    }
+                  ]
                 }
               ]
             }
@@ -1859,22 +1860,14 @@ class MessageHandler {
           contents: [
             {
               type: 'button',
-              action: {
-                type: 'postback',
-                label: `🎬 生成開始 (${info.cost}ポイント)`,
-                data: `action=confirm_${action}_generate&image_url=${encodeURIComponent(imageUrl)}`
-              },
               style: 'primary',
-              color: '#42C76A'
-            },
-            {
-              type: 'button',
+              color: '#42C76A',
+              height: 'sm',
               action: {
                 type: 'postback',
-                label: '❌ キャンセル',
-                data: 'action=cancel'
-              },
-              style: 'secondary'
+                label: '動画を生成する',
+                data: `action=confirm_${action}_generate&image_url=${encodeURIComponent(imageUrl)}`
+              }
             }
           ]
         }
@@ -1944,7 +1937,7 @@ class MessageHandler {
     const actionInfo = {
       wave: {
         title: '手振り動画生成',
-        description: '自然な笑顔で手を振る動画',
+        description: '選択したテイスト: 人物',
         icon: '👋',
         cost: 1
       },
@@ -2034,16 +2027,16 @@ class MessageHandler {
                   contents: [
                     {
                       type: 'text',
-                      text: '消費ポイント：',
+                      text: '動画のお題: ',
                       size: 'sm',
                       color: '#666666',
                       flex: 5
                     },
                     {
                       type: 'text',
-                      text: `${info.cost}ポイント`,
+                      text: info.description,
                       size: 'sm',
-                      color: '#FF6B35',
+                      color: '#333333',
                       weight: 'bold',
                       flex: 7
                     }
