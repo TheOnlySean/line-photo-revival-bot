@@ -2,8 +2,9 @@ const axios = require('axios');
 const lineConfig = require('../config/line-config');
 
 class VideoGenerator {
-  constructor(db) {
+  constructor(db, lineBot = null) {
     this.db = db;
+    this.lineBot = lineBot;
     this.kieAiConfig = lineConfig.kieAi;
   }
 
@@ -250,6 +251,12 @@ class VideoGenerator {
 
       // 发送视频给用户
       await this.sendVideoToUser(lineUserId, result);
+      
+      // 切换回主要Rich Menu
+      if (this.lineBot) {
+        await this.lineBot.switchToMainMenu(lineUserId);
+        console.log('🔄 已切换回主要Rich Menu:', lineUserId);
+      }
 
       console.log('✅ 视频生成成功并已发送给用户:', result.videoUrl);
 
@@ -280,6 +287,12 @@ class VideoGenerator {
 
       // 发送失败消息给用户
       await this.sendErrorToUser(lineUserId, errorMessage);
+      
+      // 切换回主要Rich Menu
+      if (this.lineBot) {
+        await this.lineBot.switchToMainMenu(lineUserId);
+        console.log('🔄 已切换回主要Rich Menu:', lineUserId);
+      }
 
       console.error('❌ 视频生成失败处理完成:', errorMessage);
 

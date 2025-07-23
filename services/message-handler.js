@@ -6,7 +6,7 @@ class MessageHandler {
     this.client = client;
     this.db = db;
     this.lineBot = lineBot;
-    this.videoGenerator = new VideoGenerator(db);
+    this.videoGenerator = new VideoGenerator(db, lineBot);
     this.imageUploader = new ImageUploader();
   }
 
@@ -1455,56 +1455,30 @@ class MessageHandler {
       
       const prompt = prompts[type] || prompts.wave;
       
-      // 调用视频生成API
-      const result = await this.videoGenerator.generateVideo({
-        imageUrl,
+      // 创建视频生成记录
+      const videoRecord = await this.db.createVideoGeneration(
+        user.id,
         prompt,
-        model: 'runway' // 使用高性价比的Runway模型
+        false,
+        type === 'custom' ? 2 : 1
+      );
+      
+      console.log('📝 视频记录已创建:', videoRecord.id);
+      
+      // 调用视频生成API（异步提交任务）
+      await this.videoGenerator.generateVideo(user.line_id, imageUrl, videoRecord.id);
+      
+      console.log('✅ 视频生成任务已提交，轮询机制将自动处理完成后的发送');
+      
+      // 记录任务启动
+      await this.db.logInteraction(user.line_id, user.id, 'video_generation_started', {
+        type,
+        imageUrl,
+        videoRecordId: videoRecord.id
       });
       
-      // 切换回主要Rich Menu
-      await this.lineBot.switchToMainMenu(user.line_id);
-      
-      if (result.success) {
-        // 生成成功，发送视频给用户
-        await this.client.pushMessage(user.line_id, [
-          {
-            type: 'text',
-            text: '✅ 動画生成が完了いたしました！\n\n🎬 素敵な動画をお楽しみください！'
-          },
-          {
-            type: 'video',
-            originalContentUrl: result.videoUrl,
-            previewImageUrl: imageUrl
-          }
-        ]);
-
-        await this.db.logInteraction(user.line_id, user.id, 'video_generated', {
-          type,
-          imageUrl,
-          videoUrl: result.videoUrl,
-          success: true
-        });
-        
-      } else {
-        // 生成失败，退还点数
-        const refundAmount = type === 'custom' ? 2 : 1;
-        await this.db.updateUserCredits(user.id, refundAmount);
-        
-        await this.client.pushMessage(user.line_id, {
-          type: 'text',
-          text: `❌ 動画生成に失敗いたしました。\n\n💰 ${refundAmount}ポイントを返却いたしました。\n\n少々お待ちいただいてから再度お試しください。`
-        });
-
-        await this.db.logInteraction(user.line_id, user.id, 'video_generation_failed', {
-          type,
-          error: result.error,
-          refundAmount
-        });
-      }
-      
     } catch (error) {
-      console.error('❌ 异步视频生成失败:', error);
+      console.error('❌ 视频生成任务提交失败:', error);
       
       // 切换回主要Rich Menu
       await this.lineBot.switchToMainMenu(user.line_id);
@@ -1515,7 +1489,13 @@ class MessageHandler {
       
       await this.client.pushMessage(user.line_id, {
         type: 'text',
-        text: `❌ 動画生成中にエラーが発生いたしました。\n\n💰 ${refundAmount}ポイントを返却いたしました。`
+        text: `❌ 動画生成の開始に失敗いたしました。\n\n💰 ${refundAmount}ポイントを返却いたしました。\n\n再度お試しください。`
+      });
+      
+      await this.db.logInteraction(user.line_id, user.id, 'video_generation_start_failed', {
+        type,
+        error: error.message,
+        refundAmount
       });
     }
   }
