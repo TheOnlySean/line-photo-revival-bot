@@ -15,7 +15,7 @@ class LineBot {
       // 删除现有的Rich Menu (如果存在)
       await this.deleteExistingRichMenus();
 
-      // Rich Menu配置
+      // Rich Menu配置（按照官方文档格式）
       const richMenu = {
         size: {
           width: 2500,
@@ -23,8 +23,9 @@ class LineBot {
         },
         selected: false,
         name: "写真復活 Main Menu",
-        chatBarText: "菜单",
+        chatBarText: "メニュー",
         areas: [
+          // 第一行：左 (0-833)
           {
             bounds: {
               x: 0,
@@ -34,39 +35,36 @@ class LineBot {
             },
             action: {
               type: "postback",
-              label: "手振り動画生成",
-              data: "action=wave&mode=video_generation",
-              displayText: ""
+              data: "action=wave&mode=video_generation"
             }
           },
+          // 第一行：中 (833-1666)  
           {
             bounds: {
               x: 833,
-              y: 0,
-              width: 834,
-              height: 843
-            },
-            action: {
-              type: "postback",
-              label: "寄り添い動画生成",
-              data: "action=group&mode=video_generation", 
-              displayText: ""
-            }
-          },
-          {
-            bounds: {
-              x: 1667,
               y: 0,
               width: 833,
               height: 843
             },
             action: {
               type: "postback",
-              label: "パーソナライズ動画生成",
-              data: "action=custom&mode=video_generation",
-              displayText: ""
+              data: "action=group&mode=video_generation"
             }
           },
+          // 第一行：右 (1666-2500)
+          {
+            bounds: {
+              x: 1666,
+              y: 0,
+              width: 834,
+              height: 843
+            },
+            action: {
+              type: "postback",
+              data: "action=custom&mode=video_generation"
+            }
+          },
+          // 第二行：左 (0-833)
           {
             bounds: {
               x: 0,
@@ -76,35 +74,33 @@ class LineBot {
             },
             action: {
               type: "postback",
-              label: "ポイント購入",
-              data: "action=credits&mode=purchase",
-              displayText: ""
+              data: "action=credits&mode=purchase"
             }
           },
+          // 第二行：中 (833-1666)
           {
             bounds: {
               x: 833,
               y: 843,
-              width: 834,
+              width: 833,
               height: 843
             },
             action: {
-              type: "uri",  
+              type: "uri",
               uri: "https://angelsphoto.ai"
             }
           },
+          // 第二行：右 (1666-2500)
           {
             bounds: {
-              x: 1667,
+              x: 1666,
               y: 843,
-              width: 833,
+              width: 834,
               height: 843
             },
             action: {
               type: "postback",
-              label: "友達にシェア",
-              data: "action=share&mode=referral",
-              displayText: ""
+              data: "action=share&mode=referral"
             }
           }
         ]
@@ -114,7 +110,7 @@ class LineBot {
       const mainRichMenuId = await this.client.createRichMenu(richMenu);
       console.log('✅ 主要Rich Menu创建成功:', mainRichMenuId);
 
-      // 创建生成中Rich Menu
+      // 创建生成中Rich Menu（按照官方文档格式）
       const processingRichMenu = {
         size: {
           width: 2500,
@@ -132,8 +128,8 @@ class LineBot {
               height: 1686
             },
             action: {
-              type: "message",
-              text: "STATUS_CHECK"
+              type: "postback",
+              data: "action=status_check"
             }
           }
         ]
