@@ -1,9 +1,9 @@
 // LINE Bot 配置
 const lineConfig = {
-  // 测试账号配置
-  channelSecret: 'e9bd551af7f1c36500d0764a3edb6562',
-  channelAccessToken: '7uB4UmaonelwPyjgnngdA0OQRCugGweLYP5jLYRhkCUh6C4HS8ugK7DbyxyDDgQxo0PK9+GljmxVPW3EHv+QPsrzToEmrz12ERPNEimHmV6rIIwNWj6Qpo8yep6NyMmWyYfLtAbvvdvBMnU2EjpmZQdB04t89/1O/w1cDnyilFU=',
-  channelId: '2005541661',
+  // 测试账号配置 - 优先使用环境变量
+  channelSecret: process.env.LINE_CHANNEL_SECRET || 'e9bd551af7f1c36500d0764a3edb6562',
+  channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || '7uB4UmaonelwPyjgnngdA0OQRCugGweLYP5jLYRhkCUh6C4HS8ugK7DbyxyDDgQxo0PK9+GljmxVPW3EHv+QPsrzToEmrz12ERPNEimHmV6rIIwNWj6Qpo8yep6NyMmWyYfLtAbvvdvBMnU2EjpmZQdB04t89/1O/w1cDnyilFU=',
+  channelId: process.env.LINE_CHANNEL_ID || '2005541661',
   
   // 服务器配置
   port: process.env.PORT || 3000,
@@ -17,7 +17,7 @@ const lineConfig = {
   
   // KIE.AI Runway API配置 (高性价比AI视频生成)
   kieAi: {
-    apiKey: '77b10ad6945bf20dc236bad15de1e6b3',
+    apiKey: process.env.KIE_AI_API_KEY || '77b10ad6945bf20dc236bad15de1e6b3',
     baseUrl: 'https://api.kie.ai',
     // 使用Runway API端点而不是veo3
     generateEndpoint: '/api/v1/runway/generate',

@@ -41,13 +41,36 @@ app.get('/health', (req, res) => {
 app.post('/webhook', line.middleware(config), (req, res) => {
   console.log('🔔 收到webhook请求:', JSON.stringify(req.body, null, 2));
   
-  Promise
-    .all(req.body.events.map(handleEvent))
-    .then(() => res.status(200).end())
-    .catch((err) => {
-      console.error('❌ Webhook处理错误:', err);
-      res.status(500).end();
+  try {
+    // 检查请求体是否有效
+    if (!req.body || !req.body.events) {
+      console.error('❌ 无效的webhook请求体');
+      return res.status(400).json({ error: 'Invalid request body' });
+    }
+
+    // 处理事件
+    Promise
+      .all(req.body.events.map(handleEvent))
+      .then(() => {
+        console.log('✅ Webhook处理成功');
+        res.status(200).end();
+      })
+      .catch((err) => {
+        console.error('❌ Webhook处理错误:', err);
+        console.error('❌ 错误堆栈:', err.stack);
+        res.status(500).json({ 
+          error: 'Internal Server Error',
+          message: '服务器内部错误'
+        });
+      });
+  } catch (error) {
+    console.error('❌ Webhook同步错误:', error);
+    console.error('❌ 错误堆栈:', error.stack);
+    res.status(500).json({ 
+      error: 'Internal Server Error',
+      message: '服务器内部错误'
     });
+  }
 });
 
 // 事件处理器
