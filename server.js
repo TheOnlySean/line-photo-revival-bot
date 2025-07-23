@@ -37,6 +37,38 @@ app.get('/health', (req, res) => {
   });
 });
 
+// 配置检查端点
+app.get('/debug/config', (req, res) => {
+  res.json({
+    channelId: lineConfig.channelId,
+    hasChannelSecret: !!lineConfig.channelSecret,
+    hasChannelAccessToken: !!lineConfig.channelAccessToken,
+    webhookUrl: lineConfig.webhookUrl,
+    databaseConnected: true,
+    environment: process.env.NODE_ENV || 'development'
+  });
+});
+
+// 测试webhook端点（不通过LINE中间件）
+app.post('/debug/webhook', (req, res) => {
+  console.log('🧪 调试webhook请求:', JSON.stringify(req.body, null, 2));
+  console.log('🧪 请求头:', JSON.stringify(req.headers, null, 2));
+  
+  try {
+    res.json({
+      success: true,
+      message: 'Webhook调试成功',
+      receivedData: req.body
+    });
+  } catch (error) {
+    console.error('❌ 调试webhook错误:', error);
+    res.status(500).json({
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+
 // LINE webhook端点
 app.post('/webhook', line.middleware(config), (req, res) => {
   console.log('🔔 收到webhook请求:', JSON.stringify(req.body, null, 2));
