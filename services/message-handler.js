@@ -407,8 +407,29 @@ class MessageHandler {
       // 获取用户当前状态
       const userState = await this.db.getUserState(user.id);
 
-      // 下载并上传图片
-      const imageBuffer = await this.client.getMessageContent(event.message.id);
+      // 下载并上传图片（增强错误处理）
+      console.log('📥 开始下载Line图片:', event.message.id);
+      const imageStream = await this.client.getMessageContent(event.message.id);
+      
+      // 将stream转换为buffer
+      const chunks = [];
+      for await (const chunk of imageStream) {
+        chunks.push(chunk);
+      }
+      const imageBuffer = Buffer.concat(chunks);
+      
+      console.log('📊 下载的图片大小:', imageBuffer.length, 'bytes');
+      
+      // 验证图片buffer是否有效
+      if (!imageBuffer || imageBuffer.length === 0) {
+        throw new Error('图片下载失败：获取到空的图片数据');
+      }
+      
+      // 验证图片格式
+      if (!this.imageUploader.isValidImageFormat(imageBuffer)) {
+        throw new Error('不支持的图片格式，请上传JPG或PNG格式的图片');
+      }
+      
       const imageUrl = await this.imageUploader.uploadImage(imageBuffer);
 
       console.log('🖼️ 用户状态:', userState.state, '图片URL:', imageUrl);
