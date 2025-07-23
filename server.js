@@ -69,19 +69,6 @@ app.post('/debug/webhook', (req, res) => {
   }
 });
 
-// 临时LINE webhook验证端点（绕过中间件）
-app.post('/webhook-temp', (req, res) => {
-  console.log('🔔 临时webhook请求:', JSON.stringify(req.body, null, 2));
-  console.log('🔍 请求头:', JSON.stringify(req.headers, null, 2));
-  
-  try {
-    // 简单返回200成功
-    res.status(200).json({ success: true, message: 'Webhook验证成功' });
-  } catch (error) {
-    console.error('❌ 临时webhook错误:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
 
 // LINE webhook端点
 app.post('/webhook', (req, res) => {
