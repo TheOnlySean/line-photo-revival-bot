@@ -1,0 +1,41 @@
+// LINE Bot 配置
+const lineConfig = {
+  // 测试账号配置
+  channelSecret: 'e9bd551af7f1c36500d0764a3edb6562',
+  channelAccessToken: '7uB4UmaonelwPyjgnngdA0OQRCugGweLYP5jLYRhkCUh6C4HS8ugK7DbyxyDDgQxo0PK9+GljmxVPW3EHv+QPsrzToEmrz12ERPNEimHmV6rIIwNWj6Qpo8yep6NyMmWyYfLtAbvvdvBMnU2EjpmZQdB04t89/1O/w1cDnyilFU=',
+  channelId: '2005541661',
+  
+  // 服务器配置
+  port: process.env.PORT || 3000,
+  webhookUrl: process.env.WEBHOOK_URL || 'http://localhost:3000/webhook',
+  
+  // 应用配置
+  appBaseUrl: process.env.APP_BASE_URL || 'http://localhost:3000',
+  
+  // Vercel Blob配置 (复用映像工房)
+  blobToken: process.env.BLOB_READ_WRITE_TOKEN || 'vercel_blob_rw_GvZacS1zhqBA8QZQ_9dxdeLTVNP4jIpjhP7HhXPyQbWfPod',
+  
+  // KIE.AI Runway API配置 (高性价比AI视频生成)
+  kieAi: {
+    apiKey: '77b10ad6945bf20dc236bad15de1e6b3',
+    baseUrl: 'https://api.kie.ai',
+    // 使用Runway API端点而不是veo3
+    generateEndpoint: '/api/v1/runway/generate',
+    detailEndpoint: '/api/v1/runway/record-detail',
+    // Runway API支持的参数
+    defaultParams: {
+      aspectRatio: '1:1', // 方形视频，适合社交媒体
+      duration: 5, // 5秒视频，成本较低
+      quality: '720p', // 720p质量，平衡质量和成本
+      waterMark: '' // 无水印
+    }
+  },
+  
+  // 点数消耗配置
+  credits: {
+    demoConsumption: 0,  // 演示不消耗点数
+    realVideoConsumption: 1  // 真实视频生成消耗1点数
+  }
+};
+
+module.exports = lineConfig; 
