@@ -98,7 +98,9 @@ class MessageHandler {
 
   // 处理文字消息
   async handleTextMessage(event, user) {
-    const text = event.message.text;
+    const text = event.message.text.trim();
+    
+    console.log('📝 收到文字消息:', text);
     
     // 首先检查用户状态
     const userState = await this.db.getUserState(user.id);
@@ -109,8 +111,8 @@ class MessageHandler {
       return;
     }
     
-    // 处理Rich Menu动作文字
-    if (text.startsWith('action=')) {
+    // 处理Rich Menu动作文字（支持多种格式）
+    if (this.isRichMenuAction(text)) {
       await this.handleRichMenuAction(event, user, text);
       return;
     }
@@ -129,13 +131,35 @@ class MessageHandler {
     }
   }
 
+  // 检查是否为Rich Menu动作文字
+  isRichMenuAction(text) {
+    // 支持多种格式
+    const actionPatterns = [
+      'action=',
+      '手を振る',
+      '寄り添う', 
+      'パーソナライズ生成',
+      'ポイント購入',
+      '友達にシェア',
+      'wave_hello',
+      'group_support',
+      'custom_generate',
+      'buy_credits',
+      'share_bot'
+    ];
+    
+    return actionPatterns.some(pattern => text.includes(pattern));
+  }
+
   // 处理Rich Menu动作文字
   async handleRichMenuAction(event, user, actionText) {
     try {
-      // 解析action文字，格式：action=wave_hello
-      const action = actionText.replace('action=', '');
+      console.log('🎯 Rich Menu原始文字:', actionText);
       
-      console.log('🎯 Rich Menu动作:', action);
+      // 将文字映射到对应的动作
+      let action = this.mapTextToAction(actionText);
+      
+      console.log('🎯 映射后的动作:', action);
 
       switch (action) {
         case 'wave_hello':
@@ -173,6 +197,38 @@ class MessageHandler {
         text: '❌ 处理操作时发生错误，请稍后再试'
       });
     }
+  }
+
+  // 将用户输入文字映射到对应的动作
+  mapTextToAction(text) {
+    // 如果是action=格式，直接解析
+    if (text.startsWith('action=')) {
+      return text.replace('action=', '');
+    }
+    
+    // 根据日文按钮文字映射
+    const actionMap = {
+      '手を振る': 'wave_hello',
+      '寄り添う': 'group_support', 
+      'パーソナライズ生成': 'custom_generate',
+      'ポイント購入': 'buy_credits',
+      '友達にシェア': 'share_bot',
+      // 英文版本
+      'wave_hello': 'wave_hello',
+      'group_support': 'group_support',
+      'custom_generate': 'custom_generate', 
+      'buy_credits': 'buy_credits',
+      'share_bot': 'share_bot'
+    };
+    
+    // 寻找匹配的键
+    for (const [key, value] of Object.entries(actionMap)) {
+      if (text.includes(key)) {
+        return value;
+      }
+    }
+    
+    return 'unknown';
   }
 
   // 处理个性化生成中用户输入的自定义prompt
