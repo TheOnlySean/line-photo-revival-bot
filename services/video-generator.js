@@ -130,22 +130,39 @@ class VideoGenerator {
     }
   }
 
-  // 轮询视频生成状态
+  // 轮询视频生成状态 (增强监控版本)
   async pollVideoStatus(lineUserId, taskId, videoRecordId) {
     const maxAttempts = 40; // 最多轮询40次 (约10分钟)
     const pollInterval = 15000; // 每15秒轮询一次
     let attempts = 0;
+    let lastStatus = null;
+
+    console.log('🚀 启动增强轮询监控系统');
+    console.log('📋 轮询参数:', { lineUserId, taskId, videoRecordId, maxAttempts, pollInterval });
 
     const poll = async () => {
       try {
         attempts++;
-        console.log(`🔍 轮询视频状态 (第${attempts}次):`, taskId);
+        const progressPercent = Math.min(Math.round((attempts / maxAttempts) * 100), 95);
+        
+        console.log(`\n🔍 ===== 轮询第 ${attempts}/${maxAttempts} 次 (${progressPercent}%) =====`);
+        console.log(`📋 任务ID: ${taskId}`);
+        console.log(`👤 用户ID: ${lineUserId}`);
+        console.log(`🎬 视频记录ID: ${videoRecordId}`);
 
         const statusResult = await this.getVideoStatus(taskId);
+        console.log('📡 API响应结果:', JSON.stringify(statusResult, null, 2));
 
         if (statusResult.success) {
           const status = statusResult.status;
-          console.log(`📊 任务状态: ${status}`);
+          console.log(`📊 当前状态: "${status}" (上次: "${lastStatus}")`);
+          
+          // 状态变化通知用户
+          if (status !== lastStatus && attempts > 1) {
+            console.log('🔄 状态发生变化，通知用户...');
+            await this.notifyStatusChange(lineUserId, status, attempts, maxAttempts);
+          }
+          lastStatus = status;
 
           switch (status) {
             case 'wait':
@@ -153,12 +170,12 @@ class VideoGenerator {
             case 'generating':
             case 'processing':
               // 继续轮询
-              console.log(`⏳ 视频仍在处理中 (${status})，继续轮询...`);
+              console.log(`⏳ 视频仍在处理中 (${status})，${pollInterval/1000}秒后继续轮询...`);
               if (attempts < maxAttempts) {
                 setTimeout(poll, pollInterval);
               } else {
                 // 超时
-                console.log('⏰ 轮询超时，生成失败');
+                console.log('⏰ 轮询达到最大次数，视频生成超时');
                 await this.handleVideoFailure(lineUserId, videoRecordId, '视频生成超时，请稍后再试');
               }
               break;
@@ -166,15 +183,16 @@ class VideoGenerator {
             case 'success':
             case 'completed':
               // 生成成功
-              console.log('🎉 视频生成成功！准备发送给用户');
+              console.log('🎉 视频生成成功！开始处理完成流程...');
               if (statusResult.videoUrl) {
+                console.log('✅ 找到视频URL，准备发送给用户');
                 await this.handleVideoSuccess(lineUserId, videoRecordId, {
                   videoUrl: statusResult.videoUrl,
                   thumbnailUrl: statusResult.thumbnailUrl || statusResult.imageUrl
                 });
               } else {
-                console.error('⚠️ 生成成功但缺少视频URL');
-                await this.handleVideoFailure(lineUserId, videoRecordId, '生成成功但无法获取视频');
+                console.error('⚠️ 生成成功但缺少视频URL:', statusResult);
+                await this.handleVideoFailure(lineUserId, videoRecordId, '生成成功但无法获取视频URL');
               }
               break;
 
@@ -182,12 +200,14 @@ class VideoGenerator {
             case 'failed':
             case 'error':
               // 生成失败
-              console.log('❌ 视频生成失败:', statusResult.error);
+              console.error('❌ 视频生成失败:', statusResult.error);
+              console.error('❌ 完整状态信息:', statusResult);
               await this.handleVideoFailure(lineUserId, videoRecordId, statusResult.error || '视频生成失败');
               break;
 
             default:
-              console.log('⚠️ 未知状态:', status, '继续轮询...');
+              console.log('⚠️ 未知状态:', status, '将继续轮询...');
+              console.log('⚠️ 完整响应:', statusResult);
               if (attempts < maxAttempts) {
                 setTimeout(poll, pollInterval);
               } else {
@@ -196,19 +216,27 @@ class VideoGenerator {
           }
         } else {
           // 查询状态失败
+          console.error('❌ 查询状态失败:', statusResult.error);
           if (attempts < maxAttempts) {
+            console.log(`🔁 ${pollInterval * 2 / 1000}秒后重试查询...`);
             setTimeout(poll, pollInterval * 2); // 失败时延长间隔
           } else {
+            console.error('❌ 达到最大重试次数，无法获取状态');
             await this.handleVideoFailure(lineUserId, videoRecordId, '无法获取视频生成状态');
           }
         }
 
+        console.log(`===== 轮询第 ${attempts} 次完成 =====\n`);
+
       } catch (error) {
-        console.error('❌ 轮询状态出错:', error);
+        console.error('❌ 轮询过程中发生异常:', error);
+        console.error('❌ 错误堆栈:', error.stack);
         if (attempts < maxAttempts) {
+          console.log(`🔁 ${pollInterval * 2 / 1000}秒后重试轮询...`);
           setTimeout(poll, pollInterval * 2);
         } else {
-          await this.handleVideoFailure(lineUserId, videoRecordId, '视频生成监控失败');
+          console.error('❌ 轮询异常达到最大次数，终止轮询');
+          await this.handleVideoFailure(lineUserId, videoRecordId, '视频生成监控过程异常');
         }
       }
     };
@@ -216,6 +244,44 @@ class VideoGenerator {
     // 立即开始第一次轮询
     console.log('🚀 开始轮询视频生成状态...');
     setTimeout(poll, 3000); // 3秒后第一次轮询
+  }
+
+  // 通知用户状态变化
+  async notifyStatusChange(lineUserId, status, attempts, maxAttempts) {
+    try {
+      const progressPercent = Math.min(Math.round((attempts / maxAttempts) * 100), 95);
+      let message = '';
+
+      switch (status) {
+        case 'queueing':
+          message = `⏳ 動画がキューに追加されました (${progressPercent}%)\n\n順番をお待ちください...`;
+          break;
+        case 'generating':
+        case 'processing':
+          message = `🎬 動画生成中です (${progressPercent}%)\n\n処理を継続しています...`;
+          break;
+        default:
+          return; // 其他状态不通知
+      }
+
+      if (message) {
+        const line = require('@line/bot-sdk');
+        const client = new line.Client({
+          channelSecret: lineConfig.channelSecret,
+          channelAccessToken: lineConfig.channelAccessToken
+        });
+
+        await client.pushMessage(lineUserId, {
+          type: 'text',
+          text: message
+        });
+        console.log('📤 状态变化通知已发送给用户');
+      }
+
+    } catch (error) {
+      console.error('❌ 发送状态变化通知失败:', error.message);
+      // 不抛出错误，避免影响轮询主流程
+    }
   }
 
   // 获取视频生成状态

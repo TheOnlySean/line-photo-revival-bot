@@ -186,50 +186,73 @@ class LineBot {
     }
   }
 
-  // 切换到生成中Rich Menu
-  async switchToProcessingMenu(userId = null) {
+  // 切换到生成中Rich Menu (强制显示)
+  async switchToProcessingMenu(userId) {
     try {
       if (!this.processingRichMenuId) {
         console.log('⚠️ 生成中Rich Menu未设置');
         return false;
       }
 
-      if (userId) {
-        // 为特定用户设置
-        await this.client.linkRichMenuToUser(userId, this.processingRichMenuId);
-        console.log('🔄 用户切换到生成中菜单:', userId);
-      } else {
-        // 设置为默认菜单
-        await this.client.setDefaultRichMenu(this.processingRichMenuId);
-        console.log('🔄 全局切换到生成中菜单');
+      if (!userId) {
+        console.error('❌ 切换到生成中菜单需要用户ID');
+        return false;
       }
+
+      // 强制为用户绑定生成中菜单，确保菜单显示
+      await this.client.linkRichMenuToUser(userId, this.processingRichMenuId);
+      console.log('🔄 已强制绑定生成中菜单给用户:', userId);
+      
+      // 发送确认消息，提醒用户查看菜单
+      await this.client.pushMessage(userId, {
+        type: 'text',
+        text: '🎬 動画生成を開始いたします！\n\n⏳ 下部の「生成中...」メニューで進捗をご確認いただけます。'
+      });
+      
       return true;
     } catch (error) {
-      console.error('❌ 切换到生成中菜单失败:', error);
+      console.error('❌ 切换到生成中菜单失败:', error.message);
       return false;
     }
   }
 
-  // 切换回主要Rich Menu
-  async switchToMainMenu(userId = null) {
+  // 切换回主要Rich Menu (强制显示)
+  async switchToMainMenu(userId) {
     try {
       if (!this.mainRichMenuId) {
         console.log('⚠️ 主要Rich Menu未设置');
         return false;
       }
 
-      if (userId) {
-        // 为特定用户设置
-        await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
-        console.log('🔄 用户切换回主菜单:', userId);
-      } else {
-        // 设置为默认菜单
-        await this.client.setDefaultRichMenu(this.mainRichMenuId);
-        console.log('🔄 全局切换回主菜单');
+      if (!userId) {
+        console.error('❌ 切换回主菜单需要用户ID');
+        return false;
       }
+
+      // 强制为用户绑定主菜单，确保菜单显示
+      await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
+      console.log('🔄 已强制绑定主菜单给用户:', userId);
       return true;
     } catch (error) {
-      console.error('❌ 切换回主菜单失败:', error);
+      console.error('❌ 切换回主菜单失败:', error.message);
+      return false;
+    }
+  }
+
+  // 为新用户自动设置主要Rich Menu
+  async ensureUserHasRichMenu(userId) {
+    try {
+      if (!this.mainRichMenuId) {
+        console.log('⚠️ 主要Rich Menu未设置，跳过自动绑定');
+        return false;
+      }
+
+      // 强制为用户绑定主菜单
+      await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
+      console.log('✅ 已为新用户自动绑定主菜单:', userId);
+      return true;
+    } catch (error) {
+      console.error('❌ 为用户设置Rich Menu失败:', error.message);
       return false;
     }
   }

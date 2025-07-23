@@ -718,6 +718,7 @@ class MessageHandler {
     let user = await this.db.getUserByLineId(lineUserId);
     
     if (!user) {
+      console.log('👤 新用户检测到，开始创建:', lineUserId);
       try {
         const profile = await this.client.getProfile(lineUserId);
         user = await this.db.createLineUser(
@@ -725,10 +726,19 @@ class MessageHandler {
           profile.displayName,
           profile.pictureUrl
         );
+        console.log('✅ 新用户创建成功:', user.id);
       } catch (error) {
         console.error('❌ 创建用户失败:', error);
         // 创建基础用户记录
         user = await this.db.createLineUser(lineUserId, 'LINE用户', null);
+      }
+      
+      // 为新用户自动绑定Rich Menu
+      try {
+        console.log('🎨 为新用户设置Rich Menu...');
+        await this.lineBot.ensureUserHasRichMenu(lineUserId);
+      } catch (menuError) {
+        console.error('⚠️ 设置Rich Menu失败，但不影响主要功能:', menuError.message);
       }
     }
     
