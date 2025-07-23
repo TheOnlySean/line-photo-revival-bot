@@ -151,32 +151,51 @@ class LineBot {
       const processingRichMenuId = await this.client.createRichMenu(processingRichMenu);
       console.log('✅ 生成中Rich Menu创建成功:', processingRichMenuId);
 
+      // 验证Rich Menu ID
+      console.log('🔍 验证Rich Menu ID...');
+      console.log('📋 主菜单ID:', mainRichMenuId);
+      console.log('📋 生成中菜单ID:', processingRichMenuId);
+      
+      if (!mainRichMenuId || !processingRichMenuId) {
+        throw new Error('Rich Menu创建失败：未获得有效的菜单ID');
+      }
+
+      // 稍等一下确保Rich Menu创建完成
+      console.log('⏱️ 等待Rich Menu创建完成...');
+      await this.sleep(2000); // 等待2秒
+
       // 上传Rich Menu图片
       console.log('📤 开始上传Rich Menu图片...');
       try {
         await this.uploadRichMenuImage(mainRichMenuId, 'main');
         console.log('✅ 主菜单图片上传成功');
       } catch (error) {
-        console.log('⚠️ 主菜单图片上传失败，请手动上传:', error.message);
-        console.log('📋 主要菜单ID:', mainRichMenuId);
+        console.error('❌ 主菜单图片上传失败:', error);
+        // 不抛出错误，继续尝试processing图片
       }
 
       try {
         await this.uploadRichMenuImage(processingRichMenuId, 'processing');
         console.log('✅ 生成中菜单图片上传成功');
       } catch (error) {
-        console.log('⚠️ 生成中菜单图片上传失败，请手动上传:', error.message);
-        console.log('📋 生成中菜单ID:', processingRichMenuId);
+        console.error('❌ 生成中菜单图片上传失败:', error);
+        // 不抛出错误，继续执行
       }
 
-      // 设置主菜单为默认Rich Menu
-      await this.client.setDefaultRichMenu(mainRichMenuId);
-      console.log('✅ 主要Rich Menu设置为默认菜单');
-
-      // 保存菜单ID供后续使用
+      // 保存菜单ID供后续使用（即使图片上传失败也要保存）
       this.mainRichMenuId = mainRichMenuId;
       this.processingRichMenuId = processingRichMenuId;
 
+      // 尝试设置主菜单为默认Rich Menu
+      try {
+        await this.client.setDefaultRichMenu(mainRichMenuId);
+        console.log('✅ 主要Rich Menu设置为默认菜单');
+      } catch (error) {
+        console.error('❌ 设置默认Rich Menu失败:', error.message);
+        // 不抛出错误，Rich Menu仍然可以手动使用
+      }
+
+      console.log('🎉 Rich Menu设置完成 (可能图片上传失败，但菜单结构已创建)');
       return { mainRichMenuId, processingRichMenuId };
     } catch (error) {
       console.error('❌ Rich Menu设置失败:', error.message);
@@ -1449,6 +1468,11 @@ class LineBot {
       console.error(`❌ ${imageType} 图片上传失败:`, error.message);
       throw error;
     }
+  }
+
+  // 等待指定毫秒数
+  async sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   // 检查必需的图片文件
