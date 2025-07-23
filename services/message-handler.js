@@ -1841,7 +1841,7 @@ class MessageHandler {
                     },
                     {
                       type: 'text',
-                      text: '手振り動画', // Placeholder
+                      text: '手振り動画',
                       wrap: true,
                       color: '#666666',
                       size: 'sm',
