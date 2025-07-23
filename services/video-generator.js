@@ -24,23 +24,29 @@ class VideoGenerator {
       if (result.success) {
         // 如果有taskId，需要轮询检查状态
         if (result.taskId) {
+          console.log('💾 保存taskId到数据库:', result.taskId);
           // 保存taskId到数据库
           await this.db.updateVideoGeneration(videoRecordId, {
             task_id: result.taskId
           });
 
+          console.log('🚀 启动轮询任务状态检查...');
           // 开始轮询任务状态
           this.pollVideoStatus(lineUserId, result.taskId, videoRecordId);
         } else if (result.videoUrl) {
           // 直接返回了视频URL（同步模式）
+          console.log('✅ 同步模式：直接返回视频URL');
           await this.handleVideoSuccess(lineUserId, videoRecordId, result);
+        } else {
+          console.error('⚠️ API返回成功但无taskId或videoUrl');
+          await this.handleVideoFailure(lineUserId, videoRecordId, '任务提交成功但缺少关键信息');
         }
 
         console.log('✅ 视频生成任务提交成功:', result.taskId || result.videoUrl);
       } else {
         // 生成失败
+        console.error('❌ 任务提交失败:', result.error);
         await this.handleVideoFailure(lineUserId, videoRecordId, result.error);
-        console.error('❌ 视频生成失败:', result.error);
       }
 
     } catch (error) {
@@ -145,34 +151,47 @@ class VideoGenerator {
             case 'wait':
             case 'queueing':
             case 'generating':
+            case 'processing':
               // 继续轮询
+              console.log(`⏳ 视频仍在处理中 (${status})，继续轮询...`);
               if (attempts < maxAttempts) {
                 setTimeout(poll, pollInterval);
               } else {
                 // 超时
+                console.log('⏰ 轮询超时，生成失败');
                 await this.handleVideoFailure(lineUserId, videoRecordId, '视频生成超时，请稍后再试');
               }
               break;
 
             case 'success':
+            case 'completed':
               // 生成成功
-              await this.handleVideoSuccess(lineUserId, videoRecordId, {
-                videoUrl: statusResult.videoUrl,
-                thumbnailUrl: statusResult.thumbnailUrl || statusResult.imageUrl
-              });
+              console.log('🎉 视频生成成功！准备发送给用户');
+              if (statusResult.videoUrl) {
+                await this.handleVideoSuccess(lineUserId, videoRecordId, {
+                  videoUrl: statusResult.videoUrl,
+                  thumbnailUrl: statusResult.thumbnailUrl || statusResult.imageUrl
+                });
+              } else {
+                console.error('⚠️ 生成成功但缺少视频URL');
+                await this.handleVideoFailure(lineUserId, videoRecordId, '生成成功但无法获取视频');
+              }
               break;
 
             case 'fail':
+            case 'failed':
+            case 'error':
               // 生成失败
+              console.log('❌ 视频生成失败:', statusResult.error);
               await this.handleVideoFailure(lineUserId, videoRecordId, statusResult.error || '视频生成失败');
               break;
 
             default:
-              console.log('⚠️ 未知状态:', status);
+              console.log('⚠️ 未知状态:', status, '继续轮询...');
               if (attempts < maxAttempts) {
                 setTimeout(poll, pollInterval);
               } else {
-                await this.handleVideoFailure(lineUserId, videoRecordId, '视频生成状态异常');
+                await this.handleVideoFailure(lineUserId, videoRecordId, `视频生成状态异常: ${status}`);
               }
           }
         } else {
@@ -202,6 +221,8 @@ class VideoGenerator {
   // 获取视频生成状态
   async getVideoStatus(taskId) {
     try {
+      console.log('📡 请求视频状态 API:', `${this.kieAiConfig.baseUrl}${this.kieAiConfig.detailEndpoint}?taskId=${taskId}`);
+      
       const response = await axios.get(
         `${this.kieAiConfig.baseUrl}${this.kieAiConfig.detailEndpoint}`,
         {
@@ -213,17 +234,35 @@ class VideoGenerator {
         }
       );
 
+      console.log('📡 状态API响应:', response.status, response.data);
+
       if (response.data && response.data.code === 200) {
         const data = response.data.data;
+        
+        // KIE.ai API 实际返回格式适配
+        const status = data.state; // 使用 'state' 而不是 'status'
+        const videoInfo = data.videoInfo;
+        const videoUrl = videoInfo?.videoUrl || videoInfo?.url;
+        const thumbnailUrl = videoInfo?.thumbnailUrl || videoInfo?.thumbnail;
+        
+        console.log('✅ 状态解析成功:', {
+          originalState: data.state,
+          mappedStatus: status,
+          hasVideoInfo: !!videoInfo,
+          hasVideoUrl: !!videoUrl,
+          videoInfo: videoInfo
+        });
+        
         return {
           success: true,
-          status: data.status,
-          videoUrl: data.videoUrl,
-          thumbnailUrl: data.thumbnailUrl,
-          imageUrl: data.imageUrl,
-          error: data.error
+          status: status,
+          videoUrl: videoUrl,
+          thumbnailUrl: thumbnailUrl,
+          imageUrl: data.generateParam?.imageUrl,
+          error: data.failMsg || data.error
         };
       } else {
+        console.error('❌ 状态API返回错误:', response.data);
         return {
           success: false,
           error: response.data?.message || '获取状态失败'
@@ -231,7 +270,10 @@ class VideoGenerator {
       }
 
     } catch (error) {
-      console.error('❌ 获取视频状态失败:', error.message);
+      console.error('❌ 获取视频状态API调用失败:', error.message);
+      if (error.response) {
+        console.error('❌ API错误详情:', error.response.status, error.response.data);
+      }
       return {
         success: false,
         error: error.message
@@ -311,26 +353,31 @@ class VideoGenerator {
         channelAccessToken: lineConfig.channelAccessToken
       });
 
+      console.log('📤 开始发送视频给用户:', lineUserId);
+      console.log('🎬 视频URL:', result.videoUrl);
+      console.log('🖼️ 缩略图URL:', result.thumbnailUrl);
+
       await client.pushMessage(lineUserId, [
         {
           type: 'text',
-          text: '🎉 您的AI视频生成完成！\n\n✨ 这是将您的照片转换成生动视频的结果：'
+          text: '🎉 動画生成が完了いたしました！\n\n✨ 素敵な動画をお楽しみください！'
         },
         {
           type: 'video',
           originalContentUrl: result.videoUrl,
-          previewImageUrl: result.thumbnailUrl
+          previewImageUrl: result.thumbnailUrl || result.videoUrl
         },
         {
           type: 'text',
-          text: '💡 喜欢这个效果吗？\n\n上传更多照片继续创作，或者分享给朋友体验吧！'
+          text: '💡 更に動画を作成されたい場合は、下部メニューをご利用ください！'
         }
       ]);
 
-      console.log('✅ 视频已发送给用户:', lineUserId);
+      console.log('✅ 视频消息已成功发送给用户:', lineUserId);
 
     } catch (error) {
-      console.error('❌ 发送视频失败:', error);
+      console.error('❌ 发送视频消息失败:', error);
+      console.error('❌ 错误详情:', error.response?.data || error.message);
       throw error;
     }
   }
@@ -344,15 +391,19 @@ class VideoGenerator {
         channelAccessToken: lineConfig.channelAccessToken
       });
 
+      console.log('📤 发送错误消息给用户:', lineUserId);
+      console.log('❌ 错误内容:', errorMessage);
+
       await client.pushMessage(lineUserId, {
         type: 'text',
-        text: `❌ 视频生成失败\n\n原因: ${errorMessage}\n\n💎 您的点数已返还，请稍后重试或联系客服`
+        text: `❌ 動画生成に失敗いたしました\n\n💰 ポイントを自動返却いたしました。\n\n🔄 しばらくお待ちいただいてから再度お試しください。`
       });
 
-      console.log('📤 错误消息已发送给用户:', lineUserId);
+      console.log('✅ 错误消息已发送给用户:', lineUserId);
 
     } catch (error) {
       console.error('❌ 发送错误消息失败:', error);
+      console.error('❌ 发送错误详情:', error.response?.data || error.message);
     }
   }
 

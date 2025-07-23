@@ -21,7 +21,7 @@ class LineBot {
           width: 2500,
           height: 1686
         },
-        selected: false,
+        selected: true, // 修改为默认显示
         name: "写真復活 Main Menu",
         chatBarText: "メニュー",
         areas: [
@@ -126,7 +126,7 @@ class LineBot {
           width: 2500,
           height: 1686
         },
-        selected: false,
+        selected: true, // 修改为默认显示，确保用户能看到生成状态
         name: "写真復活 Processing Menu",
         chatBarText: "生成中...",
         areas: [
