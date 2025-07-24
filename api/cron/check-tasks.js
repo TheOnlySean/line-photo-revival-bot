@@ -1,6 +1,6 @@
 const line = require('@line/bot-sdk');
 const lineConfig = require('../../config/line-config');
-const Database = require('../../config/database');
+const db = require('../../config/database');
 const LineBot = require('../../services/line-bot');
 const VideoGenerator = require('../../services/video-generator');
 
@@ -13,7 +13,6 @@ module.exports = async (req, res) => {
   }
 
   const startTime = Date.now();
-  const db = new Database();
 
   try {
     console.log('🕒 Cron: 检查视频生成任务开始');
@@ -65,11 +64,5 @@ module.exports = async (req, res) => {
   } catch (error) {
     console.error('❌ Cron 任务失败:', error.message);
     res.status(500).json({ ok: false, error: error.message });
-  } finally {
-    try {
-      await db.end && db.end();
-    } catch (e) {
-      // ignore
-    }
   }
 }; 
