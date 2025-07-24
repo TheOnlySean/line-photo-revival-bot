@@ -36,6 +36,14 @@ class MessageHandler {
         profile.pictureUrl
       );
 
+      // 🔧 检查是否有待发送的视频（用户重新关注时）
+      try {
+        console.log('🔍 检查用户是否有待发送的视频...');
+        await this.videoGenerator.checkAndSendPendingVideos(userId);
+      } catch (pendingError) {
+        console.warn('⚠️ 检查待发送视频失败（不影响关注流程）:', pendingError.message);
+      }
+
       // 记录交互日志
       await this.db.logInteraction(userId, user.id, 'follow', {
         displayName: profile.displayName,
