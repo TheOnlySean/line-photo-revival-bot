@@ -2061,6 +2061,24 @@ class MessageHandler {
       const photoId = data.photo_id;
       console.log('🎁 用户开始免费试用:', { userId: user.id, photoId });
       
+      // 🔧 关键修复：强制清理用户状态，避免停留在"生成中"
+      console.log('🧹 强制清理用户状态，防止卡在"生成中"...');
+      try {
+        // 1. 清理数据库中的用户状态
+        await this.db.clearUserState(user.id);
+        console.log('✅ 用户状态已清理');
+        
+        // 2. 强制切换回主菜单
+        await this.lineBot.switchToMainMenu(user.line_id);
+        console.log('✅ 强制切换回主菜单');
+        
+        // 3. 短暂等待确保状态稳定
+        await this.sleep(1000);
+        console.log('✅ 状态重置完成');
+      } catch (resetError) {
+        console.error('⚠️ 状态重置失败，但继续处理:', resetError.message);
+      }
+      
       // 获取试用照片配置
       const { trialPhotos, trialPhotoDetails } = require('../config/demo-trial-photos');
       const selectedPhoto = trialPhotos.find(photo => photo.id === photoId);
@@ -2095,8 +2113,8 @@ class MessageHandler {
       
       console.log('✅ 免费试用视频发送完成！');
 
-              // 异步记录（不影响用户）
-        this.recordTrialCompletion(user, selectedPhoto).catch(console.error);
+      // 异步记录（不影响用户）
+      this.recordTrialCompletion(user, selectedPhoto).catch(console.error);
 
     } catch (error) {
       console.error('❌ 处理免费试用失败:', error);
@@ -2107,52 +2125,7 @@ class MessageHandler {
     }
   }
 
-  // 处理试用生成失败的情况
-  async handleTrialGenerationFailure(user, selectedPhoto, photoDetails, originalError) {
-    try {
-      console.log('🚑 处理试用生成失败，尝试恢复...');
-      
-      // 尝试切换回主菜单
-      try {
-        await this.lineBot.switchToMainMenu(user.line_id);
-        console.log('✅ 故障恢复：切换回主菜单成功');
-      } catch (menuError) {
-        console.error('❌ 故障恢复：切换菜单失败', menuError.message);
-      }
-      
-      // 尝试发送错误消息给用户
-      try {
-        await this.client.pushMessage(user.line_id, {
-          type: 'text',
-          text: '❌ 無料体験中にエラーが発生しました。もう一度お試しいただくか、下部メニューからお選びください。'
-        });
-        console.log('✅ 故障恢复：错误消息发送成功');
-      } catch (messageError) {
-        console.error('❌ 故障恢复：错误消息发送失败', messageError.message);
-      }
-      
-      // 异步记录错误日志
-      this.recordTrialError(user, selectedPhoto, originalError).catch(logError => {
-        console.error('⚠️ 记录试用错误日志失败:', logError.message);
-      });
-      
-    } catch (error) {
-      console.error('❌ 故障恢复也失败了:', error.message);
-    }
-  }
 
-  // 异步记录试用错误
-  async recordTrialError(user, selectedPhoto, error) {
-    try {
-      await this.db.logInteraction(user.line_id, user.id, 'free_trial_error', {
-        photoId: selectedPhoto.id,
-        error: error.message,
-        success: false
-      });
-    } catch (dbError) {
-      console.error('❌ 无法记录试用错误:', dbError.message);
-    }
-  }
 
   // 等待指定毫秒数（用于模拟生成过程）
   async sleep(ms) {

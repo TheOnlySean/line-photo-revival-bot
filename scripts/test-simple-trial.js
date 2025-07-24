@@ -21,10 +21,19 @@ const mockClient = {
 };
 
 const mockDb = {
-  logInteraction: async () => ({ success: true })
+  logInteraction: async () => ({ success: true }),
+  clearUserState: async (userId) => {
+    console.log(`✅ Mock: 清理用户状态 ${userId}`);
+    return { success: true };
+  }
 };
 
-const mockLineBot = {};
+const mockLineBot = {
+  switchToMainMenu: async (userId) => {
+    console.log(`✅ Mock: 切换到主菜单 ${userId}`);
+    return true;
+  }
+};
 
 async function testSimpleTrial() {
   console.log('🧪 测试超简化免费试用流程');
