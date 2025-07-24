@@ -19,9 +19,9 @@ async function testBlobIntegration() {
       console.log(`   图片URL: ${photo.image_url}`);
       console.log(`   视频URL: ${photo.demo_video_url}`);
       
-      // 验证URL格式
-      const imageValid = photo.image_url.startsWith('https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/');
-      const videoValid = photo.demo_video_url.startsWith('https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/');
+             // 验证URL格式
+       const imageValid = photo.image_url.startsWith('https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/');
+       const videoValid = photo.demo_video_url.startsWith('https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/');
       
       console.log(`   图片URL格式: ${imageValid ? '✅' : '❌'}`);
       console.log(`   视频URL格式: ${videoValid ? '✅' : '❌'}`);
@@ -180,14 +180,18 @@ function showBlobConfiguration() {
 🔗 存储域名:
   https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/
 
-📁 文件结构:
-  demo-files/
-  ├── 1.png (1.13MB) → trial_1 图片
-  ├── 1.mp4 (17.60MB) → trial_1 视频  
-  ├── 2.png (1.09MB) → trial_2 图片
-  ├── 2.mp4 (23.60MB) → trial_2 视频
-  ├── 3.png (1.79MB) → trial_3 图片
-  └── 3.mp4 (17.67MB) → trial_3 视频
+ 📁 文件结构:
+   demo-files/
+   ├── trial/              # 固定试用演示文件（不清理）
+   │   ├── 1.png (1.13MB) → trial_1 图片
+   │   ├── 1.mp4 (17.60MB) → trial_1 视频  
+   │   ├── 2.png (1.09MB) → trial_2 图片
+   │   ├── 2.mp4 (23.60MB) → trial_2 视频
+   │   ├── 3.png (1.79MB) → trial_3 图片
+   │   └── 3.mp4 (17.67MB) → trial_3 视频
+   └── user-uploads/       # 用户上传内容（定期清理）
+       ├── photos/         # 用户上传的照片
+       └── videos/         # 生成的视频
 
 🎯 配置优势:
 ✅ 直接HTTPS访问，LINE API完全兼容

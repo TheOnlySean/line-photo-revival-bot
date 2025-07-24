@@ -31,8 +31,8 @@ async function uploadDemoFilesToBlob() {
       console.log(`   文件大小: ${fileSizeInMB}MB`);
       
       try {
-        // 上传到Vercel Blob
-        const blob = await put(`demo-files/${file}`, fileBuffer, {
+        // 上传到Vercel Blob的trial子文件夹
+        const blob = await put(`demo-files/trial/${file}`, fileBuffer, {
           access: 'public',
           token: BLOB_READ_WRITE_TOKEN,
         });

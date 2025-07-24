@@ -1,11 +1,11 @@
-// 新用户免费试用的示例照片配置（使用Vercel Blob存储）
+// 新用户免费试用的示例照片配置（使用Vercel Blob存储 - trial子文件夹）
 const trialPhotos = [
   {
     id: 'trial_1',
     title: '女性挥手微笑',
     description: '年轻女性自然挥手的温暖场景',
-    image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/1-XGt8EUDjbhUzKSTBLwM8oClWRHJhyT.png',
-    demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/1-6ifmpjZFol0vjCEY4beWXyNb8wnJgs.mp4',
+    image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/1-avVzCLIlMDcxjLFpS5NLqwyUlt3sBm.png',
+    demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/1-kTLJV1Tr2PlM0DHtR4lNc8QoVp7Zdv.mp4',
     type: 'wave',
     credits_demo: 0 // 免费试用
   },
@@ -13,8 +13,8 @@ const trialPhotos = [
     id: 'trial_2', 
     title: '男性友好问候',
     description: '专业男性的亲切问候动作',
-    image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/2-feLg8wLvbncWu2v4XtQa84VbDwT2do.png',
-    demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/2-4FE43Hh7icGMp1wm6SyanISbAVEBjz.mp4', 
+    image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/2-lwqPaIWZj0imE9WuqhFsbH8t6TpgZW.png',
+    demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/2-YqQn4tn1AMrHbOPFJEKsrmxGlKmRxa.mp4', 
     type: 'wave',
     credits_demo: 0 // 免费试用
   },
@@ -22,8 +22,8 @@ const trialPhotos = [
     id: 'trial_3',
     title: '情侣温馨互动',
     description: '温馨的情侣寄り添い场景', 
-    image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/3-oEQwyNyrIGVSDllRoJUBGj2U8Ngaqb.png',
-    demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/3-Xwsyw5LhLicgsHAZOl82VzWONJD2ti.mp4',
+    image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/3-LwaXeLMhrX0tRybxr9K6c4i5CgAKR9.png',
+    demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/3-uDfuUyB0qisch3KEBCUVytFthsSd15.mp4',
     type: 'group',
     credits_demo: 0 // 免费试用
   }
