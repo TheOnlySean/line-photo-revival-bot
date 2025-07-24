@@ -1,11 +1,11 @@
-// 新用户免费试用的示例照片配置
+// 新用户免费试用的示例照片配置（使用Vercel Blob存储）
 const trialPhotos = [
   {
     id: 'trial_1',
     title: '女性挥手微笑',
     description: '年轻女性自然挥手的温暖场景',
-    image_url: '/demo-files/1.png',
-    demo_video_url: '/demo-files/1.mp4',
+    image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/1-XGt8EUDjbhUzKSTBLwM8oClWRHJhyT.png',
+    demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/1-6ifmpjZFol0vjCEY4beWXyNb8wnJgs.mp4',
     type: 'wave',
     credits_demo: 0 // 免费试用
   },
@@ -13,8 +13,8 @@ const trialPhotos = [
     id: 'trial_2', 
     title: '男性友好问候',
     description: '专业男性的亲切问候动作',
-    image_url: '/demo-files/2.png',
-    demo_video_url: '/demo-files/2.mp4', 
+    image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/2-feLg8wLvbncWu2v4XtQa84VbDwT2do.png',
+    demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/2-4FE43Hh7icGMp1wm6SyanISbAVEBjz.mp4', 
     type: 'wave',
     credits_demo: 0 // 免费试用
   },
@@ -22,8 +22,8 @@ const trialPhotos = [
     id: 'trial_3',
     title: '情侣温馨互动',
     description: '温馨的情侣寄り添い场景', 
-    image_url: '/demo-files/3.png',
-    demo_video_url: '/demo-files/3.mp4',
+    image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/3-oEQwyNyrIGVSDllRoJUBGj2U8Ngaqb.png',
+    demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/3-Xwsyw5LhLicgsHAZOl82VzWONJD2ti.mp4',
     type: 'group',
     credits_demo: 0 // 免费试用
   }

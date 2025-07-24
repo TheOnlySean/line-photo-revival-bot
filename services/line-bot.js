@@ -1367,10 +1367,7 @@ class LineBot {
     console.log('🎯 创建带照片预览的免费试用选项...');
     
     const { trialPhotos, trialPhotoDetails } = require('../config/demo-trial-photos');
-    
-    // 获取Vercel部署URL，构建完整的图片URL
-    const baseUrl = this.getBaseUrl();
-    console.log(`🌐 使用基础URL: ${baseUrl}`);
+    console.log(`📸 加载了 ${trialPhotos.length} 张试用照片，使用Vercel Blob存储`);
     
     // 创建带图片预览的Flex Message
     const photoPreviewMessage = {
@@ -1380,18 +1377,14 @@ class LineBot {
         type: 'carousel',
         contents: trialPhotos.map(photo => {
           const details = trialPhotoDetails[photo.id];
-          // 将相对路径转换为完整的HTTPS URL
-          const fullImageUrl = photo.image_url.startsWith('/') 
-            ? `${baseUrl}${photo.image_url}` 
-            : photo.image_url;
           
-          console.log(`📸 图片URL: ${photo.image_url} → ${fullImageUrl}`);
+          console.log(`📸 ${photo.id}: ${photo.image_url}`);
           
           return {
             type: 'bubble',
             hero: {
               type: 'image',
-              url: fullImageUrl,
+              url: photo.image_url, // 现在直接使用Blob URL
               size: 'full',
               aspectRatio: '1:1',
               aspectMode: 'cover'
