@@ -2059,12 +2059,10 @@ class MessageHandler {
   async handleFreeTrialGenerate(event, user, data) {
     try {
       const photoId = data.photo_id;
-      const type = data.type;
-      
-      console.log('🎁 用户开始免费试用:', { userId: user.id, photoId, type });
+      console.log('🎁 用户开始免费试用:', { userId: user.id, photoId });
       
       // 获取试用照片配置
-      const { trialPhotos, trialPhotoDetails, trialFlowConfig } = require('../config/demo-trial-photos');
+      const { trialPhotos, trialPhotoDetails } = require('../config/demo-trial-photos');
       const selectedPhoto = trialPhotos.find(photo => photo.id === photoId);
       const photoDetails = trialPhotoDetails[photoId];
       
@@ -2076,141 +2074,13 @@ class MessageHandler {
         return;
       }
 
-      // 立即切换到处理中Rich Menu
-      console.log('🔄 切换到处理中菜单...');
-      await this.lineBot.switchToProcessingMenu(user.line_id);
+      console.log('📤 立即发送试用视频，不等待任何东西');
       
-      // 发送开始生成的消息
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: `🎬 ${photoDetails.title}の無料体験を開始いたします！\n\n⏳ 生成中...下部の「生成中...」メニューで進捗をご確認いただけます。`
-      });
-
-      // 记录试用开始
-      await this.db.logInteraction(user.line_id, user.id, 'free_trial_started', {
-        photoId: photoId,
-        type: type,
-        photoTitle: photoDetails.title
-      });
-
-      // 开始模拟生成过程（必须使用await确保在serverless环境中正常工作）
-      await this.simulateTrialGeneration(user, selectedPhoto, photoDetails, trialFlowConfig);
-
-    } catch (error) {
-      console.error('❌ 处理免费试用失败:', error);
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '❌ 無料体験の開始に失敗しました。しばらくお待ちいただいてから再度お試しください。'
-      });
-    }
-  }
-
-  // 模拟试用生成过程（优化为10秒快速体验，增强错误处理）
-  async simulateTrialGeneration(user, selectedPhoto, photoDetails, trialFlowConfig) {
-    const startTime = Date.now();
-    const TIMEOUT_MS = 15000; // 15秒超时保护
-    const VERCEL_TIMEOUT_MS = 50000; // Vercel 60秒限制，留10秒缓冲
-    
-    try {
-      console.log('🎭 开始模拟生成过程 (10秒快速体验)...');
-      
-      // 检查是否接近Vercel函数超时
-      const timeElapsed = Date.now() - (global.webhookStartTime || startTime);
-      if (timeElapsed > VERCEL_TIMEOUT_MS) {
-        console.warn('⚠️ 接近Vercel函数超时限制，启用紧急模式');
-        await this.emergencyTrialCompletion(user, selectedPhoto, photoDetails);
-        return;
-      }
-      
-      // 包装核心流程在超时保护中
-      const coreProcess = this.simulateTrialGenerationCore(user, selectedPhoto, photoDetails, trialFlowConfig);
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('免费试用超时')), TIMEOUT_MS);
-      });
-      
-      await Promise.race([coreProcess, timeoutPromise]);
-      
-      const duration = Date.now() - startTime;
-      console.log(`✅ 免费试用完成，总耗时: ${duration}ms`);
-      
-    } catch (error) {
-      const duration = Date.now() - startTime;
-      console.error('❌ 免费试用流程失败:', { error: error.message, duration: `${duration}ms` });
-      
-      // 即使出错也要尝试发送视频和恢复状态
-      await this.handleTrialGenerationFailure(user, selectedPhoto, photoDetails, error);
-    }
-  }
-
-  // 紧急试用完成（当接近Vercel超时时使用）
-  async emergencyTrialCompletion(user, selectedPhoto, photoDetails) {
-    try {
-      console.log('🚨 执行紧急试用完成流程...');
-      
-      // 立即发送视频，跳过所有延迟
-      await this.sendTrialCompletionVideo(user, selectedPhoto, photoDetails);
-      
-      console.log('✅ 紧急模式：试用完成');
-      
-    } catch (error) {
-      console.error('❌ 紧急模式也失败:', error);
-      
-      // 最后的努力：至少通知用户
-      try {
-        await this.client.pushMessage(user.line_id, {
-          type: 'text',
-          text: '⚡ 処理中にタイムアウトが発生しました。もう一度お試しください。'
-        });
-      } catch (finalError) {
-        console.error('❌ 最终通知也失败:', finalError);
-      }
-    }
-  }
-
-  // 核心试用生成流程（与数据库操作分离）
-  async simulateTrialGenerationCore(user, selectedPhoto, photoDetails, trialFlowConfig) {
-    // 🔧 优化：立即发送视频，避免用户等待时取消关注
-    console.log('🚀 优化流程：立即发送试用视频给用户');
-    await this.sendTrialCompletionVideo(user, selectedPhoto, photoDetails);
-    
-    console.log('✅ 免费试用视频已发送，后续为可选的用户体验优化');
-    
-    // 以下为用户体验优化（即使失败也不影响核心功能）
-    try {
-      // 短暂延迟后发送体验优化消息
-      await this.sleep(2000);
-      await this.client.pushMessage(user.line_id, {
-        type: 'text',
-        text: '🎬 希望您喜欢这个AI生成的视频效果！'
-      });
-      console.log('✅ 发送体验优化消息');
-      
-      await this.sleep(3000);
-      await this.client.pushMessage(user.line_id, {
-        type: 'text',
-        text: '💡 想要用您自己的照片制作视频吗？请点击下方菜单选择功能！'
-      });
-      console.log('✅ 发送引导消息');
-      
-    } catch (error) {
-      console.error('⚠️ 体验优化消息发送失败（不影响核心功能）:', error.message);
-    }
-  }
-
-  // 发送试用完成视频（独立函数，确保可靠性）
-  async sendTrialCompletionVideo(user, selectedPhoto, photoDetails) {
-    try {
-      console.log('🎬 开始发送完成视频...');
-      
-      // 切换回主菜单（不依赖数据库）
-      await this.lineBot.switchToMainMenu(user.line_id);
-      console.log('✅ 切换回主菜单成功');
-      
-      // 发送完成的视频（核心功能）
-      await this.client.pushMessage(user.line_id, [
+      // 🔧 修复：最简单直接的方式发送视频
+      await this.client.replyMessage(event.replyToken, [
         {
           type: 'text',
-          text: `🎉 ${photoDetails.title}の無料体験動画が完成いたしました！\n\n✨ AIが生成した素敵な動画をお楽しみください！`
+          text: `🎉 ${photoDetails.title}の無料体験動画です！`
         },
         {
           type: 'video',
@@ -2219,53 +2089,21 @@ class MessageHandler {
         },
         {
           type: 'text',
-          text: '🎁 無料体験をお楽しみいただけましたでしょうか？\n\n📸 お客様の写真で動画を作成されたい場合は、下部メニューからお選びください！\n\n💎 より多くの動画生成には、ポイント購入をご検討ください。'
+          text: '✨ いかがでしたか？ご自身の写真で動画を作成されたい場合は、下部メニューからお選びください！'
         }
       ]);
-      console.log('✅ 完成视频发送成功');
+      
+      console.log('✅ 免费试用视频发送完成！');
 
-      // 异步记录交互日志（不影响主流程）
-      this.recordTrialCompletion(user, selectedPhoto).catch(error => {
-        console.error('⚠️ 记录试用完成日志失败（不影响用户体验）:', error.message);
+              // 异步记录（不影响用户）
+        this.recordTrialCompletion(user, selectedPhoto).catch(console.error);
+
+    } catch (error) {
+      console.error('❌ 处理免费试用失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 無料体験の開始に失敗しました。しばらくお待ちいただいてから再度お試しください。'
       });
-
-      console.log('✅ 免费试用完成:', selectedPhoto.title);
-
-    } catch (error) {
-      console.error('❌ 发送试用完成视频失败:', error);
-      throw error; // 重新抛出，让调用方处理
-    }
-  }
-
-  // 异步记录试用完成（独立函数，失败不影响主流程）
-  async recordTrialCompletion(user, selectedPhoto) {
-    try {
-      // 重试机制：数据库连接可能在sleep期间断开
-      let retries = 3;
-      while (retries > 0) {
-        try {
-          await this.db.logInteraction(user.line_id, user.id, 'free_trial_completed', {
-            photoId: selectedPhoto.id,
-            type: selectedPhoto.type,
-            videoUrl: selectedPhoto.demo_video_url,
-            success: true
-          });
-          console.log('✅ 试用完成日志记录成功');
-          break;
-        } catch (dbError) {
-          retries--;
-          console.error(`❌ 数据库记录失败，剩余重试次数: ${retries}`, dbError.message);
-          
-          if (retries > 0) {
-            await this.sleep(1000); // 等1秒后重试
-          } else {
-            throw dbError;
-          }
-        }
-      }
-    } catch (error) {
-      console.error('❌ 最终无法记录试用完成日志:', error.message);
-      // 不抛出错误，因为这不应该影响用户体验
     }
   }
 
@@ -2319,6 +2157,20 @@ class MessageHandler {
   // 等待指定毫秒数（用于模拟生成过程）
   async sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // 简单的异步记录试用完成
+  async recordTrialCompletion(user, selectedPhoto) {
+    try {
+      await this.db.logInteraction(user.line_id, user.id, 'free_trial_completed', {
+        photoId: selectedPhoto.id,
+        videoUrl: selectedPhoto.demo_video_url,
+        success: true
+      });
+      console.log('✅ 试用完成日志记录成功');
+    } catch (error) {
+      console.error('⚠️ 记录试用完成日志失败（不影响用户体验）:', error.message);
+    }
   }
 }
 
