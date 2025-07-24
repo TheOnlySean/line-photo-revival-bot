@@ -164,14 +164,15 @@ class LineBot {
         throw new Error('Rich Menu创建失败：未获得有效的菜单ID');
       }
 
-      // 稍等一下确保Rich Menu创建完成
+      // 等待Rich Menu创建完成并验证可用性
       console.log('⏱️ 等待Rich Menu创建完成...');
-      await this.sleep(2000); // 等待2秒
+      await this.waitForRichMenuReady(mainRichMenuId, 'main');
+      await this.waitForRichMenuReady(processingRichMenuId, 'processing');
 
-      // 上传Rich Menu图片
+      // 上传Rich Menu图片（带重试机制）
       console.log('📤 开始上传Rich Menu图片...');
       try {
-        await this.uploadRichMenuImage(mainRichMenuId, 'main');
+        await this.uploadRichMenuImageWithRetry(mainRichMenuId, 'main');
         console.log('✅ 主菜单图片上传成功');
       } catch (error) {
         console.error('❌ 主菜单图片上传失败:', error);
@@ -179,7 +180,7 @@ class LineBot {
       }
 
       try {
-        await this.uploadRichMenuImage(processingRichMenuId, 'processing');
+        await this.uploadRichMenuImageWithRetry(processingRichMenuId, 'processing');
         console.log('✅ 生成中菜单图片上传成功');
       } catch (error) {
         console.error('❌ 生成中菜单图片上传失败:', error);
@@ -1612,6 +1613,71 @@ class LineBot {
   // 等待指定毫秒数
   async sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // 等待Rich Menu准备就绪
+  async waitForRichMenuReady(richMenuId, menuType) {
+    const maxRetries = 10;
+    const retryDelay = 2000; // 2秒
+    
+    console.log(`⏳ 等待 ${menuType} Rich Menu (${richMenuId}) 准备就绪...`);
+    
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        // 尝试获取Rich Menu信息来验证其存在
+        const richMenu = await this.client.getRichMenu(richMenuId);
+        
+        if (richMenu && richMenu.richMenuId === richMenuId) {
+          console.log(`✅ ${menuType} Rich Menu 已准备就绪 (尝试 ${i + 1}/${maxRetries})`);
+          await this.sleep(1000); // 额外等待1秒确保完全可用
+          return true;
+        }
+      } catch (error) {
+        console.log(`⏳ ${menuType} Rich Menu 未准备就绪 (尝试 ${i + 1}/${maxRetries}): ${error.message}`);
+      }
+      
+      if (i < maxRetries - 1) {
+        await this.sleep(retryDelay);
+      }
+    }
+    
+    console.warn(`⚠️ ${menuType} Rich Menu 准备超时，继续尝试上传图片...`);
+    return false;
+  }
+
+  // 带重试机制的图片上传
+  async uploadRichMenuImageWithRetry(richMenuId, imageType) {
+    const maxRetries = 3;
+    const retryDelay = 3000; // 3秒
+    
+    for (let i = 0; i < maxRetries; i++) {
+      try {
+        console.log(`📤 尝试上传 ${imageType} 图片 (尝试 ${i + 1}/${maxRetries})...`);
+        await this.uploadRichMenuImage(richMenuId, imageType);
+        console.log(`✅ ${imageType} 图片上传成功！`);
+        return true;
+      } catch (error) {
+        console.error(`❌ ${imageType} 图片上传失败 (尝试 ${i + 1}/${maxRetries}):`, error.message);
+        
+        // 如果是404错误且不是最后一次尝试，等待更长时间
+        if (error.statusCode === 404 && i < maxRetries - 1) {
+          console.log(`⏳ Rich Menu可能未完全准备就绪，等待 ${retryDelay}ms 后重试...`);
+          await this.sleep(retryDelay);
+          
+          // 在重试前再次验证Rich Menu存在
+          try {
+            await this.client.getRichMenu(richMenuId);
+            console.log(`✅ Rich Menu ${richMenuId} 验证存在，继续重试上传...`);
+          } catch (verifyError) {
+            console.error(`❌ Rich Menu验证失败:`, verifyError.message);
+          }
+        } else if (i === maxRetries - 1) {
+          throw error; // 最后一次尝试失败，抛出错误
+        }
+      }
+    }
+    
+    return false;
   }
 
   // 创建照片上传Quick Reply
