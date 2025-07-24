@@ -33,8 +33,10 @@ class MessageHandler {
         pictureUrl: profile.pictureUrl
       });
 
-      // 发送欢迎消息
+      // 发送欢迎消息和免费试用选项
+      console.log('🎁 开始发送欢迎消息和免费试用选项给新用户:', userId);
       await this.lineBot.sendWelcomeMessage(event.replyToken, userId);
+      console.log('✅ 欢迎消息发送完成');
 
     } catch (error) {
       console.error('❌ 处理添加好友事件失败:', error);

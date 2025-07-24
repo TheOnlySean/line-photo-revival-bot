@@ -1302,24 +1302,30 @@ class LineBot {
 
     await this.client.replyMessage(replyToken, welcomeMessages);
     
-    // 延迟发送免费体验选项
-    setTimeout(async () => {
-      try {
-        await this.sendFreeTrialOptions(userId);
-      } catch (error) {
-        console.error('❌ 发送试用选项失败:', error);
-      }
-    }, 3000); // 3秒后发送
+    // 立即发送免费体验选项（Vercel serverless环境不支持setTimeout）
+    console.log('🎁 立即发送免费试用选项给用户:', userId);
+    try {
+      await this.sendFreeTrialOptions(userId);
+      console.log('✅ 免费试用选项发送成功');
+    } catch (error) {
+      console.error('❌ 发送试用选项失败:', error);
+    }
   }
 
   // 发送免费试用选项
   async sendFreeTrialOptions(userId) {
+    console.log('🎁 开始发送免费试用选项给用户:', userId);
+    
     const { trialPhotos } = require('../config/demo-trial-photos');
+    console.log(`📸 加载了 ${trialPhotos.length} 张试用照片`);
     
     try {
       // 创建试用照片选择卡片
+      console.log('🎨 创建试用照片Carousel...');
       const trialCarousel = this.createTrialPhotoCarousel(trialPhotos);
+      console.log('✅ Carousel创建成功');
       
+      console.log('📤 发送pushMessage给用户:', userId);
       await this.client.pushMessage(userId, [
         {
           type: 'text',
@@ -1327,14 +1333,25 @@ class LineBot {
         },
         trialCarousel
       ]);
+      console.log('✅ 免费试用选项推送成功');
       
     } catch (error) {
       console.error('❌ 发送试用选项失败:', error);
-      // 发送简化版本
-      await this.client.pushMessage(userId, {
-        type: 'text',
-        text: '🎁 無料体験をご希望の場合は、下部メニューからお気軽にお選びください！'
-      });
+      console.error('❌ 错误详情:', error.message);
+      console.error('❌ 用户ID:', userId);
+      console.error('❌ 错误代码:', error.statusCode);
+      
+      // 发送简化版本作为备选
+      try {
+        console.log('🔄 发送简化版试用提示...');
+        await this.client.pushMessage(userId, {
+          type: 'text',
+          text: '🎁 無料体験をご希望の場合は、下部メニューからお気軽にお選びください！'
+        });
+        console.log('✅ 简化版试用提示发送成功');
+      } catch (fallbackError) {
+        console.error('❌ 简化版试用提示也发送失败:', fallbackError);
+      }
     }
   }
 
