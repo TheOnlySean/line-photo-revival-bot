@@ -1368,6 +1368,10 @@ class LineBot {
     
     const { trialPhotos, trialPhotoDetails } = require('../config/demo-trial-photos');
     
+    // 获取Vercel部署URL，构建完整的图片URL
+    const baseUrl = this.getBaseUrl();
+    console.log(`🌐 使用基础URL: ${baseUrl}`);
+    
     // 创建带图片预览的Flex Message
     const photoPreviewMessage = {
       type: 'flex',
@@ -1376,11 +1380,18 @@ class LineBot {
         type: 'carousel',
         contents: trialPhotos.map(photo => {
           const details = trialPhotoDetails[photo.id];
+          // 将相对路径转换为完整的HTTPS URL
+          const fullImageUrl = photo.image_url.startsWith('/') 
+            ? `${baseUrl}${photo.image_url}` 
+            : photo.image_url;
+          
+          console.log(`📸 图片URL: ${photo.image_url} → ${fullImageUrl}`);
+          
           return {
             type: 'bubble',
             hero: {
               type: 'image',
-              url: photo.image_url,
+              url: fullImageUrl,
               size: 'full',
               aspectRatio: '1:1',
               aspectMode: 'cover'
@@ -2011,6 +2022,27 @@ class LineBot {
     }
     
     return results;
+  }
+
+  // 获取基础URL，用于构建完整的静态文件URL
+  getBaseUrl() {
+    // 优先使用VERCEL_URL环境变量
+    if (process.env.VERCEL_URL) {
+      return `https://${process.env.VERCEL_URL}`;
+    }
+    
+    // 尝试其他Vercel环境变量
+    if (process.env.VERCEL_PROJECT_PRODUCTION_URL) {
+      return `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`;
+    }
+    
+    // 开发环境或其他情况的fallback
+    if (process.env.NODE_ENV === 'development') {
+      return 'http://localhost:3000';
+    }
+    
+    // 最终fallback - 需要根据实际部署域名调整
+    return 'https://line-photo-revival-bot.vercel.app';
   }
 }
 
