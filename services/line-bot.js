@@ -1409,7 +1409,7 @@ class LineBot {
                 },
                 {
                   type: 'text',
-                  text: '⏱️ 生成時間: 約20秒',
+                  text: '⏱️ 生成時間: 約10秒',
                   size: 'xs',
                   color: '#999999',
                   margin: 'md'

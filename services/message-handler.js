@@ -2093,51 +2093,37 @@ class MessageHandler {
     }
   }
 
-  // 模拟试用生成过程（使用await替代setTimeout，兼容serverless环境）
+  // 模拟试用生成过程（优化为10秒快速体验）
   async simulateTrialGeneration(user, selectedPhoto, photoDetails, trialFlowConfig) {
     try {
-      console.log('🎭 开始模拟生成过程 (20秒)...');
+      console.log('🎭 开始模拟生成过程 (10秒快速体验)...');
       
-      // 使用await + sleep的方式替代setTimeout，确保在serverless环境中正确工作
-      
-      // 5秒后：第一个进度更新
-      await this.sleep(5000);
+      // 3秒后：第一个进度更新
+      await this.sleep(3000);
       try {
         await this.client.pushMessage(user.line_id, {
           type: 'text',
           text: '🎬 AI正在分析您选择的照片...'
         });
-        console.log('✅ 发送第一个进度更新 (5秒)');
+        console.log('✅ 发送第一个进度更新 (3秒)');
       } catch (error) {
         console.error('❌ 发送进度更新1失败:', error);
       }
 
-      // 10秒后：第二个进度更新
-      await this.sleep(5000); // 再等5秒，总共10秒
+      // 6秒后：第二个进度更新
+      await this.sleep(3000); // 再等3秒，总共6秒
       try {
         await this.client.pushMessage(user.line_id, {
           type: 'text',
           text: '🎨 正在生成动态效果...'
         });
-        console.log('✅ 发送第二个进度更新 (10秒)');
+        console.log('✅ 发送第二个进度更新 (6秒)');
       } catch (error) {
         console.error('❌ 发送进度更新2失败:', error);
       }
 
-      // 15秒后：第三个进度更新
-      await this.sleep(5000); // 再等5秒，总共15秒
-      try {
-        await this.client.pushMessage(user.line_id, {
-          type: 'text',
-          text: '✨ 最终优化中，即将完成...'
-        });
-        console.log('✅ 发送第三个进度更新 (15秒)');
-      } catch (error) {
-        console.error('❌ 发送进度更新3失败:', error);
-      }
-
-      // 20秒后：发送完成视频
-      await this.sleep(5000); // 再等5秒，总共20秒
+      // 10秒后：发送完成视频（跳过第三个进度更新以加快体验）
+      await this.sleep(4000); // 再等4秒，总共10秒
       try {
         console.log('🎬 开始发送完成视频...');
         
