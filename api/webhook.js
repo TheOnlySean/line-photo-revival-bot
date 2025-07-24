@@ -58,6 +58,8 @@ async function handleEvent(event) {
  * Vercel Serverless Function 入口
  */
 module.exports = async function handler(req, res) {
+  // 🔧 修复: 设置全局计时器，用于超时检测
+  global.webhookStartTime = Date.now();
   console.log('🔔 Webhook被调用:', req.method, req.url);
   
   // CORS headers
