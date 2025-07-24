@@ -16,6 +16,15 @@ class MessageHandler {
     console.log('👋 新用户添加好友:', userId);
 
     try {
+      // 🔧 修复: 立即清理用户相关的所有状态，防止旧任务干扰
+      console.log('🧹 清理用户状态和pending任务...');
+      
+      // 清理全局pending状态
+      if (global.pendingAction && global.pendingAction.userId === userId) {
+        console.log('🗑️ 清理用户的全局pending动作');
+        global.pendingAction = null;
+      }
+      
       // 获取用户资料
       const profile = await this.client.getProfile(userId);
       console.log('👤 用户资料:', profile);
@@ -553,39 +562,42 @@ class MessageHandler {
       // 发送处理中消息
       await this.lineBot.sendProcessingMessage(event.replyToken);
 
-      // 延迟发送，模拟真实处理时间
-      setTimeout(async () => {
-        try {
-          await this.client.pushMessage(user.line_id, [
-            {
-              type: 'text',
-              text: `✅ 视频生成完成！\n\n📸 ${demo.title}\n🎬 这是您的AI生成视频：`
-            },
-            {
-              type: 'video',
-              originalContentUrl: demo.video_url,
-              previewImageUrl: demo.image_url
-            },
-            {
-              type: 'text',
-              text: '🎉 体验完成！\n\n💎 想要生成更多个性化视频？\n请点击"充值点数"购买点数后上传您的照片'
-            }
-          ]);
-
-          // 记录交互
-          await this.db.logInteraction(user.line_id, user.id, 'demo_generate', {
-            demoId: demo.id,
-            demoTitle: demo.title
-          });
-
-        } catch (error) {
-          console.error('❌ 发送演示视频失败:', error);
-          await this.client.pushMessage(user.line_id, {
+      // 🔧 修复: 使用await替代setTimeout，避免异步任务泄漏
+      console.log('⏳ 等待3秒模拟处理时间...');
+      await this.sleep(3000);
+      
+      try {
+        console.log('📤 发送演示视频给用户:', user.line_id);
+        await this.client.pushMessage(user.line_id, [
+          {
             type: 'text',
-            text: '❌ 视频发送失败，请稍后再试'
-          });
-        }
-      }, 3000); // 3秒后发送
+            text: `✅ 视频生成完成！\n\n📸 ${demo.title}\n🎬 这是您的AI生成视频：`
+          },
+          {
+            type: 'video',
+            originalContentUrl: demo.video_url,
+            previewImageUrl: demo.image_url
+          },
+          {
+            type: 'text',
+            text: '🎉 体验完成！\n\n💎 想要生成更多个性化视频？\n请点击"充值点数"购买点数后上传您的照片'
+          }
+        ]);
+        console.log('✅ 演示视频发送成功');
+
+        // 记录交互
+        await this.db.logInteraction(user.line_id, user.id, 'demo_generate', {
+          demoId: demo.id,
+          demoTitle: demo.title
+        });
+
+      } catch (error) {
+        console.error('❌ 发送演示视频失败:', error);
+        await this.client.pushMessage(user.line_id, {
+          type: 'text',
+          text: '❌ 视频发送失败，请稍后再试'
+        });
+      }
 
     } catch (error) {
       console.error('❌ 处理演示生成失败:', error);
@@ -913,9 +925,9 @@ class MessageHandler {
       console.log('💰 扣除点数:', creditsNeeded);
       await this.db.updateUserCredits(user.id, -creditsNeeded);
       
-      // 异步开始视频生成
+      // 异步开始视频生成（await确保任务启动）
       console.log('🎬 开始视频生成流程...');
-      this.startVideoGenerationWithPrompt(user, imageUrl, prompt, creditsNeeded);
+      await this.startVideoGenerationWithPrompt(user, imageUrl, prompt, creditsNeeded);
 
       await this.db.logInteraction(user.line_user_id, user.id, 'preset_video_generation_started', {
         imageUrl: imageUrl,
@@ -962,8 +974,8 @@ class MessageHandler {
       console.log('💰 扣除点数:', creditsNeeded);
       await this.db.updateUserCredits(user.id, -creditsNeeded);
       
-      // 异步开始视频生成
-      this.startVideoGenerationWithPrompt(user, imageUrl, customPrompt, creditsNeeded);
+      // 异步开始视频生成（await确保任务启动）
+      await this.startVideoGenerationWithPrompt(user, imageUrl, customPrompt, creditsNeeded);
 
       await this.db.logInteraction(user.line_id, user.id, 'custom_video_generation_started', {
         imageUrl: imageUrl,
@@ -1393,8 +1405,8 @@ class MessageHandler {
         text: '🎬 手振り動画の生成を開始いたします！\n\n⏱️ 生成には約30-60秒かかります。完成次第お送りいたします。'
       });
 
-      // 异步生成视频
-      this.generateVideoAsync(user, imageUrl, 'wave');
+      // 异步生成视频（必须await确保任务启动）
+      await this.generateVideoAsync(user, imageUrl, 'wave');
       
     } catch (error) {
       console.error('❌ 处理挥手生成确认失败:', error);
@@ -1431,8 +1443,8 @@ class MessageHandler {
         text: '🎬 寄り添い動画の生成を開始いたします！\n\n⏱️ 生成には約30-60秒かかります。完成次第お送りいたします。'
       });
 
-      // 异步生成视频
-      this.generateVideoAsync(user, imageUrl, 'group');
+      // 异步生成视频（必须await确保任务启动）
+      await this.generateVideoAsync(user, imageUrl, 'group');
       
     } catch (error) {
       console.error('❌ 处理肩并肩生成确认失败:', error);
@@ -2081,8 +2093,8 @@ class MessageHandler {
         photoTitle: photoDetails.title
       });
 
-      // 开始模拟生成过程
-      this.simulateTrialGeneration(user, selectedPhoto, photoDetails, trialFlowConfig);
+      // 开始模拟生成过程（必须使用await确保在serverless环境中正常工作）
+      await this.simulateTrialGeneration(user, selectedPhoto, photoDetails, trialFlowConfig);
 
     } catch (error) {
       console.error('❌ 处理免费试用失败:', error);
