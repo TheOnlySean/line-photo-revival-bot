@@ -302,13 +302,14 @@ class VideoGenerator {
         const status = data.state; // 使用 'state' 而不是 'status'
         const videoInfo = data.videoInfo;
         const videoUrl = videoInfo?.videoUrl || videoInfo?.url;
-        const thumbnailUrl = videoInfo?.thumbnailUrl || videoInfo?.thumbnail;
+        const thumbnailUrl = videoInfo?.imageUrl || videoInfo?.thumbnailUrl || videoInfo?.thumbnail; // 🔧 修复：imageUrl是缩略图
         
         console.log('✅ 状态解析成功:', {
           originalState: data.state,
           mappedStatus: status,
           hasVideoInfo: !!videoInfo,
           hasVideoUrl: !!videoUrl,
+          hasThumbnailUrl: !!thumbnailUrl, // 🔧 添加缩略图检查
           videoInfo: videoInfo
         });
         
