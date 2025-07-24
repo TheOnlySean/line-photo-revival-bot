@@ -13,10 +13,22 @@ class LineBot {
     this.processingRichMenuId = 'richmenu-9354f62c81779579ec5f13747ca4c80f';
   }
 
-  // 设置Rich Menu
+  // 设置Rich Menu（稳定优先策略）
   async setupRichMenu() {
     try {
-      // 删除现有的Rich Menu (如果存在)
+      // 预验证图片文件
+      if (!await this.validateRichMenuImages()) {
+        throw new Error('Rich Menu图片验证失败');
+      }
+
+      // 检查是否可以重用现有Rich Menu
+      const reuseResult = await this.tryReuseExistingRichMenus();
+      if (reuseResult.success) {
+        console.log('✅ 成功重用现有Rich Menu');
+        return;
+      }
+
+      // 删除无效的Rich Menu
       await this.deleteExistingRichMenus();
 
       // Rich Menu配置（按照官方文档格式）
@@ -164,41 +176,9 @@ class LineBot {
         throw new Error('Rich Menu创建失败：未获得有效的菜单ID');
       }
 
-      // 等待Rich Menu创建完成并验证可用性
-      console.log('⏱️ 等待Rich Menu创建完成...');
-      await this.waitForRichMenuReady(mainRichMenuId, 'main');
-      await this.waitForRichMenuReady(processingRichMenuId, 'processing');
-
-      // 上传Rich Menu图片（带重试机制）
-      console.log('📤 开始上传Rich Menu图片...');
-      try {
-        await this.uploadRichMenuImageWithRetry(mainRichMenuId, 'main');
-        console.log('✅ 主菜单图片上传成功');
-      } catch (error) {
-        console.error('❌ 主菜单图片上传失败:', error);
-        // 不抛出错误，继续尝试processing图片
-      }
-
-      try {
-        await this.uploadRichMenuImageWithRetry(processingRichMenuId, 'processing');
-        console.log('✅ 生成中菜单图片上传成功');
-      } catch (error) {
-        console.error('❌ 生成中菜单图片上传失败:', error);
-        // 不抛出错误，继续执行
-      }
-
-      // 保存菜单ID供后续使用（即使图片上传失败也要保存）
-      this.mainRichMenuId = mainRichMenuId;
-      this.processingRichMenuId = processingRichMenuId;
-
-      // 尝试设置主菜单为默认Rich Menu
-      try {
-        await this.client.setDefaultRichMenu(mainRichMenuId);
-        console.log('✅ 主要Rich Menu设置为默认菜单');
-      } catch (error) {
-        console.error('❌ 设置默认Rich Menu失败:', error.message);
-        // 不抛出错误，Rich Menu仍然可以手动使用
-      }
+      // 使用原子化操作设置Rich Menu
+      console.log('⚡ 开始原子化Rich Menu设置...');
+      await this.atomicRichMenuSetup(mainRichMenuId, processingRichMenuId);
 
       console.log('🎉 Rich Menu设置完成 (可能图片上传失败，但菜单结构已创建)');
       return { mainRichMenuId, processingRichMenuId };
@@ -1678,6 +1658,185 @@ class LineBot {
     }
     
     return false;
+  }
+
+  // 验证Rich Menu图片
+  async validateRichMenuImages() {
+    console.log('🔍 验证Rich Menu图片...');
+    
+    const fs = require('fs');
+    const path = require('path');
+    
+    const images = [
+      { name: 'main', path: path.join(__dirname, '../assets/richmenu-main.png'), maxSize: 1024 * 1024 },
+      { name: 'processing', path: path.join(__dirname, '../assets/richmenu-processing.png'), maxSize: 1024 * 1024 }
+    ];
+    
+    for (const image of images) {
+      try {
+        if (!fs.existsSync(image.path)) {
+          console.error(`❌ ${image.name}图片不存在: ${image.path}`);
+          return false;
+        }
+        
+        const stats = fs.statSync(image.path);
+        if (stats.size > image.maxSize) {
+          console.error(`❌ ${image.name}图片过大: ${(stats.size / 1024).toFixed(2)}KB > ${image.maxSize / 1024}KB`);
+          return false;
+        }
+        
+        if (!image.path.endsWith('.png') && !image.path.endsWith('.jpg') && !image.path.endsWith('.jpeg')) {
+          console.error(`❌ ${image.name}图片格式不支持: ${image.path}`);
+          return false;
+        }
+        
+        console.log(`✅ ${image.name}图片验证通过: ${(stats.size / 1024).toFixed(2)}KB`);
+      } catch (error) {
+        console.error(`❌ ${image.name}图片验证失败:`, error.message);
+        return false;
+      }
+    }
+    
+    console.log('✅ 所有Rich Menu图片验证通过');
+    return true;
+  }
+
+  // 尝试重用现有Rich Menu
+  async tryReuseExistingRichMenus() {
+    console.log('🔄 检查是否可以重用现有Rich Menu...');
+    
+    try {
+      const richMenus = await this.client.getRichMenuList();
+      
+      let mainMenu = null;
+      let processingMenu = null;
+      
+      for (const menu of richMenus) {
+        if (menu.name.includes('Main') && menu.areas.length === 6) {
+          mainMenu = menu;
+        } else if (menu.name.includes('Processing') && menu.areas.length === 1) {
+          processingMenu = menu;
+        }
+      }
+      
+      if (mainMenu && processingMenu) {
+        console.log('🎯 找到可重用的Rich Menu');
+        console.log(`   主菜单: ${mainMenu.richMenuId}`);
+        console.log(`   处理中菜单: ${processingMenu.richMenuId}`);
+        
+        // 验证Rich Menu是否真正可用
+        const mainValid = await this.validateRichMenuExists(mainMenu.richMenuId);
+        const processingValid = await this.validateRichMenuExists(processingMenu.richMenuId);
+        
+        if (mainValid && processingValid) {
+          this.mainRichMenuId = mainMenu.richMenuId;
+          this.processingRichMenuId = processingMenu.richMenuId;
+          
+          // 尝试上传图片到现有菜单
+          await this.uploadImagesToExistingMenus();
+          
+          return { success: true, reused: true };
+        }
+      }
+      
+      console.log('⚠️ 无法重用现有Rich Menu，将创建新的');
+      return { success: false, reason: 'no_valid_existing_menus' };
+      
+    } catch (error) {
+      console.error('❌ 检查现有Rich Menu失败:', error.message);
+      return { success: false, reason: 'check_failed' };
+    }
+  }
+
+  // 验证Rich Menu是否存在
+  async validateRichMenuExists(richMenuId) {
+    try {
+      const menu = await this.client.getRichMenu(richMenuId);
+      return menu && menu.richMenuId === richMenuId;
+    } catch (error) {
+      console.log(`⚠️ Rich Menu ${richMenuId} 不存在或无效:`, error.message);
+      return false;
+    }
+  }
+
+  // 上传图片到现有菜单
+  async uploadImagesToExistingMenus() {
+    console.log('📤 尝试上传图片到现有Rich Menu...');
+    
+    const uploadTasks = [
+      { id: this.mainRichMenuId, type: 'main' },
+      { id: this.processingRichMenuId, type: 'processing' }
+    ];
+    
+    for (const task of uploadTasks) {
+      try {
+        await this.uploadRichMenuImageWithRetry(task.id, task.type);
+        console.log(`✅ ${task.type}图片上传到现有菜单成功`);
+      } catch (error) {
+        console.log(`⚠️ ${task.type}图片上传到现有菜单失败，但菜单仍可用:`, error.message);
+      }
+    }
+  }
+
+  // 原子化Rich Menu设置
+  async atomicRichMenuSetup(mainRichMenuId, processingRichMenuId) {
+    console.log('⚡ 执行原子化Rich Menu设置...');
+    
+    try {
+      // 第1步：立即设置主菜单为默认（这会稳定Rich Menu）
+      console.log('📌 步骤1: 设置主菜单为默认...');
+      await this.client.setDefaultRichMenu(mainRichMenuId);
+      console.log('✅ 主菜单已设为默认');
+      
+      // 第2步：等待Rich Menu稳定
+      console.log('⏳ 步骤2: 等待Rich Menu稳定...');
+      await this.sleep(5000); // 等待5秒让LINE服务器稳定处理
+      
+      // 第3步：验证Rich Menu仍然存在
+      console.log('🔍 步骤3: 验证Rich Menu状态...');
+      const mainExists = await this.validateRichMenuExists(mainRichMenuId);
+      const processingExists = await this.validateRichMenuExists(processingRichMenuId);
+      
+      if (!mainExists || !processingExists) {
+        throw new Error('Rich Menu在设置默认后消失');
+      }
+      
+      console.log('✅ Rich Menu状态验证通过');
+      
+      // 第4步：保存ID到实例
+      this.mainRichMenuId = mainRichMenuId;
+      this.processingRichMenuId = processingRichMenuId;
+      
+      // 第5步：上传图片（现在Rich Menu应该是稳定的）
+      console.log('📤 步骤5: 上传Rich Menu图片...');
+      
+      const uploadResults = await Promise.allSettled([
+        this.uploadRichMenuImageWithRetry(mainRichMenuId, 'main'),
+        this.uploadRichMenuImageWithRetry(processingRichMenuId, 'processing')
+      ]);
+      
+      // 检查上传结果
+      uploadResults.forEach((result, index) => {
+        const type = index === 0 ? 'main' : 'processing';
+        if (result.status === 'fulfilled') {
+          console.log(`✅ ${type}图片上传成功`);
+        } else {
+          console.log(`⚠️ ${type}图片上传失败，但菜单仍可用:`, result.reason?.message);
+        }
+      });
+      
+      console.log('🎉 原子化Rich Menu设置完成');
+      
+    } catch (error) {
+      console.error('❌ 原子化Rich Menu设置失败:', error);
+      
+      // 尝试恢复：至少确保Rich Menu ID被保存
+      this.mainRichMenuId = mainRichMenuId;
+      this.processingRichMenuId = processingRichMenuId;
+      
+      console.log('🔄 已保存Rich Menu ID，功能应该仍然可用');
+      throw error;
+    }
   }
 
   // 创建照片上传Quick Reply
