@@ -220,25 +220,57 @@ class LineBot {
     }
   }
 
-  // 切换回主要Rich Menu (强制显示)
+  // 切换回主要Rich Menu (强制显示，增强版)
   async switchToMainMenu(userId) {
     try {
-      if (!this.mainRichMenuId) {
-        console.log('⚠️ 主要Rich Menu未设置');
-        return false;
-      }
-
       if (!userId) {
         console.error('❌ 切换回主菜单需要用户ID');
         return false;
       }
 
-      // 强制为用户绑定主菜单，确保菜单显示
-      await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
-      console.log('🔄 已强制绑定主菜单给用户:', userId);
-      return true;
+      if (!this.mainRichMenuId) {
+        console.log('⚠️ 主要Rich Menu未设置');
+        return false;
+      }
+
+      // 🔧 增强的切换逻辑：多步骤确保成功
+      console.log('🔄 开始切换回主菜单...', userId);
+
+      // 步骤1: 解绑当前Rich Menu（如果有）
+      try {
+        await this.client.unlinkRichMenuFromUser(userId);
+        console.log('✅ 已解绑当前菜单');
+      } catch (unlinkError) {
+        console.log('⚠️ 解绑菜单失败（可能用户没有菜单）:', unlinkError.message);
+      }
+
+      // 步骤2: 等待100ms确保解绑完成
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // 步骤3: 绑定主菜单，重试3次
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
+          console.log('✅ 已成功绑定主菜单给用户:', userId);
+          return true;
+        } catch (linkError) {
+          retryCount++;
+          console.warn(`⚠️ 绑定主菜单失败 (尝试 ${retryCount}/${maxRetries}):`, linkError.message);
+          
+          if (retryCount < maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, 200 * retryCount)); // 递增延迟
+          }
+        }
+      }
+
+      console.error('❌ 多次尝试后仍无法绑定主菜单');
+      return false;
+
     } catch (error) {
-      console.error('❌ 切换回主菜单失败:', error.message);
+      console.error('❌ 切换回主菜单异常:', error.message);
       return false;
     }
   }
@@ -840,8 +872,10 @@ class LineBot {
     };
   }
 
-  // 创建自定义prompt的视频确认卡片
-  createCustomVideoConfirmCard(imageUrl, customPrompt, creditsNeeded) {
+  // 创建自定义prompt的视频确认卡片（支持双语prompt）
+  createCustomVideoConfirmCard(imageUrl, englishPrompt, creditsNeeded, displayPrompt = null) {
+    const userVisiblePrompt = displayPrompt || englishPrompt; // 显示给用户的prompt
+    
     return {
       type: "flex",
       altText: "确认生成个性化视频",
@@ -885,7 +919,7 @@ class LineBot {
                 },
                 {
                   type: "text",
-                  text: customPrompt,
+                  text: userVisiblePrompt, // 🔧 显示用户友好的prompt
                   size: "sm",
                   color: "#1E90FF",
                   wrap: true,
@@ -927,7 +961,7 @@ class LineBot {
               action: {
                 type: "postback",
                 label: "🎨 生成个性化视频",
-                data: `action=confirm_custom_generate&image_url=${encodeURIComponent(imageUrl)}&prompt=${encodeURIComponent(customPrompt)}&credits=${creditsNeeded}`
+                data: `action=confirm_custom_generate&image_url=${encodeURIComponent(imageUrl)}&prompt=${encodeURIComponent(englishPrompt)}&credits=${creditsNeeded}`
               },
               style: "primary",
               color: "#1E90FF",

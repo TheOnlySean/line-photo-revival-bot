@@ -8,18 +8,18 @@ class VideoGenerator {
     this.kieAiConfig = lineConfig.kieAi;
   }
 
-  // 生成视频（主要方法）
-  async generateVideo(lineUserId, imageUrl, videoRecordId) {
+  // 生成视频（主要方法）- 支持自定义prompt
+  async generateVideo(lineUserId, imageUrl, videoRecordId, customPrompt = null) {
     try {
-      console.log('🎬 开始生成视频:', { lineUserId, videoRecordId });
+      console.log('🎬 开始生成视频:', { lineUserId, videoRecordId, hasCustomPrompt: !!customPrompt });
 
       // 更新状态为处理中
       await this.db.updateVideoGeneration(videoRecordId, {
         status: 'processing'
       });
 
-      // 调用KIE.AI Runway API生成视频
-      const result = await this.callRunwayApi(imageUrl);
+      // 调用KIE.AI Runway API生成视频（传递自定义prompt）
+      const result = await this.callRunwayApi(imageUrl, customPrompt);
 
       if (result.success && result.taskId) {
         // 保存taskId到数据库
@@ -46,7 +46,7 @@ class VideoGenerator {
   }
 
   // 调用KIE.AI Runway API
-  async callRunwayApi(imageUrl) {
+  async callRunwayApi(imageUrl, customPrompt = null) {
     try {
       console.log('🤖 调用KIE.AI Runway API:', imageUrl);
 
@@ -55,7 +55,7 @@ class VideoGenerator {
       }
 
       const requestData = {
-        prompt: "Transform this photo into a dynamic video with natural movements and expressions, bringing the person to life with subtle animations and realistic motion",
+        prompt: customPrompt || "Transform this photo into a dynamic video with natural movements and expressions, bringing the person to life with subtle animations and realistic motion",
         imageUrl: imageUrl,
         aspectRatio: this.kieAiConfig.defaultParams.aspectRatio,
         duration: this.kieAiConfig.defaultParams.duration,

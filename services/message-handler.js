@@ -376,7 +376,7 @@ class MessageHandler {
     }
   }
 
-  // 处理个性化生成中用户输入的自定义prompt
+  // 处理个性化生成中用户输入的自定义prompt（增强版）
   async handleCustomPromptReceived(event, user, customPrompt, stateData) {
     try {
       // 检查点数
@@ -395,13 +395,25 @@ class MessageHandler {
         return;
       }
 
-      // 创建个性化确认卡片
-      const confirmCard = this.lineBot.createCustomVideoConfirmCard(imageUrl, customPrompt, 2);
+      // 🔧 将日语prompt转换为英语（适合Runway模型）
+      const englishPrompt = this.translatePromptToEnglish(customPrompt);
+      console.log('🌐 Prompt翻译:', { 
+        original: customPrompt, 
+        english: englishPrompt 
+      });
+
+      // 创建个性化确认卡片（显示日语，但内部使用英语）
+      const confirmCard = this.lineBot.createCustomVideoConfirmCard(
+        imageUrl, 
+        englishPrompt,  // 传递英语prompt给API
+        2,
+        customPrompt    // 显示原始日语给用户
+      );
 
       await this.client.replyMessage(event.replyToken, [
         {
-          type: 'text',
-          text: '🎨 准备生成您的个性化AI视频！'
+          type: 'text', 
+          text: `🎨 您的创意内容：\n「${customPrompt}」\n\n✨ 即将为您生成独特的AI视频！`
         },
         confirmCard
       ]);
@@ -410,7 +422,8 @@ class MessageHandler {
       await this.db.clearUserState(user.id);
 
       await this.db.logInteraction(user.line_id, user.id, 'custom_prompt_received', {
-        prompt: customPrompt,
+        originalPrompt: customPrompt,
+        englishPrompt: englishPrompt,
         imageUrl: imageUrl
       });
 
@@ -418,9 +431,78 @@ class MessageHandler {
       console.error('❌ 处理自定义prompt失败:', error);
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '❌ 处理提示词时发生错误，请稍后再试'
+        text: '❌ 处理失败，请重新尝试'
       });
     }
+  }
+
+  // 🌐 将日语prompt转换为英语（针对视频生成优化）
+  translatePromptToEnglish(japaneseText) {
+    // 常见的日语到英语翻译映射（针对视频生成场景）
+    const translations = {
+      // 动作词汇
+      '手を振る': 'waving hand',
+      '微笑む': 'smiling',
+      '歩く': 'walking',
+      '踊る': 'dancing', 
+      '読む': 'reading',
+      '歌う': 'singing',
+      '笑う': 'laughing',
+      '見る': 'looking',
+      '話す': 'talking',
+      '食べる': 'eating',
+      
+      // 场景词汇
+      '海辺': 'beach',
+      'カフェ': 'cafe',
+      '桜': 'cherry blossoms',
+      '公園': 'park',
+      '街': 'street',
+      '家': 'home',
+      '学校': 'school',
+      '夕日': 'sunset',
+      '雨': 'rain',
+      '雪': 'snow',
+      
+      // 情感词汇
+      '嬉しい': 'happy',
+      '楽しい': 'joyful',
+      '優しい': 'gentle',
+      '美しい': 'beautiful',
+      '可愛い': 'cute',
+      '素敵': 'wonderful',
+      
+      // 常用短语
+      'ながら': 'while',
+      'ている': 'is',
+      'で': 'at',
+      'の下で': 'under',
+      'を着て': 'wearing'
+    };
+
+    let englishPrompt = japaneseText;
+    
+    // 应用翻译映射
+    for (const [japanese, english] of Object.entries(translations)) {
+      englishPrompt = englishPrompt.replace(new RegExp(japanese, 'g'), english);
+    }
+    
+    // 如果主要内容仍是日语，使用通用的视频生成prompt
+    if (this.containsMainlyJapanese(englishPrompt)) {
+      return `Transform this photo into a dynamic video based on the concept: "${japaneseText}". Create natural movements and expressions that bring the scene to life with cinematic quality and smooth animations.`;
+    }
+    
+    // 确保英语prompt适合视频生成
+    const enhancedPrompt = `${englishPrompt}, cinematic quality, natural movements, smooth animation, high quality portrait video`;
+    
+    return enhancedPrompt;
+  }
+
+  // 检查文本是否主要包含日语字符
+  containsMainlyJapanese(text) {
+    const japaneseRegex = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/;
+    const japaneseMatches = text.match(new RegExp(japaneseRegex, 'g'));
+    return japaneseMatches && japaneseMatches.length > text.length * 0.3;
   }
 
   // 处理图片消息
@@ -1048,85 +1130,49 @@ class MessageHandler {
     });
   }
 
-  // 使用指定prompt开始视频生成
+  // 使用指定prompt开始视频生成（修复版）
   async startVideoGenerationWithPrompt(user, imageUrl, prompt, creditsUsed) {
     try {
-      // 定期发送进度更新
-      const progressInterval = setInterval(async () => {
-        const randomProgress = Math.floor(Math.random() * 30) + 20; // 20-50%的随机进度
-        await this.lineBot.sendGenerationStatusUpdate(user.line_id, 'processing', randomProgress);
-      }, 15000); // 每15秒更新一次进度
+      console.log('🎬 开始使用自定义prompt生成视频:', { prompt, creditsUsed });
 
-      // 调用视频生成服务
-      const result = await this.videoGenerator.generateVideo(imageUrl, prompt);
+      // 🔧 先创建视频记录
+      const videoRecord = await this.db.createVideoGeneration(
+        user.id,
+        prompt,  // 英语prompt，已经翻译过
+        false,   // is_demo
+        creditsUsed
+      );
+      console.log('✅ 视频记录已创建:', videoRecord.id);
 
-      // 清除进度更新定时器
-      clearInterval(progressInterval);
+      // 🔧 调用修改后的generateVideo方法（传递prompt参数）
+      await this.videoGenerator.generateVideo(
+        user.line_id, 
+        imageUrl, 
+        videoRecord.id, 
+        prompt  // 传递英语prompt给KIE.AI
+      );
 
-      if (result.success) {
-        // 发送完成状态
-        await this.lineBot.sendGenerationStatusUpdate(user.line_id, 'completed');
-        
-        // 发送视频
-        await this.client.pushMessage(user.line_id, [
-          {
-            type: 'text',
-            text: '🎉 您的专属AI视频已生成完成！'
-          },
-          {
-            type: 'video',
-            originalContentUrl: result.videoUrl,
-            previewImageUrl: imageUrl
-          },
-          {
-            type: 'text',
-            text: '💡 如需生成更多视频，请使用底部菜单选择功能'
-          }
-        ]);
-
-        // 保存视频记录
-        await this.db.saveVideo(user.id, {
-          originalImageUrl: imageUrl,
-          videoUrl: result.videoUrl,
-          prompt: prompt,
-          model: 'runway',
-          status: 'completed'
-        });
-
-        await this.db.logInteraction(user.line_id, user.id, 'video_generation_completed', {
-          videoUrl: result.videoUrl,
-          prompt: prompt,
-          success: true
-        });
-
-      } else {
-        // 清除进度更新定时器
-        clearInterval(progressInterval);
-        
-        // 生成失败，退还点数
-        await this.db.updateUserCredits(user.id, creditsUsed);
-
-        await this.client.pushMessage(user.line_id, {
-          type: 'text',
-          text: `❌ 视频生成失败: ${result.error}\n💰 已退还${creditsUsed}点到您的账户`
-        });
-
-        await this.db.logInteraction(user.line_id, user.id, 'video_generation_failed', {
-          error: result.error,
-          creditsRefunded: creditsUsed
-        });
-      }
+      console.log('✅ 自定义视频生成任务已提交，轮询机制将自动处理');
 
     } catch (error) {
-      console.error('❌ 视频生成过程出错:', error);
+      console.error('❌ 自定义prompt视频生成失败:', error);
       
-      // 退还点数
-      await this.db.updateUserCredits(user.id, creditsUsed);
-
-      await this.client.pushMessage(user.line_id, {
-        type: 'text',
-        text: `❌ 视频生成过程中发生错误\n💰 已退还${creditsUsed}点到您的账户\n请稍后再试`
-      });
+      // 切换回主菜单
+      try {
+        await this.lineBot.switchToMainMenu(user.line_id);
+      } catch (menuError) {
+        console.warn('⚠️ 切换菜单失败:', menuError.message);
+      }
+      
+      // 发送错误消息
+      try {
+        await this.client.pushMessage(user.line_id, {
+          type: 'text',
+          text: '❌ 视频生成失败，请稍后重试\n\n💡 您的点数已保留，未被扣除'
+        });
+      } catch (sendError) {
+        console.error('❌ 发送错误消息失败:', sendError.message);
+      }
     }
   }
 
@@ -1350,10 +1396,6 @@ class MessageHandler {
         case 'confirm_group_generate':
           await this.handleConfirmGroupGenerate(event, user, data);
           break;
-          
-        case 'confirm_custom_generate':
-          await this.handleConfirmCustomGenerate(event, user, data);
-          break;
 
         case 'select_wave':
           await this.handleSelectWave(event, user, data);
@@ -1463,36 +1505,7 @@ class MessageHandler {
     }
   }
 
-  // 处理个性化生成确认（URI流程）  
-  async handleConfirmCustomGenerate(event, user, data) {
-    try {
-      const imageUrl = decodeURIComponent(data.image_url);
-      
-      // 检查点数
-      if (user.credits < 2) {
-        await this.client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: '💸 ポイントが不足しています。\n\n現在のポイント: ' + user.credits + '\n必要なポイント: 2\n\n🌐 ポイント購入は公式サイトをご確認ください。'
-        });
-        return;
-      }
 
-      // 设置用户状态为等待自定义提示词
-      await this.db.setUserState(user.id, 'waiting_custom_prompt', { 
-        imageUrl,
-        action: 'custom'
-      });
-      
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '🎨 パーソナライズ動画生成を開始いたします！\n\n💭 ご希望の動画内容を日本語でお教えください。\n\n例：\n「海辺で微笑みながら手を振る」\n「カフェで本を読んでいる」\n「桜の下で踊っている」'
-      });
-      
-    } catch (error) {
-      console.error('❌ 处理个性化生成确认失败:', error);
-      throw error;
-    }
-  }
 
   // 异步生成视频
   async generateVideoAsync(user, imageUrl, type) {
@@ -1529,9 +1542,9 @@ class MessageHandler {
         );
         console.log('✅ 视频记录已创建:', videoRecord.id);
         
-        // 步骤2: 提交视频生成任务
-        console.log('📝 步骤2: 提交视频生成任务...');
-        await this.videoGenerator.generateVideo(user.line_id, imageUrl, videoRecord.id);
+        // 步骤2: 提交视频生成任务（传递自定义prompt）  
+        console.log('📝 步骤2: 提交视频生成任务...', { type, prompt });
+        await this.videoGenerator.generateVideo(user.line_id, imageUrl, videoRecord.id, prompt);
         console.log('✅ 视频生成任务已提交，轮询机制将自动处理完成后的发送');
         
         // 步骤3: 记录任务启动（非关键操作，失败不影响主流程）
