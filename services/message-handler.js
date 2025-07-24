@@ -436,24 +436,80 @@ class MessageHandler {
     }
   }
 
-  // 🌐 将日语prompt转换为英语（针对视频生成优化）
+  // 🌐 将日语prompt转换为英语（针对视频生成优化）- 最终优化版
   translatePromptToEnglish(japaneseText) {
-    // 常见的日语到英语翻译映射（针对视频生成场景）
+    // 预处理：处理常见的组合短语
+    let processedText = japaneseText;
+    
+    // 先处理完整的短语组合
+    const phraseTranslations = {
+      '海辺で微笑みながら手を振る': 'person smiling and waving hand at the beach',
+      'カフェで本を読んでいる': 'person reading a book in a cafe',
+      '桜の下で踊っている': 'person dancing under cherry blossoms',
+      '公園で歩いている': 'person walking in the park',
+      '夕日を見ている': 'person looking at the sunset',
+      '雨の中で歌っている': 'person singing in the rain',
+      '家で料理を食べる': 'person eating food at home',
+      '優しい笑顔で話している': 'person talking with a gentle smile',
+      '美しい花を見ながら微笑む': 'person smiling while looking at beautiful flowers',
+      '可愛いドレスを着て踊る': 'person dancing wearing a cute dress'
+    };
+    
+    // 检查是否匹配完整短语
+    for (const [japanese, english] of Object.entries(phraseTranslations)) {
+      if (processedText === japanese) {
+        return `${english}, cinematic quality, natural movements, smooth animation, high quality portrait video`;
+      }
+    }
+    
+    // 完整的词汇翻译映射
     const translations = {
-      // 动作词汇
+      // 完整动作短语优先
+      '微笑みながら手を振る': 'smiling and waving hand',
+      '本を読んでいる': 'reading a book',
+      '踊っている': 'dancing',
+      '歩いている': 'walking',
+      '見ている': 'looking at',
+      '歌っている': 'singing',
+      '話している': 'talking',
+      '食べている': 'eating',
+      '着て踊る': 'wearing and dancing',
+      '見ながら微笑む': 'smiling while looking at',
+      
+      // 动作词汇 - 基础形式
       '手を振る': 'waving hand',
+      '手を振って': 'waving hand',
       '微笑む': 'smiling',
-      '歩く': 'walking',
-      '踊る': 'dancing', 
-      '読む': 'reading',
-      '歌う': 'singing',
+      '微笑み': 'smile',
+      '微笑んで': 'smiling',
       '笑う': 'laughing',
-      '見る': 'looking',
+      '笑って': 'laughing',
+      '歩く': 'walking',
+      '歩いて': 'walking',
+      '踊る': 'dancing',
+      '踊って': 'dancing',
+      '読む': 'reading',
+      '読んで': 'reading',
+      '歌う': 'singing',
+      '歌って': 'singing',
+      '見る': 'looking at',
+      '見て': 'looking at',
+      '見': 'looking at',
       '話す': 'talking',
+      '話して': 'talking',
       '食べる': 'eating',
+      '食べて': 'eating',
+      
+      // 名词
+      '料理': 'food',
+      '本': 'book',
+      '花': 'flowers',
+      '笑顔': 'smile',
+      'ドレス': 'dress',
       
       // 场景词汇
       '海辺': 'beach',
+      '海': 'ocean',
       'カフェ': 'cafe',
       '桜': 'cherry blossoms',
       '公園': 'park',
@@ -472,30 +528,43 @@ class MessageHandler {
       '可愛い': 'cute',
       '素敵': 'wonderful',
       
-      // 常用短语
-      'ながら': 'while',
-      'ている': 'is',
-      'で': 'at',
-      'の下で': 'under',
-      'を着て': 'wearing'
+      // 介词和语法词汇
+      'の下で': ' under ',
+      'の中で': ' in ',
+      'を着て': ' wearing ',
+      'ながら': ' while ',
+      'で': ' at ',
+      'を': ' ',
+      'に': ' ',
+      'が': ' ',
+      'は': ' ',
+      'と': ' and ',
+      '中': ' in '
     };
 
-    let englishPrompt = japaneseText;
+    let englishPrompt = processedText;
     
-    // 应用翻译映射
-    for (const [japanese, english] of Object.entries(translations)) {
+    // 按长度排序，优先处理长短语
+    const sortedTranslations = Object.entries(translations).sort(([a], [b]) => b.length - a.length);
+    
+    for (const [japanese, english] of sortedTranslations) {
       englishPrompt = englishPrompt.replace(new RegExp(japanese, 'g'), english);
     }
     
-    // 如果主要内容仍是日语，使用通用的视频生成prompt
-    if (this.containsMainlyJapanese(englishPrompt)) {
+    // 清理多余空格
+    englishPrompt = englishPrompt.replace(/\s+/g, ' ').trim();
+    
+    // 如果翻译不完整（仍有大量日语），使用通用prompt
+    if (this.containsMainlyJapanese(englishPrompt) || englishPrompt.length < 5) {
       return `Transform this photo into a dynamic video based on the concept: "${japaneseText}". Create natural movements and expressions that bring the scene to life with cinematic quality and smooth animations.`;
     }
     
-    // 确保英语prompt适合视频生成
-    const enhancedPrompt = `${englishPrompt}, cinematic quality, natural movements, smooth animation, high quality portrait video`;
+    // 添加"person"如果没有主语
+    if (!englishPrompt.includes('person') && !englishPrompt.includes('people')) {
+      englishPrompt = `person ${englishPrompt}`;
+    }
     
-    return enhancedPrompt;
+    return `${englishPrompt}, cinematic quality, natural movements, smooth animation, high quality portrait video`;
   }
 
   // 检查文本是否主要包含日语字符
