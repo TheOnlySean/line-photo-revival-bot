@@ -2169,33 +2169,32 @@ class MessageHandler {
 
   // 核心试用生成流程（与数据库操作分离）
   async simulateTrialGenerationCore(user, selectedPhoto, photoDetails, trialFlowConfig) {
-    // 3秒后：第一个进度更新
-    await this.sleep(3000);
-    try {
-      await this.client.pushMessage(user.line_id, {
-        type: 'text',
-        text: '🎬 AI正在分析您选择的照片...'
-      });
-      console.log('✅ 发送第一个进度更新 (3秒)');
-    } catch (error) {
-      console.error('❌ 发送进度更新1失败:', error);
-    }
-
-    // 6秒后：第二个进度更新
-    await this.sleep(3000); // 再等3秒，总共6秒
-    try {
-      await this.client.pushMessage(user.line_id, {
-        type: 'text',
-        text: '🎨 正在生成动态效果...'
-      });
-      console.log('✅ 发送第二个进度更新 (6秒)');
-    } catch (error) {
-      console.error('❌ 发送进度更新2失败:', error);
-    }
-
-    // 10秒后：发送完成视频（核心功能，必须成功）
-    await this.sleep(4000);
+    // 🔧 优化：立即发送视频，避免用户等待时取消关注
+    console.log('🚀 优化流程：立即发送试用视频给用户');
     await this.sendTrialCompletionVideo(user, selectedPhoto, photoDetails);
+    
+    console.log('✅ 免费试用视频已发送，后续为可选的用户体验优化');
+    
+    // 以下为用户体验优化（即使失败也不影响核心功能）
+    try {
+      // 短暂延迟后发送体验优化消息
+      await this.sleep(2000);
+      await this.client.pushMessage(user.line_id, {
+        type: 'text',
+        text: '🎬 希望您喜欢这个AI生成的视频效果！'
+      });
+      console.log('✅ 发送体验优化消息');
+      
+      await this.sleep(3000);
+      await this.client.pushMessage(user.line_id, {
+        type: 'text',
+        text: '💡 想要用您自己的照片制作视频吗？请点击下方菜单选择功能！'
+      });
+      console.log('✅ 发送引导消息');
+      
+    } catch (error) {
+      console.error('⚠️ 体验优化消息发送失败（不影响核心功能）:', error.message);
+    }
   }
 
   // 发送试用完成视频（独立函数，确保可靠性）
