@@ -11,7 +11,7 @@ class VideoGenerator {
   // 生成视频（主要方法）
   async generateVideo(lineUserId, imageUrl, videoRecordId) {
     try {
-      console.log('🎬 开始生成视频:', { lineUserId, imageUrl, videoRecordId });
+      console.log('🎬 开始生成视频:', { lineUserId, videoRecordId });
 
       // 更新状态为处理中
       await this.db.updateVideoGeneration(videoRecordId, {
@@ -21,32 +21,22 @@ class VideoGenerator {
       // 调用KIE.AI Runway API生成视频
       const result = await this.callRunwayApi(imageUrl);
 
-      if (result.success) {
-        // 如果有taskId，需要轮询检查状态
-        if (result.taskId) {
-          console.log('💾 保存taskId到数据库:', result.taskId);
-          // 保存taskId到数据库
-          await this.db.updateVideoGeneration(videoRecordId, {
-            task_id: result.taskId
-          });
+      if (result.success && result.taskId) {
+        // 保存taskId到数据库
+        await this.db.updateVideoGeneration(videoRecordId, {
+          task_id: result.taskId
+        });
 
-          console.log('🚀 启动轮询任务状态检查...');
-          // 开始轮询任务状态
-          this.pollVideoStatus(lineUserId, result.taskId, videoRecordId);
-        } else if (result.videoUrl) {
-          // 直接返回了视频URL（同步模式）
-          console.log('✅ 同步模式：直接返回视频URL');
-          await this.handleVideoSuccess(lineUserId, videoRecordId, result);
-        } else {
-          console.error('⚠️ API返回成功但无taskId或videoUrl');
-          await this.handleVideoFailure(lineUserId, videoRecordId, '任务提交成功但缺少关键信息');
-        }
-
-        console.log('✅ 视频生成任务提交成功:', result.taskId || result.videoUrl);
+        console.log('🚀 启动轮询任务状态检查:', result.taskId);
+        // 开始轮询任务状态
+        this.pollVideoStatus(lineUserId, result.taskId, videoRecordId);
+      } else if (result.success && result.videoUrl) {
+        // 直接返回了视频URL（同步模式）
+        console.log('✅ 同步模式：直接返回视频URL');
+        await this.handleVideoSuccess(lineUserId, videoRecordId, result);
       } else {
-        // 生成失败
         console.error('❌ 任务提交失败:', result.error);
-        await this.handleVideoFailure(lineUserId, videoRecordId, result.error);
+        await this.handleVideoFailure(lineUserId, videoRecordId, result.error || '视频生成失败');
       }
 
     } catch (error) {
@@ -60,12 +50,10 @@ class VideoGenerator {
     try {
       console.log('🤖 调用KIE.AI Runway API:', imageUrl);
 
-      // 检查API配置
       if (!this.kieAiConfig.apiKey) {
         throw new Error('KIE.AI API Key未配置');
       }
 
-      // 准备API请求参数 - 根据Runway API文档
       const requestData = {
         prompt: "Transform this photo into a dynamic video with natural movements and expressions, bringing the person to life with subtle animations and realistic motion",
         imageUrl: imageUrl,
@@ -75,9 +63,6 @@ class VideoGenerator {
         waterMark: this.kieAiConfig.defaultParams.waterMark
       };
 
-      console.log('📤 发送Runway API请求:', requestData);
-
-      // 发送API请求到Runway端点
       const response = await axios.post(
         `${this.kieAiConfig.baseUrl}${this.kieAiConfig.generateEndpoint}`,
         requestData,
@@ -86,11 +71,11 @@ class VideoGenerator {
             'Authorization': `Bearer ${this.kieAiConfig.apiKey}`,
             'Content-Type': 'application/json'
           },
-          timeout: 60000 // 60秒超时，因为是异步任务
+          timeout: 60000
         }
       );
 
-      console.log('📡 Runway API响应:', response.status, response.data);
+      console.log('📡 API响应状态:', response.status);
 
       if (response.data && response.data.code === 200) {
         return {
@@ -107,59 +92,44 @@ class VideoGenerator {
 
     } catch (error) {
       console.error('❌ Runway API调用失败:', error.message);
-
-      // 处理不同类型的错误
-      if (error.response) {
-        const status = error.response.status;
-        const message = error.response.data?.message || error.message;
-
-        if (status === 401) {
-          return { success: false, error: 'API认证失败，请检查API Key' };
-        } else if (status === 429) {
-          return { success: false, error: '请求过于频繁，请稍后再试' };
-        } else if (status >= 500) {
-          return { success: false, error: 'AI服务暂时不可用，请稍后再试' };
-        } else {
-          return { success: false, error: `API错误: ${message}` };
-        }
-      } else if (error.code === 'ECONNABORTED') {
-        return { success: false, error: '请求超时，请稍后再试' };
-      } else {
-        return { success: false, error: '网络连接失败，请检查网络设置' };
-      }
+      return this.handleApiError(error);
     }
   }
 
-  // 轮询视频生成状态 (增强监控版本)
+  // 简化的API错误处理
+  handleApiError(error) {
+    if (error.response) {
+      const status = error.response.status;
+      if (status === 401) return { success: false, error: 'API认证失败，请检查API Key' };
+      if (status === 429) return { success: false, error: '请求过于频繁，请稍后再试' };
+      if (status >= 500) return { success: false, error: 'AI服务暂时不可用，请稍后再试' };
+      return { success: false, error: `API错误: ${error.response.data?.message || error.message}` };
+    }
+    if (error.code === 'ECONNABORTED') return { success: false, error: '请求超时，请稍后再试' };
+    return { success: false, error: '网络连接失败，请检查网络设置' };
+  }
+
+  // 优化的轮询逻辑（减少日志，增强稳定性）
   async pollVideoStatus(lineUserId, taskId, videoRecordId) {
-    const maxAttempts = 60; // 最多轮询60次 (约15分钟) - 增加等待时间
-    const pollInterval = 15000; // 每15秒轮询一次
+    const maxAttempts = 40; // 减少到40次 (约10分钟)
+    const pollInterval = 15000; // 15秒间隔
     let attempts = 0;
     let lastStatus = null;
 
-    console.log('🚀 启动增强轮询监控系统');
-    console.log('📋 轮询参数:', { lineUserId, taskId, videoRecordId, maxAttempts, pollInterval });
+    console.log('🚀 开始轮询:', { taskId, maxAttempts });
 
     const poll = async () => {
       try {
         attempts++;
-        const progressPercent = Math.min(Math.round((attempts / maxAttempts) * 100), 95);
-        
-        console.log(`\n🔍 ===== 轮询第 ${attempts}/${maxAttempts} 次 (${progressPercent}%) =====`);
-        console.log(`📋 任务ID: ${taskId}`);
-        console.log(`👤 用户ID: ${lineUserId}`);
-        console.log(`🎬 视频记录ID: ${videoRecordId}`);
+        console.log(`🔍 轮询 ${attempts}/${maxAttempts}`);
 
         const statusResult = await this.getVideoStatus(taskId);
-        console.log('📡 API响应结果:', JSON.stringify(statusResult, null, 2));
 
         if (statusResult.success) {
           const status = statusResult.status;
-          console.log(`📊 当前状态: "${status}" (上次: "${lastStatus}")`);
           
-          // 状态变化通知用户
-          if (status !== lastStatus && attempts > 1) {
-            console.log('🔄 状态发生变化，通知用户...');
+          // 只在状态变化时通知用户
+          if (status !== lastStatus && attempts > 2) {
             await this.notifyStatusChange(lineUserId, status, attempts, maxAttempts);
           }
           lastStatus = status;
@@ -169,29 +139,24 @@ class VideoGenerator {
             case 'queueing':
             case 'generating':
             case 'processing':
-              // 继续轮询
-              console.log(`⏳ 视频仍在处理中 (${status})，${pollInterval/1000}秒后继续轮询...`);
               if (attempts < maxAttempts) {
                 setTimeout(poll, pollInterval);
               } else {
-                // 超时
-                console.log('⏰ 轮询达到最大次数，视频生成超时');
+                console.error('⏰ 轮询超时');
                 await this.handleVideoFailure(lineUserId, videoRecordId, '视频生成超时，请稍后再试');
               }
               break;
 
             case 'success':
             case 'completed':
-              // 生成成功
-              console.log('🎉 视频生成成功！开始处理完成流程...');
+              console.log('🎉 视频生成成功');
               if (statusResult.videoUrl) {
-                console.log('✅ 找到视频URL，准备发送给用户');
                 await this.handleVideoSuccess(lineUserId, videoRecordId, {
                   videoUrl: statusResult.videoUrl,
                   thumbnailUrl: statusResult.thumbnailUrl || statusResult.imageUrl
                 });
               } else {
-                console.error('⚠️ 生成成功但缺少视频URL:', statusResult);
+                console.error('⚠️ 生成成功但缺少视频URL');
                 await this.handleVideoFailure(lineUserId, videoRecordId, '生成成功但无法获取视频URL');
               }
               break;
@@ -199,15 +164,12 @@ class VideoGenerator {
             case 'fail':
             case 'failed':
             case 'error':
-              // 生成失败
               console.error('❌ 视频生成失败:', statusResult.error);
-              console.error('❌ 完整状态信息:', statusResult);
               await this.handleVideoFailure(lineUserId, videoRecordId, statusResult.error || '视频生成失败');
               break;
 
             default:
-              console.log('⚠️ 未知状态:', status, '将继续轮询...');
-              console.log('⚠️ 完整响应:', statusResult);
+              console.log('⚠️ 未知状态:', status);
               if (attempts < maxAttempts) {
                 setTimeout(poll, pollInterval);
               } else {
@@ -215,35 +177,27 @@ class VideoGenerator {
               }
           }
         } else {
-          // 查询状态失败
-          console.error('❌ 查询状态失败:', statusResult.error);
+          // 查询失败，重试
           if (attempts < maxAttempts) {
-            console.log(`🔁 ${pollInterval * 2 / 1000}秒后重试查询...`);
-            setTimeout(poll, pollInterval * 2); // 失败时延长间隔
+            console.log('🔁 查询状态失败，重试中...');
+            setTimeout(poll, pollInterval * 2);
           } else {
-            console.error('❌ 达到最大重试次数，无法获取状态');
             await this.handleVideoFailure(lineUserId, videoRecordId, '无法获取视频生成状态');
           }
         }
 
-        console.log(`===== 轮询第 ${attempts} 次完成 =====\n`);
-
       } catch (error) {
-        console.error('❌ 轮询过程中发生异常:', error);
-        console.error('❌ 错误堆栈:', error.stack);
+        console.error('❌ 轮询异常:', error.message);
         if (attempts < maxAttempts) {
-          console.log(`🔁 ${pollInterval * 2 / 1000}秒后重试轮询...`);
           setTimeout(poll, pollInterval * 2);
         } else {
-          console.error('❌ 轮询异常达到最大次数，终止轮询');
           await this.handleVideoFailure(lineUserId, videoRecordId, '视频生成监控过程异常');
         }
       }
     };
 
-    // 立即开始第一次轮询
-    console.log('🚀 开始轮询视频生成状态...');
-    setTimeout(poll, 3000); // 3秒后第一次轮询
+    // 3秒后开始第一次轮询
+    setTimeout(poll, 3000);
   }
 
   // 通知用户状态变化
