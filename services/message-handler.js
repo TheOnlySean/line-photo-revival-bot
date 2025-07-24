@@ -1876,13 +1876,14 @@ class MessageHandler {
       console.log('👋 Rich Menu: 手振り动作被点击');
       console.log('👤 用户:', user.id, user.line_user_id);
       
-      // 先发送回复消息（核心功能）
-      console.log('📤 发送回复消息...');
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '👋【手振り動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐに手を振る動画の制作を開始いたします！\n\n✨ 自然な笑顔で手を振る素敵な動画を作成いたします。'
-      });
-      console.log('✅ 回复消息发送成功');
+      // 发送带Quick Reply的回复消息（核心功能）
+      console.log('📤 发送带Quick Reply的回复消息...');
+      const quickReplyMessage = this.lineBot.createPhotoUploadQuickReply(
+        '👋【手振り動画生成】が選択されました\n\n📸 下記のボタンから写真をアップロードしてください：'
+      );
+      
+      await this.client.replyMessage(event.replyToken, quickReplyMessage);
+      console.log('✅ Quick Reply消息发送成功');
       
       // 异步执行数据库操作（避免阻塞回复）
       try {
@@ -1923,11 +1924,12 @@ class MessageHandler {
       // 设置用户状态
       await this.db.setUserState(user.id, 'waiting_group_photo', { action: 'group' });
       
-      // 机器人主动发送消息
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '🤝【寄り添い動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐに寄り添い動画の制作を開始いたします！\n\n💕 温かい雰囲気の素敵な動画を作成いたします。'
-      });
+      // 发送带Quick Reply的回复消息
+      const quickReplyMessage = this.lineBot.createPhotoUploadQuickReply(
+        '🤝【寄り添い動画生成】が選択されました\n\n📸 下記のボタンから写真をアップロードしてください：'
+      );
+      
+      await this.client.replyMessage(event.replyToken, quickReplyMessage);
       
       // 记录交互
       await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_group_action', {
@@ -1951,11 +1953,12 @@ class MessageHandler {
       // 设置用户状态
       await this.db.setUserState(user.id, 'waiting_custom_photo', { action: 'custom' });
       
-      // 机器人主动发送消息
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '🎨【パーソナライズ動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐにパーソナライズ動画の制作を開始いたします！\n\n💭 その後、ご希望の動画内容をお聞かせください。'
-      });
+      // 发送带Quick Reply的回复消息
+      const quickReplyMessage = this.lineBot.createPhotoUploadQuickReply(
+        '🎨【パーソナライズ動画生成】が選択されました\n\n📸 下記のボタンから写真をアップロードしてください：'
+      );
+      
+      await this.client.replyMessage(event.replyToken, quickReplyMessage);
       
       // 记录交互
       await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_custom_action', {

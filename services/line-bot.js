@@ -1475,6 +1475,32 @@ class LineBot {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
 
+  // 创建照片上传Quick Reply
+  createPhotoUploadQuickReply(text) {
+    return {
+      type: 'text',
+      text: text,
+      quickReply: {
+        items: [
+          {
+            type: 'action',
+            action: {
+              type: 'cameraRoll',
+              label: '📱 カメラロールから選ぶ'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'camera',
+              label: '📷 カメラを起動する'
+            }
+          }
+        ]
+      }
+    };
+  }
+
   // 检查必需的图片文件
   checkRequiredImages() {
     const requiredImages = [
