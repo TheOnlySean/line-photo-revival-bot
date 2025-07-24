@@ -1,9 +1,7 @@
-const Database = require('../config/database');
+const db = require('../config/database');
 
 async function monitorDatabase() {
   console.log('🔍 数据库监控开始...');
-  
-  const db = new Database();
   let monitorCount = 0;
   const maxMonitors = 20; // 最多监控20次
   
