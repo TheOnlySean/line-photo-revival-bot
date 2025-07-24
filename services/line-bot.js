@@ -1320,20 +1320,27 @@ class LineBot {
     console.log(`📸 加载了 ${trialPhotos.length} 张试用照片`);
     
     try {
-      // 创建试用照片选择卡片
-      console.log('🎨 创建试用照片Carousel...');
-      const trialCarousel = this.createTrialPhotoCarousel(trialPhotos);
-      console.log('✅ Carousel创建成功');
+      // 首先尝试发送简化版本（更可靠）
+      console.log('🎯 发送简化版免费试用选项...');
+      await this.sendSimplifiedTrialOptions(userId);
+      console.log('✅ 简化版试用选项发送成功');
       
-      console.log('📤 发送pushMessage给用户:', userId);
-      await this.client.pushMessage(userId, [
-        {
-          type: 'text',
-          text: '🎁 **無料体験をお試しください！**\n\n✨ 下記のサンプル写真からお選びいただき、AI動画生成をご体験ください：'
-        },
-        trialCarousel
-      ]);
-      console.log('✅ 免费试用选项推送成功');
+      // 然后尝试发送完整的Carousel（可能失败但不影响主要功能）
+      try {
+        console.log('🎨 尝试发送完整Carousel...');
+        const trialCarousel = this.createTrialPhotoCarousel(trialPhotos);
+        
+        await this.client.pushMessage(userId, [
+          {
+            type: 'text',
+            text: '📸 详细选项：'
+          },
+          trialCarousel
+        ]);
+        console.log('✅ 完整Carousel也发送成功');
+      } catch (carouselError) {
+        console.log('⚠️ Carousel发送失败，但简化版已成功发送:', carouselError.message);
+      }
       
     } catch (error) {
       console.error('❌ 发送试用选项失败:', error);
@@ -1353,6 +1360,54 @@ class LineBot {
         console.error('❌ 简化版试用提示也发送失败:', fallbackError);
       }
     }
+  }
+
+  // 发送简化版免费试用选项（更可靠）
+  async sendSimplifiedTrialOptions(userId) {
+    console.log('🎯 创建简化版免费试用选项...');
+    
+    const { trialPhotoDetails } = require('../config/demo-trial-photos');
+    
+    const simplifiedMessage = {
+      type: 'template',
+      altText: '🎁 無料体験をお試しください',
+      template: {
+        type: 'buttons',
+        title: '🎁 無料体験',
+        text: 'AI動画生成を無料で体験しませんか？\nサンプル写真を選んでお試しください：',
+        actions: [
+          {
+            type: 'postback',
+            label: '👋 女性挥手微笑',
+            data: 'action=free_trial&photo_id=trial_1&type=wave',
+            displayText: '女性挥手微笑で体験'
+          },
+          {
+            type: 'postback',
+            label: '🤵 男性友好问候',
+            data: 'action=free_trial&photo_id=trial_2&type=wave',
+            displayText: '男性友好问候で体験'
+          },
+          {
+            type: 'postback',
+            label: '💕 情侣温馨互动',
+            data: 'action=free_trial&photo_id=trial_3&type=group',
+            displayText: '情侣温馨互动で体験'
+          }
+        ]
+      }
+    };
+    
+    console.log('📤 发送简化版试用选项...');
+    await this.client.pushMessage(userId, [
+      {
+        type: 'text',
+        text: '🎁 **無料体験をお試しください！**\n\n✨ 下記のボタンからサンプル写真を選んでAI動画生成をご体験ください：'
+      },
+      simplifiedMessage
+    ]);
+    
+    console.log('✅ 简化版试用选项发送完成');
   }
 
   // 创建试用照片选择Carousel
