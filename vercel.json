@@ -8,6 +8,10 @@
     {
       "source": "/webhook",
       "destination": "/api/webhook"
+    },
+    {
+      "source": "/demo-files/(.*)",
+      "destination": "/demo-files/$1"
     }
   ]
 } 

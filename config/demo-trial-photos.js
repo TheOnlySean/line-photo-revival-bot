@@ -4,8 +4,8 @@ const trialPhotos = [
     id: 'trial_1',
     title: '女性挥手微笑',
     description: '年轻女性自然挥手的温暖场景',
-    image_url: 'https://images.unsplash.com/photo-1544725176-7c40e5a71c5e?w=400&h=400&fit=crop&crop=face',
-    demo_video_url: 'https://assets.mixkit.co/videos/preview/mixkit-woman-waving-hand-hello-44466-large.mp4',
+    image_url: '/demo-files/1.png',
+    demo_video_url: '/demo-files/1.mp4',
     type: 'wave',
     credits_demo: 0 // 免费试用
   },
@@ -13,8 +13,8 @@ const trialPhotos = [
     id: 'trial_2', 
     title: '男性友好问候',
     description: '专业男性的亲切问候动作',
-    image_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop&crop=face',
-    demo_video_url: 'https://assets.mixkit.co/videos/preview/mixkit-man-greeting-with-hand-gesture-44467-large.mp4', 
+    image_url: '/demo-files/2.png',
+    demo_video_url: '/demo-files/2.mp4', 
     type: 'wave',
     credits_demo: 0 // 免费试用
   },
@@ -22,8 +22,8 @@ const trialPhotos = [
     id: 'trial_3',
     title: '情侣温馨互动',
     description: '温馨的情侣寄り添い场景', 
-    image_url: 'https://images.unsplash.com/photo-1516589178581-6cd7833ae3b2?w=400&h=400&fit=crop&crop=faces',
-    demo_video_url: 'https://assets.mixkit.co/videos/preview/mixkit-couple-holding-hands-walking-44468-large.mp4',
+    image_url: '/demo-files/3.png',
+    demo_video_url: '/demo-files/3.mp4',
     type: 'group',
     credits_demo: 0 // 免费试用
   }
