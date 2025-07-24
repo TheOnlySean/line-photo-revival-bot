@@ -1362,52 +1362,88 @@ class LineBot {
     }
   }
 
-  // 发送简化版免费试用选项（更可靠）
+  // 发送简化版免费试用选项（带照片预览）
   async sendSimplifiedTrialOptions(userId) {
-    console.log('🎯 创建简化版免费试用选项...');
+    console.log('🎯 创建带照片预览的免费试用选项...');
     
-    const { trialPhotoDetails } = require('../config/demo-trial-photos');
+    const { trialPhotos, trialPhotoDetails } = require('../config/demo-trial-photos');
     
-    const simplifiedMessage = {
-      type: 'template',
-      altText: '🎁 無料体験をお試しください',
-      template: {
-        type: 'buttons',
-        title: '🎁 無料体験',
-        text: 'AI動画生成を無料で体験しませんか？\nサンプル写真を選んでお試しください：',
-        actions: [
-          {
-            type: 'postback',
-            label: '👋 女性挥手微笑',
-            data: 'action=free_trial&photo_id=trial_1&type=wave',
-            displayText: '女性挥手微笑で体験'
-          },
-          {
-            type: 'postback',
-            label: '🤵 男性友好问候',
-            data: 'action=free_trial&photo_id=trial_2&type=wave',
-            displayText: '男性友好问候で体験'
-          },
-          {
-            type: 'postback',
-            label: '💕 情侣温馨互动',
-            data: 'action=free_trial&photo_id=trial_3&type=group',
-            displayText: '情侣温馨互动で体験'
-          }
-        ]
+    // 创建带图片预览的Flex Message
+    const photoPreviewMessage = {
+      type: 'flex',
+      altText: '🎁 無料体験 - サンプル写真を選択',
+      contents: {
+        type: 'carousel',
+        contents: trialPhotos.map(photo => {
+          const details = trialPhotoDetails[photo.id];
+          return {
+            type: 'bubble',
+            hero: {
+              type: 'image',
+              url: photo.image_url,
+              size: 'full',
+              aspectRatio: '1:1',
+              aspectMode: 'cover'
+            },
+            body: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                {
+                  type: 'text',
+                  text: details.title,
+                  weight: 'bold',
+                  size: 'md',
+                  color: '#333333'
+                },
+                {
+                  type: 'text',
+                  text: details.subtitle,
+                  size: 'sm',
+                  color: '#666666',
+                  margin: 'sm'
+                },
+                {
+                  type: 'text',
+                  text: '⏱️ 生成時間: 約20秒',
+                  size: 'xs',
+                  color: '#999999',
+                  margin: 'md'
+                }
+              ]
+            },
+            footer: {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                {
+                  type: 'button',
+                  action: {
+                    type: 'postback',
+                    label: '🎬 この写真で体験',
+                    data: `action=free_trial&photo_id=${photo.id}&type=${photo.type}`,
+                    displayText: `${details.title}で無料体験開始`
+                  },
+                  style: 'primary',
+                  color: '#FF6B9D'
+                }
+              ]
+            }
+          };
+        })
       }
     };
     
-    console.log('📤 发送简化版试用选项...');
+    console.log('📤 发送带图片预览的试用选项...');
     await this.client.pushMessage(userId, [
       {
         type: 'text',
-        text: '🎁 **無料体験をお試しください！**\n\n✨ 下記のボタンからサンプル写真を選んでAI動画生成をご体験ください：'
+        text: '🎁 **無料体験をお試しください！**\n\n📸 下記のサンプル写真からお選びください。写真をご確認の上、お好みのものをお選びいただけます：'
       },
-      simplifiedMessage
+      photoPreviewMessage
     ]);
     
-    console.log('✅ 简化版试用选项发送完成');
+    console.log('✅ 照片预览版试用选项发送完成');
   }
 
   // 创建试用照片选择Carousel

@@ -2093,77 +2093,109 @@ class MessageHandler {
     }
   }
 
-  // 模拟试用生成过程
+  // 模拟试用生成过程（使用await替代setTimeout，兼容serverless环境）
   async simulateTrialGeneration(user, selectedPhoto, photoDetails, trialFlowConfig) {
     try {
-      console.log('🎭 开始模拟生成过程...');
+      console.log('🎭 开始模拟生成过程 (20秒)...');
       
-      // 发送进度更新消息
-      for (const update of trialFlowConfig.processing_updates) {
-        setTimeout(async () => {
-          try {
-            await this.client.pushMessage(user.line_id, {
-              type: 'text',
-              text: update.message
-            });
-          } catch (error) {
-            console.error('❌ 发送进度更新失败:', error);
-          }
-        }, update.time);
+      // 使用await + sleep的方式替代setTimeout，确保在serverless环境中正确工作
+      
+      // 5秒后：第一个进度更新
+      await this.sleep(5000);
+      try {
+        await this.client.pushMessage(user.line_id, {
+          type: 'text',
+          text: '🎬 AI正在分析您选择的照片...'
+        });
+        console.log('✅ 发送第一个进度更新 (5秒)');
+      } catch (error) {
+        console.error('❌ 发送进度更新1失败:', error);
       }
 
-      // 在指定时间后发送完成视频
-      setTimeout(async () => {
-        try {
-          // 切换回主菜单
-          await this.lineBot.switchToMainMenu(user.line_id);
-          
-          // 发送完成的视频
-          await this.client.pushMessage(user.line_id, [
-            {
-              type: 'text',
-              text: `🎉 ${photoDetails.title}の無料体験動画が完成いたしました！\n\n✨ AIが生成した素敵な動画をお楽しみください！`
-            },
-            {
-              type: 'video',
-              originalContentUrl: selectedPhoto.demo_video_url,
-              previewImageUrl: selectedPhoto.image_url
-            },
-            {
-              type: 'text',
-              text: '🎁 無料体験をお楽しみいただけましたでしょうか？\n\n📸 お客様の写真で動画を作成されたい場合は、下部メニューからお選びください！\n\n💎 より多くの動画生成には、ポイント購入をご検討ください。'
-            }
-          ]);
+      // 10秒后：第二个进度更新
+      await this.sleep(5000); // 再等5秒，总共10秒
+      try {
+        await this.client.pushMessage(user.line_id, {
+          type: 'text',
+          text: '🎨 正在生成动态效果...'
+        });
+        console.log('✅ 发送第二个进度更新 (10秒)');
+      } catch (error) {
+        console.error('❌ 发送进度更新2失败:', error);
+      }
 
-          // 记录试用完成
-          await this.db.logInteraction(user.line_id, user.id, 'free_trial_completed', {
-            photoId: selectedPhoto.id,
-            type: selectedPhoto.type,
-            videoUrl: selectedPhoto.demo_video_url,
-            success: true
-          });
+      // 15秒后：第三个进度更新
+      await this.sleep(5000); // 再等5秒，总共15秒
+      try {
+        await this.client.pushMessage(user.line_id, {
+          type: 'text',
+          text: '✨ 最终优化中，即将完成...'
+        });
+        console.log('✅ 发送第三个进度更新 (15秒)');
+      } catch (error) {
+        console.error('❌ 发送进度更新3失败:', error);
+      }
 
-          console.log('✅ 免费试用完成:', selectedPhoto.title);
-
-        } catch (error) {
-          console.error('❌ 发送试用完成视频失败:', error);
-          
-          // 发送错误消息
-          try {
-            await this.lineBot.switchToMainMenu(user.line_id);
-            await this.client.pushMessage(user.line_id, {
-              type: 'text',
-              text: '❌ 動画生成中にエラーが発生しました。しばらくお待ちいただいてから再度お試しください。'
-            });
-          } catch (fallbackError) {
-            console.error('❌ 发送错误回退消息失败:', fallbackError);
+      // 20秒后：发送完成视频
+      await this.sleep(5000); // 再等5秒，总共20秒
+      try {
+        console.log('🎬 开始发送完成视频...');
+        
+        // 切换回主菜单
+        await this.lineBot.switchToMainMenu(user.line_id);
+        console.log('✅ 切换回主菜单成功');
+        
+        // 发送完成的视频
+        await this.client.pushMessage(user.line_id, [
+          {
+            type: 'text',
+            text: `🎉 ${photoDetails.title}の無料体験動画が完成いたしました！\n\n✨ AIが生成した素敵な動画をお楽しみください！`
+          },
+          {
+            type: 'video',
+            originalContentUrl: selectedPhoto.demo_video_url,
+            previewImageUrl: selectedPhoto.image_url
+          },
+          {
+            type: 'text',
+            text: '🎁 無料体験をお楽しみいただけましたでしょうか？\n\n📸 お客様の写真で動画を作成されたい場合は、下部メニューからお選びください！\n\n💎 より多くの動画生成には、ポイント購入をご検討ください。'
           }
+        ]);
+        console.log('✅ 完成视频发送成功');
+
+        // 记录试用完成
+        await this.db.logInteraction(user.line_id, user.id, 'free_trial_completed', {
+          photoId: selectedPhoto.id,
+          type: selectedPhoto.type,
+          videoUrl: selectedPhoto.demo_video_url,
+          success: true
+        });
+
+        console.log('✅ 免费试用完成:', selectedPhoto.title);
+
+      } catch (error) {
+        console.error('❌ 发送试用完成视频失败:', error);
+        
+        // 发送错误消息
+        try {
+          await this.lineBot.switchToMainMenu(user.line_id);
+          await this.client.pushMessage(user.line_id, {
+            type: 'text',
+            text: '❌ 動画生成中にエラーが発生しました。しばらくお待ちいただいてから再度お試しください。'
+          });
+        } catch (fallbackError) {
+          console.error('❌ 发送错误回退消息失败:', fallbackError);
         }
-      }, trialFlowConfig.generation_simulation_time);
+      }
 
     } catch (error) {
       console.error('❌ 模拟生成过程失败:', error);
     }
+  }
+
+  // 等待指定毫秒数（用于模拟生成过程）
+  async sleep(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 }
 
