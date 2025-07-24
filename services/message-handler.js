@@ -615,10 +615,16 @@ class MessageHandler {
         return;
       }
 
+      // 立即切换到处理中Rich Menu，提供即时视觉反馈
+      console.log('🔄 立即切换到处理中菜单...');
+      await this.lineBot.switchToProcessingMenu(user.line_id);
+      
       // 发送处理中消息
+      console.log('📤 发送处理中消息...');
       await this.lineBot.sendProcessingMessage(event.replyToken);
 
       // 扣除点数
+      console.log('💰 扣除点数: 1');
       await this.db.updateUserCredits(user.id, -1);
 
       // 创建视频生成记录
@@ -893,13 +899,13 @@ class MessageHandler {
         return;
       }
 
+      // 立即切换到处理中Rich Menu，提供即时视觉反馈
+      console.log('🔄 立即切换到处理中菜单...');
+      await this.lineBot.switchToProcessingMenu(user.line_id);
+      
       // 显示生成进度消息
       console.log('📤 发送处理中消息...');
       await this.lineBot.sendProcessingMessage(event.replyToken);
-      
-      // 切换到处理中Rich Menu
-      console.log('🔄 切换到处理中菜单...');
-      await this.lineBot.switchToProcessingMenu(user.line_id);
       
       // 扣除点数
       console.log('💰 扣除点数:', creditsNeeded);
@@ -942,10 +948,16 @@ class MessageHandler {
         return;
       }
 
+      // 立即切换到处理中Rich Menu，提供即时视觉反馈
+      console.log('🔄 立即切换到处理中菜单...');
+      await this.lineBot.switchToProcessingMenu(user.line_id);
+      
       // 显示生成进度消息
+      console.log('📤 发送处理中消息...');
       await this.lineBot.sendProcessingMessage(event.replyToken);
       
       // 扣除点数
+      console.log('💰 扣除点数:', creditsNeeded);
       await this.db.updateUserCredits(user.id, -creditsNeeded);
       
       // 异步开始视频生成
