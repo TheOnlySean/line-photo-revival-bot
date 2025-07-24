@@ -71,7 +71,7 @@ async function testRichMenuAutoPopup() {
     
     // 查找主Rich Menu
     const mainMenu = richMenuList.find(menu => 
-      menu.name && (menu.name.includes('主要') || menu.name.includes('Main') || menu.name.includes('メイン'))
+      menu.name && (menu.name.includes('Main') || menu.name.includes('主要') || menu.name.includes('メイン') || menu.name.includes('写真復活'))
     );
     
     if (mainMenu) {
@@ -116,7 +116,13 @@ async function testRichMenuAutoPopup() {
   }
   
   // 关闭数据库连接
-  await database.pool.end();
+  try {
+    if (database && database.pool) {
+      await database.pool.end();
+    }
+  } catch (error) {
+    console.log('📝 数据库连接已关闭或不存在');
+  }
 }
 
 // 显示帮助信息
