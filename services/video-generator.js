@@ -230,7 +230,7 @@ class VideoGenerator {
       
       // 查询数据库中该用户的进行中任务
       const pendingVideos = await this.db.query(`
-        SELECT id, task_id, status, created_at, image_url
+        SELECT id, task_id, status, created_at
         FROM videos 
         WHERE user_id = (SELECT id FROM users WHERE line_id = $1)
         AND status IN ('processing', 'generating', 'queueing', 'wait')
