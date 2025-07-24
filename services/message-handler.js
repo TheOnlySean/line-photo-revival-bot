@@ -34,7 +34,7 @@ class MessageHandler {
       });
 
       // 发送欢迎消息
-      await this.lineBot.sendWelcomeMessage(event.replyToken);
+      await this.lineBot.sendWelcomeMessage(event.replyToken, userId);
 
     } catch (error) {
       console.error('❌ 处理添加好友事件失败:', error);
@@ -1301,6 +1301,10 @@ class MessageHandler {
           await this.handleDemoGenerate(event, user, data.demo_id);
           break;
           
+        case 'free_trial':
+          await this.handleFreeTrialGenerate(event, user, data);
+          break;
+          
         case 'confirm_generate':
           await this.handleConfirmGenerate(event, user, data);
           break;
@@ -2034,6 +2038,129 @@ class MessageHandler {
         type: 'text',
         text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
       });
+    }
+  }
+
+  // 处理免费试用生成
+  async handleFreeTrialGenerate(event, user, data) {
+    try {
+      const photoId = data.photo_id;
+      const type = data.type;
+      
+      console.log('🎁 用户开始免费试用:', { userId: user.id, photoId, type });
+      
+      // 获取试用照片配置
+      const { trialPhotos, trialPhotoDetails, trialFlowConfig } = require('../config/demo-trial-photos');
+      const selectedPhoto = trialPhotos.find(photo => photo.id === photoId);
+      const photoDetails = trialPhotoDetails[photoId];
+      
+      if (!selectedPhoto) {
+        await this.client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '❌ 選択された写真が見つかりません。もう一度お選びください。'
+        });
+        return;
+      }
+
+      // 立即切换到处理中Rich Menu
+      console.log('🔄 切换到处理中菜单...');
+      await this.lineBot.switchToProcessingMenu(user.line_id);
+      
+      // 发送开始生成的消息
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: `🎬 ${photoDetails.title}の無料体験を開始いたします！\n\n⏳ 生成中...下部の「生成中...」メニューで進捗をご確認いただけます。`
+      });
+
+      // 记录试用开始
+      await this.db.logInteraction(user.line_id, user.id, 'free_trial_started', {
+        photoId: photoId,
+        type: type,
+        photoTitle: photoDetails.title
+      });
+
+      // 开始模拟生成过程
+      this.simulateTrialGeneration(user, selectedPhoto, photoDetails, trialFlowConfig);
+
+    } catch (error) {
+      console.error('❌ 处理免费试用失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 無料体験の開始に失敗しました。しばらくお待ちいただいてから再度お試しください。'
+      });
+    }
+  }
+
+  // 模拟试用生成过程
+  async simulateTrialGeneration(user, selectedPhoto, photoDetails, trialFlowConfig) {
+    try {
+      console.log('🎭 开始模拟生成过程...');
+      
+      // 发送进度更新消息
+      for (const update of trialFlowConfig.processing_updates) {
+        setTimeout(async () => {
+          try {
+            await this.client.pushMessage(user.line_id, {
+              type: 'text',
+              text: update.message
+            });
+          } catch (error) {
+            console.error('❌ 发送进度更新失败:', error);
+          }
+        }, update.time);
+      }
+
+      // 在指定时间后发送完成视频
+      setTimeout(async () => {
+        try {
+          // 切换回主菜单
+          await this.lineBot.switchToMainMenu(user.line_id);
+          
+          // 发送完成的视频
+          await this.client.pushMessage(user.line_id, [
+            {
+              type: 'text',
+              text: `🎉 ${photoDetails.title}の無料体験動画が完成いたしました！\n\n✨ AIが生成した素敵な動画をお楽しみください！`
+            },
+            {
+              type: 'video',
+              originalContentUrl: selectedPhoto.demo_video_url,
+              previewImageUrl: selectedPhoto.image_url
+            },
+            {
+              type: 'text',
+              text: '🎁 無料体験をお楽しみいただけましたでしょうか？\n\n📸 お客様の写真で動画を作成されたい場合は、下部メニューからお選びください！\n\n💎 より多くの動画生成には、ポイント購入をご検討ください。'
+            }
+          ]);
+
+          // 记录试用完成
+          await this.db.logInteraction(user.line_id, user.id, 'free_trial_completed', {
+            photoId: selectedPhoto.id,
+            type: selectedPhoto.type,
+            videoUrl: selectedPhoto.demo_video_url,
+            success: true
+          });
+
+          console.log('✅ 免费试用完成:', selectedPhoto.title);
+
+        } catch (error) {
+          console.error('❌ 发送试用完成视频失败:', error);
+          
+          // 发送错误消息
+          try {
+            await this.lineBot.switchToMainMenu(user.line_id);
+            await this.client.pushMessage(user.line_id, {
+              type: 'text',
+              text: '❌ 動画生成中にエラーが発生しました。しばらくお待ちいただいてから再度お試しください。'
+            });
+          } catch (fallbackError) {
+            console.error('❌ 发送错误回退消息失败:', fallbackError);
+          }
+        }
+      }, trialFlowConfig.generation_simulation_time);
+
+    } catch (error) {
+      console.error('❌ 模拟生成过程失败:', error);
     }
   }
 }

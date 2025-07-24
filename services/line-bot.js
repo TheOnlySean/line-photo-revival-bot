@@ -1306,20 +1306,155 @@ class LineBot {
     };
   }
 
-  // 发送欢迎消息
-  async sendWelcomeMessage(replyToken) {
+  // 发送欢迎消息（带免费试用）
+  async sendWelcomeMessage(replyToken, userId) {
     const welcomeMessages = [
       {
         type: "text",
-        text: "🎉 欢迎使用写真復活服务！\n\n✨ 我们使用高性价比AI技术将您的照片转换成生动视频\n\n🎁 新用户可以免费体验3次演示生成"
+        text: "🎉 写真復活へようこそ！\n\n✨ 高性価比のAI技術で写真を生き生きとした動画に変換いたします\n\n🎁 新規ユーザー様には無料体験をご用意しております"
       },
       {
         type: "text", 
-        text: "📱 请使用底部菜单开始体验：\n\n🎁 免费体验 - 体验高性价比AI视频生成\n🎬 生成视频 - 上传您的照片\n💎 充值点数 - 购买更多点数\n📊 查看信息 - 查看剩余点数"
+        text: "📱 下部メニューからご利用ください：\n\n👋 手を振る - 自然な手振り動画\n🤝 寄り添う - 温かい寄り添い動画\n🎨 パーソナライズ - オリジナル創作動画"
       }
     ];
 
     await this.client.replyMessage(replyToken, welcomeMessages);
+    
+    // 延迟发送免费体验选项
+    setTimeout(async () => {
+      try {
+        await this.sendFreeTrialOptions(userId);
+      } catch (error) {
+        console.error('❌ 发送试用选项失败:', error);
+      }
+    }, 3000); // 3秒后发送
+  }
+
+  // 发送免费试用选项
+  async sendFreeTrialOptions(userId) {
+    const { trialPhotos } = require('../config/demo-trial-photos');
+    
+    try {
+      // 创建试用照片选择卡片
+      const trialCarousel = this.createTrialPhotoCarousel(trialPhotos);
+      
+      await this.client.pushMessage(userId, [
+        {
+          type: 'text',
+          text: '🎁 **無料体験をお試しください！**\n\n✨ 下記のサンプル写真からお選びいただき、AI動画生成をご体験ください：'
+        },
+        trialCarousel
+      ]);
+      
+    } catch (error) {
+      console.error('❌ 发送试用选项失败:', error);
+      // 发送简化版本
+      await this.client.pushMessage(userId, {
+        type: 'text',
+        text: '🎁 無料体験をご希望の場合は、下部メニューからお気軽にお選びください！'
+      });
+    }
+  }
+
+  // 创建试用照片选择Carousel
+  createTrialPhotoCarousel(trialPhotos) {
+    const { trialPhotoDetails } = require('../config/demo-trial-photos');
+    
+    const bubbles = trialPhotos.map(photo => {
+      const details = trialPhotoDetails[photo.id];
+      
+      return {
+        type: "bubble",
+        hero: {
+          type: "image",
+          url: photo.image_url,
+          size: "full",
+          aspectRatio: "1:1",
+          aspectMode: "cover"
+        },
+        body: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            {
+              type: "text",
+              text: details.title,
+              weight: "bold",
+              size: "lg",
+              color: "#333333"
+            },
+            {
+              type: "text",
+              text: details.subtitle,
+              size: "sm",
+              color: "#666666",
+              margin: "md"
+            },
+            {
+              type: "box",
+              layout: "vertical",
+              contents: details.features.map(feature => ({
+                type: "text",
+                text: feature,
+                size: "xs",
+                color: "#888888",
+                margin: "xs"
+              })),
+              margin: "lg"
+            },
+            {
+              type: "box",
+              layout: "baseline",
+              contents: [
+                {
+                  type: "text",
+                  text: "生成時間:",
+                  size: "xs",
+                  color: "#aaaaaa",
+                  flex: 0
+                },
+                {
+                  type: "text", 
+                  text: details.generation_time,
+                  size: "xs",
+                  color: "#666666",
+                  flex: 0,
+                  margin: "sm"
+                }
+              ],
+              margin: "lg"
+            }
+          ]
+        },
+        footer: {
+          type: "box",
+          layout: "vertical",
+          contents: [
+            {
+              type: "button",
+              action: {
+                type: "postback",
+                label: "🎬 無料体験開始",
+                data: `action=free_trial&photo_id=${photo.id}&type=${photo.type}`,
+                displayText: `${details.title}で無料体験`
+              },
+              style: "primary",
+              color: "#FF6B9D"
+            }
+          ]
+        }
+      };
+    });
+
+    return {
+      type: "template",
+      altText: "🎁 無料体験サンプル写真",
+      template: {
+        type: "carousel",
+        columns: bubbles
+      }
+    };
   }
 
   // 创建生成进度消息（带GIF动画）
