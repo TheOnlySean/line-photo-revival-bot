@@ -109,29 +109,29 @@ class VideoGenerator {
     return { success: false, error: '网络连接失败，请检查网络设置' };
   }
 
-  // 优化的轮询逻辑（减少日志，增强稳定性）
+  // 优化的轮询逻辑（专为Serverless环境设计）
   async pollVideoStatus(lineUserId, taskId, videoRecordId) {
-    const maxAttempts = 40; // 减少到40次 (约10分钟)
-    const pollInterval = 15000; // 15秒间隔
+    const maxAttempts = 20; // 🔧 减少到20次，避免Serverless超时
+    const pollInterval = 8000; // 🔧 缩短到8秒间隔，更频繁检查
     let attempts = 0;
     let lastStatus = null;
-    let consecutiveTimeouts = 0; // 连续超时计数
+    let consecutiveTimeouts = 0;
 
-    console.log('🚀 开始轮询:', { taskId, maxAttempts });
+    console.log('🚀 开始Serverless优化轮询:', { taskId, maxAttempts, interval: pollInterval });
 
     const poll = async () => {
       try {
         attempts++;
-        console.log(`🔍 轮询 ${attempts}/${maxAttempts}`);
+        console.log(`🔍 快速轮询 ${attempts}/${maxAttempts} (${attempts * pollInterval / 1000}秒)`);
 
         const statusResult = await this.getVideoStatus(taskId);
 
         if (statusResult.success) {
-          consecutiveTimeouts = 0; // 重置超时计数
+          consecutiveTimeouts = 0;
           const status = statusResult.status;
           
-          // 只在状态变化时通知用户
-          if (status !== lastStatus && attempts > 2) {
+          // 🔧 更频繁的用户通知
+          if (status !== lastStatus) {
             await this.notifyStatusChange(lineUserId, status, attempts, maxAttempts);
           }
           lastStatus = status;
@@ -142,16 +142,17 @@ class VideoGenerator {
             case 'generating':
             case 'processing':
               if (attempts < maxAttempts) {
-                setTimeout(poll, pollInterval);
+                // 🔧 使用Promise.resolve()确保异步执行
+                setTimeout(() => poll().catch(console.error), pollInterval);
               } else {
-                console.error('⏰ 轮询超时');
-                await this.handleVideoFailure(lineUserId, videoRecordId, '视频生成超时，请稍后再试');
+                console.error('⏰ 快速轮询达到最大次数');
+                await this.handleVideoFailure(lineUserId, videoRecordId, '视频生成中，请稍后点击状态检查查看结果');
               }
               break;
 
             case 'success':
             case 'completed':
-              console.log('🎉 视频生成成功');
+              console.log('🎉 视频生成成功！');
               if (statusResult.videoUrl) {
                 await this.handleVideoSuccess(lineUserId, videoRecordId, {
                   videoUrl: statusResult.videoUrl,
@@ -173,7 +174,7 @@ class VideoGenerator {
             default:
               console.log('⚠️ 未知状态:', status);
               if (attempts < maxAttempts) {
-                setTimeout(poll, pollInterval);
+                setTimeout(() => poll().catch(console.error), pollInterval);
               } else {
                 await this.handleVideoFailure(lineUserId, videoRecordId, `视频生成状态异常: ${status}`);
               }
@@ -184,30 +185,26 @@ class VideoGenerator {
             consecutiveTimeouts++;
             console.warn(`⏰ 连续超时 ${consecutiveTimeouts} 次`);
             
-            // 连续超时3次后，延长轮询间隔
-            const nextInterval = consecutiveTimeouts >= 3 ? pollInterval * 2 : pollInterval;
-            
             if (attempts < maxAttempts) {
-              console.log(`🔁 API超时重试，延长间隔到 ${nextInterval/1000}秒`);
-              setTimeout(poll, nextInterval);
+              const nextInterval = consecutiveTimeouts >= 2 ? pollInterval * 1.5 : pollInterval; // 轻微延长
+              console.log(`🔁 API超时重试，间隔 ${nextInterval/1000}秒`);
+              setTimeout(() => poll().catch(console.error), nextInterval);
             } else {
-              await this.handleVideoFailure(lineUserId, videoRecordId, 'API响应超时，请稍后再试');
+              await this.handleVideoFailure(lineUserId, videoRecordId, '生成可能已完成，请点击状态检查获取结果');
             }
           } else if (statusResult.isRateLimit) {
-            // API限流，延长重试间隔
             if (attempts < maxAttempts) {
-              console.log('🔁 API限流，延长重试间隔到60秒');
-              setTimeout(poll, 60000); // 等待1分钟
+              console.log('🔁 API限流，延长重试间隔到20秒');
+              setTimeout(() => poll().catch(console.error), 20000);
             } else {
-              await this.handleVideoFailure(lineUserId, videoRecordId, 'API服务繁忙，请稍后再试');
+              await this.handleVideoFailure(lineUserId, videoRecordId, 'API服务繁忙，请稍后点击状态检查');
             }
           } else {
-            // 其他错误，正常重试
             if (attempts < maxAttempts) {
-              console.log('🔁 查询状态失败，重试中...');
-              setTimeout(poll, pollInterval * 2);
+              console.log('🔁 查询状态失败，快速重试...');
+              setTimeout(() => poll().catch(console.error), pollInterval);
             } else {
-              await this.handleVideoFailure(lineUserId, videoRecordId, '无法获取视频生成状态');
+              await this.handleVideoFailure(lineUserId, videoRecordId, '无法获取生成状态，请点击状态检查查看结果');
             }
           }
         }
@@ -215,67 +212,147 @@ class VideoGenerator {
       } catch (error) {
         console.error('❌ 轮询异常:', error.message);
         if (attempts < maxAttempts) {
-          setTimeout(poll, pollInterval * 2);
+          setTimeout(() => poll().catch(console.error), pollInterval);
         } else {
-          await this.handleVideoFailure(lineUserId, videoRecordId, '视频生成监控过程异常');
+          await this.handleVideoFailure(lineUserId, videoRecordId, '生成监控异常，请点击状态检查查看结果');
         }
       }
     };
 
-    // 3秒后开始第一次轮询
-    setTimeout(poll, 3000);
+    // 🔧 立即开始第一次轮询，不等待
+    setTimeout(() => poll().catch(console.error), 2000);
   }
 
-  // 通知用户状态变化
-  async notifyStatusChange(lineUserId, status, attempts, maxAttempts) {
+  // 🔧 新增：手动检查任务状态（Serverless环境备用方案）
+  async checkPendingTasks(lineUserId) {
     try {
-      const progressPercent = Math.min(Math.round((attempts / maxAttempts) * 100), 95);
-      const estimatedMinutes = Math.ceil((maxAttempts - attempts) * 15 / 60); // 预计剩余分钟
-      let message = '';
+      console.log('🔍 检查用户待完成任务:', lineUserId);
+      
+      // 查询数据库中该用户的进行中任务
+      const pendingVideos = await this.db.query(`
+        SELECT id, task_id, status, created_at, image_url
+        FROM videos 
+        WHERE user_id = (SELECT id FROM users WHERE line_id = $1)
+        AND status IN ('processing', 'generating', 'queueing', 'wait')
+        AND task_id IS NOT NULL
+        ORDER BY created_at DESC
+        LIMIT 3
+      `, [lineUserId]);
 
-      switch (status) {
-        case 'queueing':
-          message = `⏳ 動画生成がキューに追加されました\n\n📊 進行状況: ${progressPercent}%\n⏱️ 予想待ち時間: 約${estimatedMinutes}分\n\n✨ 高品質な動画を生成中です、少々お待ちください`;
-          break;
-        case 'generating':
-        case 'processing':
-          message = `🎬 AI動画生成中です\n\n📊 進行状況: ${progressPercent}%\n⏱️ 完成まで: 約${estimatedMinutes}分\n\n🚀 もうしばらくで完了いたします！`;
-          break;
-        case 'wait':
-          // 初期等待状态，给用户更多信心
-          message = `🔄 動画生成準備中...\n\n📸 お写真を解析し、最適な動画パラメータを設定しています\n⏱️ 予想時間: 約${estimatedMinutes}分\n\n💡 完成次第すぐにお送りいたします！`;
-          break;
-        default:
-          return; // 其他状态不通知
+      console.log(`📊 找到 ${pendingVideos.rows.length} 个待检查任务`);
+
+      if (pendingVideos.rows.length === 0) {
+        return {
+          success: true,
+          found: false,
+          message: '暂无进行中的视频生成任务'
+        };
       }
 
-      if (message) {
-        const line = require('@line/bot-sdk');
-        const lineConfig = require('../config/line-config');
-        const client = new line.Client({
-          channelSecret: lineConfig.channelSecret,
-          channelAccessToken: lineConfig.channelAccessToken
-        });
+      let completedCount = 0;
+      let stillProcessingCount = 0;
 
-        await client.pushMessage(lineUserId, {
-          type: 'text',
-          text: message
-        });
-        console.log(`📤 状态变化通知已发送: ${status} (${progressPercent}%)`);
+      for (const video of pendingVideos.rows) {
+        console.log(`🔎 检查任务 ${video.task_id}`);
+        
+        const statusResult = await this.getVideoStatus(video.task_id);
+        
+        if (statusResult.success) {
+          if (statusResult.status === 'success' || statusResult.status === 'completed') {
+            console.log(`✅ 发现已完成任务: ${video.task_id}`);
+            
+            if (statusResult.videoUrl) {
+              // 立即发送给用户
+              await this.handleVideoSuccess(lineUserId, video.id, {
+                videoUrl: statusResult.videoUrl,
+                thumbnailUrl: statusResult.thumbnailUrl || statusResult.imageUrl
+              });
+              completedCount++;
+            }
+          } else if (statusResult.status === 'fail' || statusResult.status === 'failed') {
+            console.log(`❌ 发现失败任务: ${video.task_id}`);
+            await this.handleVideoFailure(lineUserId, video.id, statusResult.error || '生成失败');
+          } else {
+            console.log(`⏳ 任务仍在进行: ${video.task_id} (${statusResult.status})`);
+            stillProcessingCount++;
+          }
+        } else {
+          console.error(`❌ 无法查询任务状态: ${video.task_id}`);
+        }
       }
+
+      // 发送状态总结
+      let summaryMessage = '📊 状态检查完成：\n\n';
+      
+      if (completedCount > 0) {
+        summaryMessage += `✅ ${completedCount} 个视频已完成并发送\n`;
+      }
+      
+      if (stillProcessingCount > 0) {
+        summaryMessage += `⏳ ${stillProcessingCount} 个视频仍在生成中，请稍后再检查\n`;
+      }
+      
+      summaryMessage += '\n💡 如果长时间未完成，可以重新生成';
+
+      await this.lineBot.sendMessage(lineUserId, summaryMessage);
+
+      return {
+        success: true,
+        found: true,
+        completedCount,
+        stillProcessingCount
+      };
 
     } catch (error) {
-      console.error('❌ 发送状态变化通知失败:', error.message);
-      // 🔧 检查是否用户取消关注导致的失败
-      if (error.message.includes('User not found') || 
-          error.message.includes('Invalid user') ||
-          error.response?.status === 400) {
-        console.warn('⚠️ 用户可能已取消关注，但轮询继续进行');
-        // 不抛出错误，让轮询继续，以防用户重新关注
-      }
-      // 不抛出错误，避免影响轮询主流程
+      console.error('❌ 检查待完成任务失败:', error.message);
+      return {
+        success: false,
+        error: error.message
+      };
     }
   }
+
+  // 🔧 优化状态通知消息
+  async notifyStatusChange(lineUserId, status, currentAttempt, maxAttempts) {
+    try {
+      const progress = Math.round((currentAttempt / maxAttempts) * 100);
+      const elapsed = Math.round(currentAttempt * 8); // 8秒间隔
+      
+      let message = '';
+      let emoji = '';
+      
+      switch (status) {
+        case 'queueing':
+        case 'wait':
+          emoji = '⏳';
+          message = `${emoji} 视频生成排队中... (${progress}%)\n⏱️ 已等待 ${elapsed} 秒`;
+          break;
+        case 'generating':
+          emoji = '🎬';
+          message = `${emoji} AI正在生成您的视频... (${progress}%)\n⏱️ 已处理 ${elapsed} 秒\n✨ 请稍候，马上就好！`;
+          break;
+        case 'processing':
+          emoji = '⚙️';
+          message = `${emoji} 视频后处理中... (${progress}%)\n⏱️ 处理时间 ${elapsed} 秒`;
+          break;
+        default:
+          return; // 不发送未知状态通知
+      }
+      
+      // 🔧 增加状态检查提示
+      if (progress > 70) {
+        message += '\n\n💡 如果等待时间过长，可以稍后点击"检查状态"按钮';
+      }
+
+      await this.lineBot.sendMessage(lineUserId, message);
+      console.log(`📤 状态通知已发送: ${status} (${progress}%)`);
+      
+    } catch (error) {
+      console.warn('⚠️ 发送状态通知失败（不影响生成）:', error.message);
+    }
+  }
+
+
 
   // 获取视频生成状态
   async getVideoStatus(taskId) {

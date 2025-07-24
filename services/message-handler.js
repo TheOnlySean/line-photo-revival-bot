@@ -155,11 +155,14 @@ class MessageHandler {
       await this.sendHelpMessage(event.replyToken);
     } else if (text.includes('点数') || text.includes('余额')) {
       await this.sendUserInfo(event.replyToken, user);
+    } else if (text.includes('检查状态') || text.includes('状态检查') || text.includes('チェック') || text.toLowerCase().includes('check')) {
+      // 🔧 新增：手动检查视频生成状态
+      await this.handleStatusCheck(event, user);
     } else {
       // 默认引导用户使用菜单
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '💡 下部メニューをご利用ください：\n\n👋 手を振る - 自然な手振り動画\n🤝 寄り添う - 温かい寄り添い動画\n🎨 パーソナライズ - オリジナル創作動画'
+        text: '💡 下部メニューをご利用ください：\n\n👋 手を振る - 自然な手振り動画\n🤝 寄り添う - 温かい寄り添い動画\n🎨 パーソナライズ - オリジナル創作動画\n\n🔍 「检查状态」と送信すると進行中の動画をチェックできます'
       });
     }
   }
@@ -1762,12 +1765,47 @@ class MessageHandler {
     await this.handleShareBot(event, user);
   }
 
-  // 处理状态检查
+  // 处理状态检查（🔧 升级为实际检查功能）
   async handleStatusCheck(event, user) {
-    await this.client.replyMessage(event.replyToken, {
-      type: 'text',
-      text: '🎬 動画を生成中です...\n\n⏱️ もうしばらくお待ちください。完成次第お送りいたします。'
-    });
+    try {
+      console.log('🔍 用户请求检查状态:', user.line_id);
+      
+      // 发送检查中提示
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '🔍 正在检查您的视频生成状态，请稍候...'
+      });
+      
+      // 调用VideoGenerator的状态检查方法
+      const result = await this.videoGenerator.checkPendingTasks(user.line_id);
+      
+      if (result.success && !result.found) {
+        // 没有待完成任务
+        await this.client.pushMessage(user.line_id, {
+          type: 'text',
+          text: '📊 暂无进行中的视频生成任务\n\n💡 您可以通过下方菜单开始新的视频生成：\n👋 手を振る - 自然な手振り動画\n🤝 寄り添う - 温かい寄り添い動画\n🎨 パーソナライズ - オリジナル創作動画'
+        });
+      } else if (!result.success) {
+        // 检查失败
+        await this.client.pushMessage(user.line_id, {
+          type: 'text',
+          text: '❌ 状态检查失败，请稍后再试\n\n💡 如果问题持续，请重新开始生成'
+        });
+      }
+      // 如果有待完成任务，VideoGenerator.checkPendingTasks已经处理了发送
+      
+    } catch (error) {
+      console.error('❌ 处理状态检查请求失败:', error.message);
+      
+      try {
+        await this.client.pushMessage(user.line_id, {
+          type: 'text',
+          text: '❌ 系统繁忙，请稍后再试检查状态\n\n🔄 您也可以重新开始生成'
+        });
+      } catch (sendError) {
+        console.error('❌ 发送错误消息失败:', sendError.message);
+      }
+    }
   }
 
   // 更新确认卡片样式（白色框风格）
