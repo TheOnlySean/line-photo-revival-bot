@@ -4,7 +4,7 @@ const db = require('../../config/database');
 const LineBot = require('../../services/line-bot');
 const VideoGenerator = require('../../services/video-generator');
 
-// GET /api/cron/check-tasks
+// GET /api/cron/check-tasks - Fixed Database import issue
 module.exports = async (req, res) => {
   // 仅允许 GET / HEAD
   if (req.method !== 'GET' && req.method !== 'HEAD') {
