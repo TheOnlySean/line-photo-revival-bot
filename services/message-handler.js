@@ -2055,29 +2055,11 @@ class MessageHandler {
     }
   }
 
-  // 处理免费试用生成
+  // 处理免费试用生成（恢复Processing Menu + 延迟体验）
   async handleFreeTrialGenerate(event, user, data) {
     try {
       const photoId = data.photo_id;
       console.log('🎁 用户开始免费试用:', { userId: user.id, photoId });
-      
-      // 🔧 关键修复：强制清理用户状态，避免停留在"生成中"
-      console.log('🧹 强制清理用户状态，防止卡在"生成中"...');
-      try {
-        // 1. 清理数据库中的用户状态
-        await this.db.clearUserState(user.id);
-        console.log('✅ 用户状态已清理');
-        
-        // 2. 强制切换回主菜单
-        await this.lineBot.switchToMainMenu(user.line_id);
-        console.log('✅ 强制切换回主菜单');
-        
-        // 3. 短暂等待确保状态稳定
-        await this.sleep(1000);
-        console.log('✅ 状态重置完成');
-      } catch (resetError) {
-        console.error('⚠️ 状态重置失败，但继续处理:', resetError.message);
-      }
       
       // 获取试用照片配置
       const { trialPhotos, trialPhotoDetails } = require('../config/demo-trial-photos');
@@ -2092,13 +2074,44 @@ class MessageHandler {
         return;
       }
 
-      console.log('📤 立即发送试用视频，不等待任何东西');
+      // 步骤1: 立即切换到Processing Menu
+      console.log('🔄 切换到处理中菜单...');
+      await this.lineBot.switchToProcessingMenu(user.line_id);
       
-      // 🔧 修复：最简单直接的方式发送视频
-      await this.client.replyMessage(event.replyToken, [
+      // 步骤2: 发送"生成中"消息
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: `🎬 ${photoDetails.title}の無料体験を開始いたします！\n\n⏳ 生成中...下部の「生成中...」メニューで進捗をご確認いただけます。`
+      });
+      
+      console.log('✅ Processing状态已设置，开始简化生成流程...');
+      
+      // 步骤3: 简化的生成过程（10秒等待）
+      await this.simpleTrialGeneration(user, selectedPhoto, photoDetails);
+
+    } catch (error) {
+      console.error('❌ 处理免费试用失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 無料体験の開始に失敗しました。しばらくお待ちいただいてから再度お試しください。'
+      });
+    }
+  }
+
+  // 简化的试用生成过程（只做核心功能）
+  async simpleTrialGeneration(user, selectedPhoto, photoDetails) {
+    try {
+      console.log('⏰ 开始10秒简化生成过程...');
+      
+      // 等待10秒（用户期望的体验）
+      await this.sleep(10000);
+      
+      // 发送完成视频
+      console.log('📤 发送完成视频...');
+      await this.client.pushMessage(user.line_id, [
         {
           type: 'text',
-          text: `🎉 ${photoDetails.title}の無料体験動画です！`
+          text: `🎉 ${photoDetails.title}の無料体験動画が完成いたしました！`
         },
         {
           type: 'video',
@@ -2111,17 +2124,26 @@ class MessageHandler {
         }
       ]);
       
-      console.log('✅ 免费试用视频发送完成！');
-
+      // 切换回主菜单
+      await this.lineBot.switchToMainMenu(user.line_id);
+      console.log('✅ 免费试用完成，已回到主菜单');
+      
       // 异步记录（不影响用户）
       this.recordTrialCompletion(user, selectedPhoto).catch(console.error);
 
     } catch (error) {
-      console.error('❌ 处理免费试用失败:', error);
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '❌ 無料体験の開始に失敗しました。しばらくお待ちいただいてから再度お試しください。'
-      });
+      console.error('❌ 简化生成过程失败:', error);
+      
+      // 错误恢复：确保切换回主菜单
+      try {
+        await this.lineBot.switchToMainMenu(user.line_id);
+        await this.client.pushMessage(user.line_id, {
+          type: 'text',
+          text: '❌ 生成中にエラーが発生しました。もう一度お試しください。'
+        });
+      } catch (recoveryError) {
+        console.error('❌ 错误恢复也失败:', recoveryError.message);
+      }
     }
   }
 
