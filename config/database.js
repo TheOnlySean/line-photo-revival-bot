@@ -1,15 +1,19 @@
 const { Pool } = require('pg');
 
-// 数据库配置
+// 数据库配置 - 优化连接池设置
 const dbConfig = {
   // Neon数据库连接字符串 (映像工房共用数据库)
   connectionString: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_JIjeL7Dp4YrG@ep-holy-smoke-a14e7x3f-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require',
   ssl: {
     rejectUnauthorized: false
   },
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  max: 10, // 减少最大连接数，避免过载
+  min: 2, // 保持最小连接数
+  idleTimeoutMillis: 60000, // 增加空闲超时到60秒
+  connectionTimeoutMillis: 10000, // 增加连接超时到10秒
+  statement_timeout: 30000, // SQL语句超时30秒
+  query_timeout: 25000, // 查询超时25秒
+  application_name: 'line-photo-revival-bot', // 应用名称，便于监控
 };
 
 // 创建连接池
@@ -26,18 +30,94 @@ pool.on('error', (err) => {
 
 // 数据库查询封装
 const db = {
-  // 通用查询方法
-  async query(text, params) {
+  // 通用查询方法 - 增强版本，支持重试和更好的错误处理
+  async query(text, params, maxRetries = 2) {
     const start = Date.now();
-    try {
-      const res = await pool.query(text, params);
-      const duration = Date.now() - start;
-      console.log('📊 SQL查询:', { text, duration: `${duration}ms`, rows: res.rowCount });
-      return res;
-    } catch (error) {
-      console.error('❌ SQL查询错误:', { text, error: error.message });
-      throw error;
+    let lastError;
+    
+    for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+      try {
+        console.log(`🔍 SQL查询尝试 ${attempt}/${maxRetries + 1}:`, { 
+          query: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+          params: params?.length || 0
+        });
+        
+        const res = await pool.query(text, params);
+        const duration = Date.now() - start;
+        
+        if (duration > 5000) {
+          console.warn('⚠️ 慢查询警告:', { duration: `${duration}ms`, rows: res.rowCount });
+        } else {
+          console.log('📊 SQL查询成功:', { duration: `${duration}ms`, rows: res.rowCount });
+        }
+        
+        return res;
+        
+      } catch (error) {
+        lastError = error;
+        const duration = Date.now() - start;
+        
+        console.error(`❌ SQL查询失败 (尝试 ${attempt}/${maxRetries + 1}):`, {
+          error: error.message,
+          code: error.code,
+          duration: `${duration}ms`
+        });
+        
+        // 检查是否是可重试的错误
+        const retryableErrors = [
+          'ECONNRESET',
+          'ENOTFOUND', 
+          'ETIMEDOUT',
+          'Connection terminated due to connection timeout',
+          'Connection terminated unexpectedly'
+        ];
+        
+        const isRetryable = retryableErrors.some(errType => 
+          error.message.includes(errType) || error.code === errType
+        );
+        
+        if (attempt > maxRetries || !isRetryable) {
+          console.error('❌ SQL查询最终失败:', { 
+            error: error.message,
+            attempts: attempt,
+            isRetryable 
+          });
+          throw error;
+        }
+        
+        // 等待一下再重试
+        const waitTime = attempt * 1000; // 第1次重试等1秒，第2次等2秒
+        console.log(`⏱️ ${waitTime}ms后重试...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
     }
+    
+    throw lastError;
+  },
+
+  // 数据库健康检查
+  async healthCheck() {
+    try {
+      console.log('🏥 执行数据库健康检查...');
+      const start = Date.now();
+      const result = await pool.query('SELECT 1 as health_check');
+      const duration = Date.now() - start;
+      
+      console.log('✅ 数据库健康检查通过:', { duration: `${duration}ms` });
+      return { healthy: true, duration };
+    } catch (error) {
+      console.error('❌ 数据库健康检查失败:', error.message);
+      return { healthy: false, error: error.message };
+    }
+  },
+
+  // 获取连接池状态
+  getPoolStatus() {
+    return {
+      totalCount: pool.totalCount,
+      idleCount: pool.idleCount,
+      waitingCount: pool.waitingCount
+    };
   },
 
   // 用户相关查询

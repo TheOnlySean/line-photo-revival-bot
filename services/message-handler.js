@@ -1457,6 +1457,17 @@ class MessageHandler {
   async generateVideoAsync(user, imageUrl, type) {
     try {
       console.log('🎬 开始异步生成视频:', type, imageUrl);
+
+      // 数据库健康检查
+      console.log('🏥 执行数据库健康检查...');
+      const healthCheck = await this.db.healthCheck();
+      if (!healthCheck.healthy) {
+        throw new Error(`数据库连接异常: ${healthCheck.error}`);
+      }
+      
+      if (healthCheck.duration > 3000) {
+        console.warn('⚠️ 数据库响应缓慢，可能影响性能:', { duration: healthCheck.duration });
+      }
       
       const prompts = {
         wave: 'A person naturally waving hand with a warm smile, subtle head movement, friendly gesture, high quality portrait video',
@@ -1464,28 +1475,56 @@ class MessageHandler {
       };
       
       const prompt = prompts[type] || prompts.wave;
+      let videoRecord = null;
       
-      // 创建视频生成记录
-      const videoRecord = await this.db.createVideoGeneration(
-        user.id,
-        prompt,
-        false,
-        type === 'custom' ? 2 : 1
-      );
-      
-      console.log('📝 视频记录已创建:', videoRecord.id);
-      
-      // 调用视频生成API（异步提交任务）
-      await this.videoGenerator.generateVideo(user.line_id, imageUrl, videoRecord.id);
-      
-      console.log('✅ 视频生成任务已提交，轮询机制将自动处理完成后的发送');
-      
-      // 记录任务启动
-      await this.db.logInteraction(user.line_id, user.id, 'video_generation_started', {
-        type,
-        imageUrl,
-        videoRecordId: videoRecord.id
-      });
+      try {
+        // 步骤1: 创建视频生成记录
+        console.log('📝 步骤1: 创建视频记录...');
+        videoRecord = await this.db.createVideoGeneration(
+          user.id,
+          prompt,
+          false,
+          type === 'custom' ? 2 : 1
+        );
+        console.log('✅ 视频记录已创建:', videoRecord.id);
+        
+        // 步骤2: 提交视频生成任务
+        console.log('📝 步骤2: 提交视频生成任务...');
+        await this.videoGenerator.generateVideo(user.line_id, imageUrl, videoRecord.id);
+        console.log('✅ 视频生成任务已提交，轮询机制将自动处理完成后的发送');
+        
+        // 步骤3: 记录任务启动（非关键操作，失败不影响主流程）
+        try {
+          await this.db.logInteraction(user.line_id, user.id, 'video_generation_started', {
+            type,
+            imageUrl,
+            videoRecordId: videoRecord.id
+          });
+          console.log('✅ 任务启动记录已保存');
+        } catch (logError) {
+          console.warn('⚠️ 记录任务启动失败（不影响主流程）:', logError.message);
+        }
+        
+      } catch (dbError) {
+        console.error('❌ 视频生成流程中的数据库操作失败:', dbError);
+        
+        // 如果视频记录创建失败，直接抛出错误
+        if (!videoRecord) {
+          throw new Error('数据库连接失败，无法创建视频记录');
+        }
+        
+        // 如果视频生成API调用失败，更新记录状态为失败
+        try {
+          await this.db.updateVideoGeneration(videoRecord.id, {
+            status: 'failed',
+            error_message: dbError.message
+          });
+        } catch (updateError) {
+          console.error('❌ 更新视频记录失败状态也失败:', updateError.message);
+        }
+        
+        throw dbError;
+      }
       
     } catch (error) {
       console.error('❌ 视频生成任务提交失败:', error);
