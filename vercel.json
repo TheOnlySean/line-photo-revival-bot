@@ -2,8 +2,17 @@
   "functions": {
     "api/webhook.js": {
       "maxDuration": 60
+    },
+    "api/cron/check-tasks.js": {
+      "maxDuration": 60
     }
   },
+  "crons": [
+    {
+      "path": "/api/cron/check-tasks",
+      "schedule": "*/2 * * * *"
+    }
+  ],
   "rewrites": [
     {
       "source": "/webhook",
