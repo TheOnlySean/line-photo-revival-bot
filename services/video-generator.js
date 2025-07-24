@@ -132,7 +132,7 @@ class VideoGenerator {
 
   // 轮询视频生成状态 (增强监控版本)
   async pollVideoStatus(lineUserId, taskId, videoRecordId) {
-    const maxAttempts = 40; // 最多轮询40次 (约10分钟)
+    const maxAttempts = 60; // 最多轮询60次 (约15分钟) - 增加等待时间
     const pollInterval = 15000; // 每15秒轮询一次
     let attempts = 0;
     let lastStatus = null;
