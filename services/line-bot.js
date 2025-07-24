@@ -9,8 +9,8 @@ class LineBot {
     this.channelId = lineConfig.channelId;
     
     // 固定的Rich Menu ID (由脚本自动更新)
-    this.mainRichMenuId = 'richmenu-747a14567ab3fe9f17b0f461446f84b1';
-    this.processingRichMenuId = 'richmenu-6896f88fafb73734dbd8b9fa3e3f2fbd';
+    this.mainRichMenuId = 'richmenu-b23cd874b50111aa5b277b2d633c96ec';
+    this.processingRichMenuId = 'richmenu-9354f62c81779579ec5f13747ca4c80f';
   }
 
   // 设置Rich Menu
