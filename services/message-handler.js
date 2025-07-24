@@ -1157,7 +1157,7 @@ class MessageHandler {
   // 处理图片功能选择 - 挥手
   async handleSelectWave(event, user, data) {
     const imageUrl = decodeURIComponent(data.image_url);
-    const wavePrompt = "A person waving hand with a warm smile, gentle and natural movement, friendly greeting gesture";
+    const wavePrompt = "smile and wave hand";
     
     const confirmCard = this.lineBot.createPresetVideoConfirmCard(imageUrl, wavePrompt, "👋 挥手微笑", 1);
 
@@ -1173,7 +1173,7 @@ class MessageHandler {
   // 处理图片功能选择 - 肩并肩
   async handleSelectGroup(event, user, data) {
     const imageUrl = decodeURIComponent(data.image_url);
-    const groupPrompt = "People standing together with warm interaction, shoulder to shoulder, showing mutual support and closeness, gentle movements expressing togetherness";
+    const groupPrompt = "Rely on each other";
     
     const confirmCard = this.lineBot.createPresetVideoConfirmCard(imageUrl, groupPrompt, "🤝 肩并肩互相依靠", 1);
 
@@ -1593,8 +1593,8 @@ class MessageHandler {
       }
       
       const prompts = {
-        wave: 'A person naturally waving hand with a warm smile, subtle head movement, friendly gesture, high quality portrait video',
-        group: 'People standing close together in a warm, supportive pose, gentle movements showing closeness and friendship, heartwarming scene'
+        wave: 'smile and wave hand',
+        group: 'Rely on each other'
       };
       
       const prompt = prompts[type] || prompts.wave;
