@@ -129,40 +129,57 @@ class MessageHandler {
     const text = event.message.text.trim();
     
     console.log('📝 收到文字消息:', text);
+    console.log('👤 用户信息:', { id: user.id, line_id: user.line_id });
+    
+    // 調試功能：如果用戶輸入"状態"，顯示當前狀態
+    if (text === '状態' || text === 'debug') {
+      const userState = await this.db.getUserState(user.id);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: `🔍 調試信息：\n用戶ID: ${user.id}\n當前狀態: ${userState ? userState.state : 'null'}\n狀態數據: ${JSON.stringify(userState?.data || {}, null, 2)}`
+      });
+      return;
+    }
     
     // 首先检查用户状态
     const userState = await this.db.getUserState(user.id);
+    console.log('🔍 用户当前状态:', userState);
     
-    if (userState.state === 'waiting_custom_prompt_selection') {
-      // 用户正在选择提示词设置方式
-      await this.handleCustomPromptSelection(event, user, text, userState.data);
-      return;
-    }
-    
-    if (userState.state === 'waiting_custom_prompt_input') {
-      // 用户正在输入个性化生成的初始提示词
-      await this.handleCustomPromptInput(event, user, text, userState.data);
-      return;
-    }
-    
-    if (userState.state === 'waiting_custom_prompt') {
-      // 用户正在个性化生成中输入prompt (旧流程保留)
-      await this.handleCustomPromptReceived(event, user, text, userState.data);
-      return;
-    }
-    
-    if (userState.state === 'waiting_custom_photo_upload') {
-      // 用户在等待照片上传状态下发送文字，检查是否是"Nashi"
-      if (text === 'Nashi' || text === '🚫 写真なし' || text.includes('写真なし')) {
-        await this.handleCustomVideoGenerationWithoutPhoto(event, user, userState.data);
-      } else {
-        // 其他文字输入，重新提示选择
-        const photoSelectionMessage = this.lineBot.createCustomPhotoUploadQuickReply(
-          '❌ 無効な選択です。下記のボタンから選択してください：'
-        );
-        await this.client.replyMessage(event.replyToken, photoSelectionMessage);
+    // 检查用户状态是否存在
+    if (userState && userState.state) {
+      if (userState.state === 'waiting_custom_prompt_selection') {
+        // 用户正在选择提示词设置方式
+        console.log('🎯 处理提示词选择状态');
+        await this.handleCustomPromptSelection(event, user, text, userState.data);
+        return;
       }
-      return;
+      
+      if (userState.state === 'waiting_custom_prompt_input') {
+        // 用户正在输入个性化生成的初始提示词
+        console.log('✏️ 处理自定义提示词输入状态');
+        await this.handleCustomPromptInput(event, user, text, userState.data);
+        return;
+      }
+      
+      if (userState.state === 'waiting_custom_prompt') {
+        // 用户正在个性化生成中输入prompt (旧流程保留)
+        await this.handleCustomPromptReceived(event, user, text, userState.data);
+        return;
+      }
+      
+      if (userState.state === 'waiting_custom_photo_upload') {
+        // 用户在等待照片上传状态下发送文字，检查是否是"Nashi"
+        if (text === 'Nashi' || text === '🚫 写真なし' || text.includes('写真なし')) {
+          await this.handleCustomVideoGenerationWithoutPhoto(event, user, userState.data);
+        } else {
+          // 其他文字输入，重新提示选择
+          const photoSelectionMessage = this.lineBot.createCustomPhotoUploadQuickReply(
+            '❌ 無効な選択です。下記のボタンから選択してください：'
+          );
+          await this.client.replyMessage(event.replyToken, photoSelectionMessage);
+        }
+        return;
+      }
     }
     
     // 处理Rich Menu动作关键字
@@ -493,9 +510,15 @@ class MessageHandler {
   async handleCustomPromptInputMode(event, user, stateData) {
     try {
       console.log('✏️ 切换到自定义输入模式');
+      console.log('📊 准备设置的状态数据:', stateData);
       
       // 设置用户状态为等待提示词输入
       await this.db.setUserState(user.id, 'waiting_custom_prompt_input', stateData);
+      console.log('✅ 用户状态已设置为 waiting_custom_prompt_input');
+      
+      // 验证状态设置是否成功
+      const verifyState = await this.db.getUserState(user.id);
+      console.log('🔍 验证设置的状态:', verifyState);
       
       // 发送输入提示消息（隐藏Rich Menu，让用户更方便输入）
       await this.client.replyMessage(event.replyToken, {

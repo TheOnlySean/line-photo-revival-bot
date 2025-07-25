@@ -2032,7 +2032,6 @@ class LineBot {
               type: 'postback',
               label: '✏️ 自分で入力する',
               data: 'INPUT_CUSTOM_PROMPT',
-              displayText: '自分で入力する',
               inputOption: 'openKeyboard'
             }
           }
