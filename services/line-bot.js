@@ -220,6 +220,30 @@ class LineBot {
     }
   }
 
+  // 切换到生成中Rich Menu (静默模式，不发送额外消息)
+  async switchToProcessingMenuSilent(userId) {
+    try {
+      if (!this.processingRichMenuId) {
+        console.log('⚠️ 生成中Rich Menu未设置');
+        return false;
+      }
+
+      if (!userId) {
+        console.error('❌ 切换到生成中菜单需要用户ID');
+        return false;
+      }
+
+      // 强制为用户绑定生成中菜单，确保菜单显示
+      await this.client.linkRichMenuToUser(userId, this.processingRichMenuId);
+      console.log('🔄 已静默绑定生成中菜单给用户:', userId);
+      
+      return true;
+    } catch (error) {
+      console.error('❌ 静默切换到生成中菜单失败:', error.message);
+      return false;
+    }
+  }
+
   // 切换回主要Rich Menu (强制显示，增强版)
   async switchToMainMenu(userId) {
     try {

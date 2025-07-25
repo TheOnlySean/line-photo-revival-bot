@@ -702,14 +702,14 @@ class MessageHandler {
         return;
       }
 
-      // 立即切换到处理中Rich Menu
-      await this.lineBot.switchToProcessingMenu(user.line_id);
-      
-      // 发送生成开始消息
+      // 先发送生成开始消息
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
-        text: `🎬 「${originalPrompt}」の動画生成を開始いたします！\n\n⏱️ 参考画像なしでの生成のため、プロンプトの内容に基づいて動画を作成いたします。\n\n生成には約30-60秒かかります。完成次第お送りいたします。`
+        text: `🎬 「${originalPrompt}」の動画生成を開始いたします！\n\n⏱️ 参考画像なしでの生成のため、プロンプトの内容に基づいて動画を作成いたします。\n\n生成には約30-60秒かかります。完成次第お送りいたします。\n\n💡 下部の「生成中...」メニューで進捗をご確認いただけます。`
       });
+      
+      // 然后切换到处理中Rich Menu（不再重复发送消息）
+      await this.lineBot.switchToProcessingMenuSilent(user.line_id);
 
       // 扣除点数
       await this.db.updateUserCredits(user.id, -2);
@@ -1306,13 +1306,13 @@ class MessageHandler {
         return;
       }
 
-      // 立即切换到处理中Rich Menu，提供即时视觉反馈
-      console.log('🔄 立即切换到处理中菜单...');
-      await this.lineBot.switchToProcessingMenu(user.line_id);
-      
-      // 显示生成进度消息
+      // 先发送处理中消息
       console.log('📤 发送处理中消息...');
       await this.lineBot.sendProcessingMessage(event.replyToken);
+      
+      // 然后切换到处理中Rich Menu（静默模式）
+      console.log('🔄 切换到处理中菜单...');
+      await this.lineBot.switchToProcessingMenuSilent(user.line_id);
       
       // 扣除点数
       console.log('💰 扣除点数:', creditsNeeded);
@@ -1355,13 +1355,13 @@ class MessageHandler {
         return;
       }
 
-      // 立即切换到处理中Rich Menu，提供即时视觉反馈
-      console.log('🔄 立即切换到处理中菜单...');
-      await this.lineBot.switchToProcessingMenu(user.line_id);
-      
-      // 显示生成进度消息
+      // 先发送处理中消息
       console.log('📤 发送处理中消息...');
       await this.lineBot.sendProcessingMessage(event.replyToken);
+      
+      // 然后切换到处理中Rich Menu（静默模式）
+      console.log('🔄 切换到处理中菜单...');
+      await this.lineBot.switchToProcessingMenuSilent(user.line_id);
       
       // 扣除点数
       console.log('💰 扣除点数:', creditsNeeded);
@@ -1443,14 +1443,14 @@ class MessageHandler {
         return;
       }
 
-      // 立即切换到处理中Rich Menu
-      await this.lineBot.switchToProcessingMenu(user.line_id);
-      
-      // 发送生成开始消息
+      // 先发送生成开始消息
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
-        text: `🎬 「${originalPrompt}」の動画生成を開始いたします！\n\n📸 アップロードいただいた画像を参考に動画を作成いたします。\n\n⏱️ 生成には約30-60秒かかります。完成次第お送りいたします。`
+        text: `🎬 「${originalPrompt}」の動画生成を開始いたします！\n\n📸 アップロードいただいた画像を参考に動画を作成いたします。\n\n⏱️ 生成には約30-60秒かかります。完成次第お送りいたします。\n\n💡 下部の「生成中...」メニューで進捗をご確認いただけます。`
       });
+      
+      // 然后切换到处理中Rich Menu（不再重复发送消息）
+      await this.lineBot.switchToProcessingMenuSilent(user.line_id);
 
       // 扣除点数
       await this.db.updateUserCredits(user.id, -2);
