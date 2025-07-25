@@ -2462,13 +2462,14 @@ class MessageHandler {
   // 处理Rich Menu手振り动作
   async handleRichMenuWaveAction(event, user) {
     try {
-      // 直接發送功能介紹，移除不必要的Quick Reply
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '👋【手振り動画生成】\n\n✨ 自然な笑顔で手を振る素敵な動画を作成いたします。\n\n📸 続行するには写真をアップロードしてください（任意のタイミングでカメラロールまたはカメラから）'
-      });
+      // 發送功能介紹並提供照片上傳選項
+      const quickReplyMessage = this.lineBot.createPhotoUploadQuickReply(
+        '👋【手振り動画生成】\n\n✨ 自然な笑顔で手を振る素敵な動画を作成いたします。\n\n📸 下記のボタンから写真をアップロードしてください：'
+      );
       
-      // 設置用戶狀態 - 簡化數據庫操作
+      await this.client.replyMessage(event.replyToken, quickReplyMessage);
+      
+      // 設置用戶狀態
       await this.db.setUserState(user.id, 'waiting_wave_photo', { action: 'wave' });
       
     } catch (error) {
@@ -2483,11 +2484,12 @@ class MessageHandler {
   // 处理Rich Menu寄り添い动作
   async handleRichMenuGroupAction(event, user) {
     try {
-      // 直接發送功能介紹，移除Quick Reply
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '🤝【寄り添い動画生成】\n\n💕 温かい雰囲気の素敵な動画を作成いたします。\n\n📸 続行するには写真をアップロードしてください（任意のタイミングでカメラロールまたはカメラから）'
-      });
+      // 發送功能介紹並提供照片上傳選項
+      const quickReplyMessage = this.lineBot.createPhotoUploadQuickReply(
+        '🤝【寄り添い動画生成】\n\n💕 温かい雰囲気の素敵な動画を作成いたします。\n\n📸 下記のボタンから写真をアップロードしてください：'
+      );
+      
+      await this.client.replyMessage(event.replyToken, quickReplyMessage);
       
       // 設置用戶狀態
       await this.db.setUserState(user.id, 'waiting_group_photo', { action: 'group' });
