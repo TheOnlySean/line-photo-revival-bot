@@ -6,6 +6,7 @@
 
 - ✨ **免费体验**：预设3张演示照片，用户可免费体验高性价比AI视频生成
 - 🎬 **个性化视频**：用户上传照片生成专属AI视频
+- 🤖 **智能翻译**：集成OpenAI GPT-4o-mini进行日语到英语prompt翻译优化
 - 💎 **点数系统**：基于点数的付费模式，灵活计费
 - 📱 **Rich Menu**：直观的底部菜单界面
 - 🔄 **实时反馈**：生成过程状态实时推送
@@ -16,6 +17,7 @@
 ### 后端技术栈
 - **Node.js + Express**：Web服务器框架
 - **@line/bot-sdk**：LINE Bot SDK
+- **OpenAI GPT-4o-mini**：智能日语prompt翻译和优化
 - **PostgreSQL (Neon)**：数据库存储
 - **Vercel Blob**：图片/视频文件存储
 - **KIE.AI API**：AI视频生成服务
@@ -43,6 +45,7 @@ npm install
 
 当前配置状态：
 - ✅ **LINE Bot配置**：已配置测试账号
+- ✅ **OpenAI配置**：已集成GPT-4o-mini翻译服务
 - ✅ **KIE.AI API**：已配置Runway API (高性价比模式)
 - ✅ **Vercel Blob**：已配置存储服务
 - ✅ **数据库**：已连接到映像工房Neon数据库
