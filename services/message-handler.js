@@ -407,17 +407,22 @@ class MessageHandler {
   async handleCustomPromptSelection(event, user, text, stateData) {
     try {
       console.log('🎯 用户选择提示词方式:', text);
+      console.log('🔍 用户当前状态数据:', stateData);
       
       if (text === 'RANDOM_PROMPT' || text === '🎲 ランダム') {
         // 用户选择随机生成提示词
         await this.handleRandomPromptGeneration(event, user, stateData);
-      } else if (text === 'INPUT_CUSTOM_PROMPT' || text === '✏️ 自分で入力する') {
+      } else if (text === 'INPUT_CUSTOM_PROMPT' || text === '✏️ 自分で入力する' || text === '自分で入力する') {
         // 用户选择自定义输入提示词
         await this.handleCustomPromptInputMode(event, user, stateData);
+      } else if (text === 'reset' || text === 'リセット') {
+        // 用户要求重置状态
+        await this.handleResetUserState(event, user);
       } else {
-        // 无效选择，重新提示
+        // 无效选择，重新提示（添加重置选项）
+        console.log('❌ 收到无效选择，用户输入:', text);
         const promptSelectionMessage = this.lineBot.createCustomPromptSelectionQuickReply(
-          '❌ 無効な選択です。下記からプロンプトの設定方法をお選びください：'
+          '❌ 無効な選択です。下記からプロンプトの設定方法をお選びください：\n\n💡 問題が続く場合は「リセット」と入力してください'
         );
         await this.client.replyMessage(event.replyToken, promptSelectionMessage);
       }
@@ -527,6 +532,32 @@ class MessageHandler {
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
         text: '❌ 処理中にエラーが発生しました。もう一度お試しください。'
+      });
+    }
+  }
+
+  // 处理用户状态重置
+  async handleResetUserState(event, user) {
+    try {
+      console.log('🔄 重置用户状态');
+      
+      // 清除用户状态
+      await this.db.clearUserState(user.id);
+      
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '✅ 状態をリセットしました。\n\n🎨 パーソナライズ生成を再開するには、Rich Menuから「個性化」を選択してください。'
+      });
+
+      await this.db.logInteraction(user.line_id, user.id, 'user_state_reset', {
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('❌ 重置用户状态失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 状態のリセットに失敗しました。もう一度お試しください。'
       });
     }
   }
