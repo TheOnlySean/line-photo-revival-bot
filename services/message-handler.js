@@ -511,6 +511,26 @@ class MessageHandler {
     }
   }
 
+  // 处理来自postback的自定义输入提示词选择
+  async handleInputCustomPromptPostback(event, user) {
+    try {
+      console.log('✏️ 处理postback: 用户选择自定义输入提示词');
+      
+      // 获取用户当前状态
+      const userState = await this.db.getUserState(user.id);
+      
+      // 调用相同的处理逻辑
+      await this.handleCustomPromptInputMode(event, user, userState?.data || {});
+
+    } catch (error) {
+      console.error('❌ 处理自定义输入postback失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 処理中にエラーが発生しました。もう一度お試しください。'
+      });
+    }
+  }
+
   // 生成随机提示词
   generateRandomPrompt() {
     const randomPrompts = [
@@ -1721,6 +1741,11 @@ class MessageHandler {
 
         case 'select_custom':
           await this.handleSelectCustom(event, user, data);
+          break;
+
+        case 'INPUT_CUSTOM_PROMPT':
+          // 处理用户选择自定义输入提示词
+          await this.handleInputCustomPromptPostback(event, user);
           break;
           
         case 'cancel':
