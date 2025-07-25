@@ -151,9 +151,17 @@ class MessageHandler {
       return;
     }
     
-    if (userState.state === 'waiting_custom_photo_or_none') {
-      // 用户需要选择是否上传照片或输入"Nashi"
-      await this.handleCustomPhotoChoice(event, user, text, userState.data);
+    if (userState.state === 'waiting_custom_photo_upload') {
+      // 用户在等待照片上传状态下发送文字，检查是否是"Nashi"
+      if (text === 'Nashi' || text === '🚫 写真なし' || text.includes('写真なし')) {
+        await this.handleCustomVideoGenerationWithoutPhoto(event, user, userState.data);
+      } else {
+        // 其他文字输入，重新提示选择
+        const photoSelectionMessage = this.lineBot.createCustomPhotoUploadQuickReply(
+          '❌ 無効な選択です。下記のボタンから選択してください：'
+        );
+        await this.client.replyMessage(event.replyToken, photoSelectionMessage);
+      }
       return;
     }
     
@@ -447,6 +455,14 @@ class MessageHandler {
         isRandom: true
       });
       
+      // 设置用户状态为等待照片上传（这样相机/相册选择后能正确处理）
+      await this.db.setUserState(user.id, 'waiting_custom_photo_upload', { 
+        action: 'custom',
+        originalPrompt: randomPrompt,
+        englishPrompt: englishPrompt,
+        isRandom: true
+      });
+
       // 发送随机提示词和照片选择菜单
       const photoSelectionMessage = this.lineBot.createCustomPhotoUploadQuickReply(
         `🎲 ランダムプロンプトを生成しました：\n「${randomPrompt}」\n\n📸 次に、参考画像をアップロードしてください（オプション）：`
@@ -536,8 +552,8 @@ class MessageHandler {
         english: englishPrompt 
       });
 
-      // 设置用户状态为等待照片选择
-      await this.db.setUserState(user.id, 'waiting_custom_photo_or_none', { 
+      // 设置用户状态为等待照片上传（这样相机/相册选择后能正确处理）
+      await this.db.setUserState(user.id, 'waiting_custom_photo_upload', { 
         action: 'custom',
         originalPrompt: customPrompt,
         englishPrompt: englishPrompt
