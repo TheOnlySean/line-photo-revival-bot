@@ -523,9 +523,18 @@ class MessageHandler {
       
       // 获取用户当前状态
       const userState = await this.db.getUserState(user.id);
+      console.log('🔍 当前用户状态:', userState);
+      
+      // 确保传递 action: 'custom' 给处理函数
+      const stateData = {
+        ...(userState?.data || {}),
+        action: 'custom'
+      };
+      
+      console.log('🎯 传递给处理函数的状态数据:', stateData);
       
       // 调用相同的处理逻辑
-      await this.handleCustomPromptInputMode(event, user, userState?.data || {});
+      await this.handleCustomPromptInputMode(event, user, stateData);
 
     } catch (error) {
       console.error('❌ 处理自定义输入postback失败:', error);
