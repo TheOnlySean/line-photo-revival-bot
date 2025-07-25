@@ -529,6 +529,17 @@ class VideoGenerator {
   // 处理视频生成成功
   async handleVideoSuccess(lineUserId, videoRecordId, result) {
     try {
+      // 🔧 防重複處理：先檢查當前狀態
+      const currentRecord = await this.db.query(
+        'SELECT status FROM videos WHERE id = $1',
+        [videoRecordId]
+      );
+      
+      if (currentRecord.rows.length > 0 && currentRecord.rows[0].status === 'completed') {
+        console.log('⚠️ 視頻已處理完成，跳過重複處理:', videoRecordId);
+        return;
+      }
+      
       // 更新数据库记录
       await this.db.updateVideoGeneration(videoRecordId, {
         status: 'completed',
