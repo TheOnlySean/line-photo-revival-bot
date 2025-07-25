@@ -1718,6 +1718,34 @@ class LineBot {
 
     await this.client.pushMessage(userId, message);
   }
+
+  // 发送消息（wrapper方法，供其他服务使用）
+  async sendMessage(userId, text) {
+    try {
+      if (!userId) {
+        console.error('❌ sendMessage: 缺少用户ID');
+        return false;
+      }
+
+      if (!text) {
+        console.error('❌ sendMessage: 缺少消息内容');
+        return false;
+      }
+
+      const message = {
+        type: 'text',
+        text: text
+      };
+
+      await this.client.pushMessage(userId, message);
+      console.log('✅ 消息发送成功:', { userId, textLength: text.length });
+      return true;
+    } catch (error) {
+      console.error('❌ 消息发送失败:', error.message);
+      return false;
+    }
+  }
+
   // 上传Rich Menu图片
   async uploadRichMenuImage(richMenuId, imageType) {
     try {
