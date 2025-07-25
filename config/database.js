@@ -182,13 +182,25 @@ const db = {
     await this.query(query, [userId]);
   },
 
-  async updateUserCredits(userId, creditsChange) {
-    const query = `
-      UPDATE users 
-      SET credits = credits + $2, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1
-      RETURNING *
-    `;
+  async updateUserCredits(userId, creditsChange, isAbsolute = false) {
+    let query;
+    if (isAbsolute) {
+      // 設置絕對值（用於訂閱支付）
+      query = `
+        UPDATE users 
+        SET credits = $2, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING *
+      `;
+    } else {
+      // 相對變化（原有行為）
+      query = `
+        UPDATE users 
+        SET credits = credits + $2, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+        RETURNING *
+      `;
+    }
     const result = await this.query(query, [userId, creditsChange]);
     return result.rows[0];
   },

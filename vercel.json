@@ -5,6 +5,15 @@
     },
     "api/cron/check-tasks.js": {
       "maxDuration": 60
+    },
+    "api/payment/create-checkout-session.js": {
+      "maxDuration": 30
+    },
+    "api/payment/webhook.js": {
+      "maxDuration": 30
+    },
+    "api/payment/session-details.js": {
+      "maxDuration": 30
     }
   },
   "crons": [
@@ -21,6 +30,14 @@
     {
       "source": "/demo-files/(.*)",
       "destination": "/demo-files/$1"
+    },
+    {
+      "source": "/payment.html",
+      "destination": "/public/payment.html"
+    },
+    {
+      "source": "/payment/(.*)",
+      "destination": "/public/payment/$1"
     }
   ]
 } 

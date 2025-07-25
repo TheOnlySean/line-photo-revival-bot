@@ -2564,15 +2564,152 @@ class MessageHandler {
     try {
       console.log('💎 Rich Menu: 充值动作被点击');
       
-      // 机器人主动发送充值信息
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: `💎 ポイント購入についてのご案内\n\n現在のポイント: ${user.credits}ポイント\n\n🌐 詳しい料金プランは公式サイトをご確認ください：https://angelsphoto.ai`
-      });
+      // 生成支付頁面 URL，包含用戶 ID
+      const baseUrl = process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}` 
+        : 'https://line-photo-revival-bot.vercel.app';
+      const paymentUrl = `${baseUrl}/payment.html?userId=${user.line_user_id}`;
+      
+      // 創建支付頁面跳轉的 Flex Message
+      const paymentMessage = {
+        type: 'flex',
+        altText: '料金プラン - 写真復活',
+        contents: {
+          type: 'bubble',
+          hero: {
+            type: 'image',
+            url: `${baseUrl}/assets/richmenu-main.png`,
+            size: 'full',
+            aspectRatio: '20:13',
+            aspectMode: 'cover'
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: '💎 料金プラン',
+                weight: 'bold',
+                size: 'xl',
+                color: '#333333'
+              },
+              {
+                type: 'text',
+                text: `現在のポイント: ${user.credits}ポイント`,
+                size: 'sm',
+                color: '#666666',
+                margin: 'md'
+              },
+              {
+                type: 'separator',
+                margin: 'md'
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                margin: 'md',
+                spacing: 'sm',
+                contents: [
+                  {
+                    type: 'box',
+                    layout: 'horizontal',
+                    contents: [
+                      {
+                        type: 'text',
+                        text: '🎁 トライアルプラン',
+                        size: 'sm',
+                        color: '#333333',
+                        weight: 'bold',
+                        flex: 2
+                      },
+                      {
+                        type: 'text',
+                        text: '¥300/月',
+                        size: 'sm',
+                        color: '#667eea',
+                        weight: 'bold',
+                        align: 'end'
+                      }
+                    ]
+                  },
+                  {
+                    type: 'text',
+                    text: '月間8本の動画生成（50%OFF）',
+                    size: 'xs',
+                    color: '#666666'
+                  },
+                  {
+                    type: 'separator',
+                    margin: 'sm'
+                  },
+                  {
+                    type: 'box',
+                    layout: 'horizontal',
+                    margin: 'sm',
+                    contents: [
+                      {
+                        type: 'text',
+                        text: '⭐ スタンダードプラン',
+                        size: 'sm',
+                        color: '#333333',
+                        weight: 'bold',
+                        flex: 2
+                      },
+                      {
+                        type: 'text',
+                        text: '¥2,980/月',
+                        size: 'sm',
+                        color: '#667eea',
+                        weight: 'bold',
+                        align: 'end'
+                      }
+                    ]
+                  },
+                  {
+                    type: 'text',
+                    text: '月間100本の動画生成',
+                    size: 'xs',
+                    color: '#666666'
+                  }
+                ]
+              }
+            ]
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                height: 'sm',
+                action: {
+                  type: 'uri',
+                  label: '料金プランを選択',
+                  uri: paymentUrl
+                },
+                color: '#667eea'
+              },
+              {
+                type: 'text',
+                text: '💳 クレジットカード・Apple Pay・コンビニ払い対応',
+                size: 'xs',
+                color: '#999999',
+                align: 'center'
+              }
+            ]
+          }
+        }
+      };
+      
+      await this.client.replyMessage(event.replyToken, paymentMessage);
       
       // 记录交互
       await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_credits_action', {
         currentCredits: user.credits,
+        paymentUrl: paymentUrl,
         timestamp: new Date().toISOString()
       });
       
