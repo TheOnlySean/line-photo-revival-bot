@@ -2463,14 +2463,18 @@ class MessageHandler {
       await this.client.replyMessage(event.replyToken, quickReplyMessage);
       
       // 異步設置用戶狀態 - 不阻塞回復
-      const userId = user.id; // 提前獲取用戶ID
-      setImmediate(async () => {
-        try {
-          await this.db.setUserState(userId, 'waiting_wave_photo', { action: 'wave' });
-        } catch (dbError) {
-          console.error('❌ 異步數據庫操作失敗:', dbError.message);
-        }
-      });
+      const userId = user?.id; // 安全獲取用戶ID
+      if (userId) {
+        setImmediate(async () => {
+          try {
+            await this.db.setUserState(userId, 'waiting_wave_photo', { action: 'wave' });
+          } catch (dbError) {
+            console.error('❌ 異步數據庫操作失敗:', dbError.message);
+          }
+        });
+      } else {
+        console.error('❌ 用戶ID未定義，跳過狀態設置');
+      }
       
     } catch (error) {
       console.error('❌ Wave处理错误:', error.message);
@@ -2492,14 +2496,18 @@ class MessageHandler {
       await this.client.replyMessage(event.replyToken, quickReplyMessage);
       
       // 異步設置用戶狀態 - 不阻塞回復
-      const userId = user.id; // 提前獲取用戶ID
-      setImmediate(async () => {
-        try {
-          await this.db.setUserState(userId, 'waiting_group_photo', { action: 'group' });
-        } catch (dbError) {
-          console.error('❌ 異步數據庫操作失敗:', dbError.message);
-        }
-      });
+      const userId = user?.id; // 安全獲取用戶ID
+      if (userId) {
+        setImmediate(async () => {
+          try {
+            await this.db.setUserState(userId, 'waiting_group_photo', { action: 'group' });
+          } catch (dbError) {
+            console.error('❌ 異步數據庫操作失敗:', dbError.message);
+          }
+        });
+      } else {
+        console.error('❌ 用戶ID未定義，跳過狀態設置');
+      }
       
     } catch (error) {
       console.error('❌ Group处理错误:', error.message);
@@ -2524,14 +2532,18 @@ class MessageHandler {
       await this.client.replyMessage(event.replyToken, promptSelectionMessage);
       
       // 異步處理數據庫操作 - 不阻塞回復
-      const userId = user.id; // 提前獲取用戶ID
-      setImmediate(async () => {
-        try {
-          await this.db.setUserState(userId, 'waiting_custom_prompt_selection', { action: 'custom' });
-        } catch (dbError) {
-          console.error('❌ 異步數據庫操作失敗:', dbError.message);
-        }
-      });
+      const userId = user?.id; // 安全獲取用戶ID
+      if (userId) {
+        setImmediate(async () => {
+          try {
+            await this.db.setUserState(userId, 'waiting_custom_prompt_selection', { action: 'custom' });
+          } catch (dbError) {
+            console.error('❌ 異步數據庫操作失敗:', dbError.message);
+          }
+        });
+      } else {
+        console.error('❌ 用戶ID未定義，跳過狀態設置');
+      }
       
     } catch (error) {
       console.error('❌ Custom处理错误:', error.message);
