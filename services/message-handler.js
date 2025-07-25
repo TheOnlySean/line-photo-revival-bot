@@ -577,14 +577,32 @@ class MessageHandler {
       const userState = await this.db.getUserState(user.id);
       console.log('🔍 当前用户状态:', userState);
       
-      // 确保传递 action: 'custom' 给处理函数
-      const stateData = {
-        ...(userState?.data || {}),
-        action: 'custom'
-      };
-      
-      // 调用随机提示词生成逻辑
-      await this.handleRandomPromptGeneration(event, user, stateData);
+      // 检查用户是否在等待提示词选择状态
+      if (userState && userState.state === 'waiting_custom_prompt_selection') {
+        // 生成随机提示词
+        const randomPrompt = this.generateRandomPrompt();
+        console.log('🎲 生成的随机提示词:', randomPrompt);
+        
+        // 模擬用戶發送這個 prompt，創建一個模擬的 event
+        const simulatedEvent = {
+          type: 'message',
+          message: {
+            type: 'text',
+            text: randomPrompt
+          },
+          replyToken: event.replyToken,
+          source: event.source
+        };
+        
+        // 直接調用 prompt 輸入處理邏輯
+        await this.handleCustomPromptInput(simulatedEvent, user, randomPrompt, userState.data);
+        
+      } else {
+        await this.client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '❌ 現在はプロンプト選択を待機していません。パーソナライズ生成を最初からやり直してください。'
+        });
+      }
 
     } catch (error) {
       console.error('❌ 处理随机prompt postback失败:', error);
