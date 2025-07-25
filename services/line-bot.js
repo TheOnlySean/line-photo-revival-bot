@@ -2011,6 +2011,68 @@ class LineBot {
     };
   }
 
+  // 创建个性化生成的提示词选择Quick Reply
+  createCustomPromptSelectionQuickReply(text) {
+    return {
+      type: 'text',
+      text: text,
+      quickReply: {
+        items: [
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '🎲 ランダム',
+              text: 'RANDOM_PROMPT'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '✏️ 自分で入力する',
+              text: 'INPUT_CUSTOM_PROMPT'
+            }
+          }
+        ]
+      }
+    };
+  }
+
+  // 创建个性化生成的照片上传Quick Reply（包含Nashi选项）
+  createCustomPhotoUploadQuickReply(text) {
+    return {
+      type: 'text',
+      text: text,
+      quickReply: {
+        items: [
+          {
+            type: 'action',
+            action: {
+              type: 'cameraRoll',
+              label: '📱 カメラロールから選ぶ'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'camera',
+              label: '📷 カメラを起動する'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'message',
+              label: '🚫 写真なし',
+              text: 'Nashi'
+            }
+          }
+        ]
+      }
+    };
+  }
+
   // 检查必需的图片文件
   checkRequiredImages() {
     const requiredImages = [

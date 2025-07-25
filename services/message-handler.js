@@ -133,6 +133,12 @@ class MessageHandler {
     // 首先检查用户状态
     const userState = await this.db.getUserState(user.id);
     
+    if (userState.state === 'waiting_custom_prompt_selection') {
+      // 用户正在选择提示词设置方式
+      await this.handleCustomPromptSelection(event, user, text, userState.data);
+      return;
+    }
+    
     if (userState.state === 'waiting_custom_prompt_input') {
       // 用户正在输入个性化生成的初始提示词
       await this.handleCustomPromptInput(event, user, text, userState.data);
@@ -389,6 +395,135 @@ class MessageHandler {
     }
   }
 
+  // 处理用户选择提示词设置方式
+  async handleCustomPromptSelection(event, user, text, stateData) {
+    try {
+      console.log('🎯 用户选择提示词方式:', text);
+      
+      if (text === 'RANDOM_PROMPT' || text === '🎲 ランダム') {
+        // 用户选择随机生成提示词
+        await this.handleRandomPromptGeneration(event, user, stateData);
+      } else if (text === 'INPUT_CUSTOM_PROMPT' || text === '✏️ 自分で入力する') {
+        // 用户选择自定义输入提示词
+        await this.handleCustomPromptInputMode(event, user, stateData);
+      } else {
+        // 无效选择，重新提示
+        const promptSelectionMessage = this.lineBot.createCustomPromptSelectionQuickReply(
+          '❌ 無効な選択です。下記からプロンプトの設定方法をお選びください：'
+        );
+        await this.client.replyMessage(event.replyToken, promptSelectionMessage);
+      }
+      
+    } catch (error) {
+      console.error('❌ 处理提示词选择失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 処理中にエラーが発生しました。もう一度お試しください。'
+      });
+    }
+  }
+
+  // 处理随机提示词生成
+  async handleRandomPromptGeneration(event, user, stateData) {
+    try {
+      console.log('🎲 生成随机提示词');
+      
+      // 生成随机提示词
+      const randomPrompt = this.generateRandomPrompt();
+      console.log('🎲 随机提示词:', randomPrompt);
+      
+      // 使用OpenAI翻译日语提示词为英语
+      const englishPrompt = await this.translatePromptToEnglish(randomPrompt);
+      console.log('🌐 翻译结果:', { 
+        original: randomPrompt, 
+        english: englishPrompt 
+      });
+
+      // 设置用户状态为等待照片选择
+      await this.db.setUserState(user.id, 'waiting_custom_photo_or_none', { 
+        action: 'custom',
+        originalPrompt: randomPrompt,
+        englishPrompt: englishPrompt,
+        isRandom: true
+      });
+      
+      // 发送随机提示词和照片选择菜单
+      const photoSelectionMessage = this.lineBot.createCustomPhotoUploadQuickReply(
+        `🎲 ランダムプロンプトを生成しました：\n「${randomPrompt}」\n\n📸 次に、参考画像をアップロードしてください（オプション）：`
+      );
+
+      await this.client.replyMessage(event.replyToken, photoSelectionMessage);
+
+      await this.db.logInteraction(user.line_id, user.id, 'random_prompt_generated', {
+        randomPrompt: randomPrompt,
+        englishPrompt: englishPrompt
+      });
+
+    } catch (error) {
+      console.error('❌ 处理随机提示词生成失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ ランダムプロンプトの生成に失敗しました。もう一度お試しください。'
+      });
+    }
+  }
+
+  // 处理切换到自定义输入模式
+  async handleCustomPromptInputMode(event, user, stateData) {
+    try {
+      console.log('✏️ 切换到自定义输入模式');
+      
+      // 设置用户状态为等待提示词输入
+      await this.db.setUserState(user.id, 'waiting_custom_prompt_input', stateData);
+      
+      // 发送输入提示消息（隐藏Rich Menu，让用户更方便输入）
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '✏️ プロンプト（提示詞）を入力してください。\n\n📝 例：\n・「海辺で楽しく走る」\n・「カフェで本を読む」\n・「花園で散歩する」\n・「笑顔で手を振る」\n\n💡 入力後、参考画像のアップロード選択に進みます。'
+      });
+
+      await this.db.logInteraction(user.line_id, user.id, 'custom_input_mode_selected', {
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      console.error('❌ 处理自定义输入模式失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 処理中にエラーが発生しました。もう一度お試しください。'
+      });
+    }
+  }
+
+  // 生成随机提示词
+  generateRandomPrompt() {
+    const randomPrompts = [
+      '海辺で楽しく走る',
+      'カフェで本を読む',
+      '花園で散歩する',
+      '笑顔で手を振る',
+      '公園でピクニックを楽しむ',
+      '夕日を見つめる',
+      '雨の中を歩く',
+      '桜の下で踊る',
+      '街角でコーヒーを飲む',
+      '図書館で勉強する',
+      '森の中を散策する',
+      'ビーチでヨガをする',
+      '料理を作る',
+      '音楽を聴いて踊る',
+      '山頂で景色を眺める',
+      '友達と笑い合う',
+      '猫と遊ぶ',
+      '星空を見上げる',
+      '写真を撮る',
+      'お茶を飲んでリラックスする'
+    ];
+    
+    const randomIndex = Math.floor(Math.random() * randomPrompts.length);
+    return randomPrompts[randomIndex];
+  }
+
   // 处理用户输入的个性化提示词（新流程）
   async handleCustomPromptInput(event, user, customPrompt, stateData) {
     try {
@@ -408,33 +543,12 @@ class MessageHandler {
         englishPrompt: englishPrompt
       });
       
-      // 发送照片上传选择消息，包含快捷回复
-      const quickReplyMessage = {
-        type: 'text',
-        text: `💭 プロンプトを受信しました：\n「${customPrompt}」\n\n📸 次に、参考画像をアップロードしてください（オプション）\n\n画像が不要な場合は「Nashi」と入力するか、下記のボタンをクリックしてください：`,
-        quickReply: {
-          items: [
-            {
-              type: 'action',
-              action: {
-                type: 'message',
-                label: '📸 写真をアップロード',
-                text: '写真をアップロードします'
-              }
-            },
-            {
-              type: 'action',
-              action: {
-                type: 'message', 
-                label: '🚫 写真なし',
-                text: 'Nashi'
-              }
-            }
-          ]
-        }
-      };
+      // 发送照片上传选择消息，使用新的快捷回复菜单
+      const photoSelectionMessage = this.lineBot.createCustomPhotoUploadQuickReply(
+        `💭 プロンプトを受信しました：\n「${customPrompt}」\n\n📸 次に、参考画像をアップロードしてください（オプション）：`
+      );
 
-      await this.client.replyMessage(event.replyToken, quickReplyMessage);
+      await this.client.replyMessage(event.replyToken, photoSelectionMessage);
 
       await this.db.logInteraction(user.line_id, user.id, 'custom_prompt_input_received', {
         originalPrompt: customPrompt,
@@ -458,19 +572,13 @@ class MessageHandler {
       if (text === 'Nashi' || text === '🚫 写真なし' || text.includes('写真なし')) {
         // 用户选择不上传照片，直接生成视频
         await this.handleCustomVideoGenerationWithoutPhoto(event, user, stateData);
-      } else if (text.includes('アップロード') || text.includes('写真をアップロードします')) {
-        // 用户选择上传照片，等待照片上传
-        await this.db.setUserState(user.id, 'waiting_custom_photo_upload', stateData);
-        await this.client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: '📸 写真をアップロードしてください。アップロード後、すぐに動画生成を開始いたします。'
-        });
       } else {
-        // 无效输入，重新提示
-        await this.client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: '❌ 無効な選択です。「Nashi」と入力するか、下記のボタンをお使いください：\n\n📸 写真をアップロードする場合：「写真をアップロードします」\n🚫 写真なしの場合：「Nashi」'
-        });
+        // 对于其他输入（包括相机和相册选择后的文字），重新提示选择
+        // 注意：相机和相册选择会直接触发图片上传，不会到达这里
+        const photoSelectionMessage = this.lineBot.createCustomPhotoUploadQuickReply(
+          '❌ 無効な選択です。下記のボタンから選択してください：'
+        );
+        await this.client.replyMessage(event.replyToken, photoSelectionMessage);
       }
       
     } catch (error) {
@@ -1960,13 +2068,15 @@ class MessageHandler {
       return;
     }
     
-    // 设置用户状态为等待提示词输入
-    await this.db.setUserState(user.id, 'waiting_custom_prompt_input', { action: 'custom' });
+    // 设置用户状态为等待提示词选择
+    await this.db.setUserState(user.id, 'waiting_custom_prompt_selection', { action: 'custom' });
     
-    await this.client.replyMessage(event.replyToken, {
-      type: 'text',
-      text: '🎨【パーソナライズ動画生成】について\n\n💭 パーソナライズ生成とは、お客様ご自身でプロンプト（提示詞）を入力していただき、参考画像をアップロード（オプション）して動画を生成する機能です。\n\n📝 プロンプトの質によってAIが完全に内容を実現できない場合があります。この点をご理解ください。\n\n✅ 上記の条件でよろしければ、プロンプト（提示詞）を入力してください。\n\n例：「海辺で楽しく走る」「カフェで本を読む」'
-    });
+    // 发送个性化生成说明消息和提示词选择菜单
+    const promptSelectionMessage = this.lineBot.createCustomPromptSelectionQuickReply(
+      '🎨【パーソナライズ動画生成】について\n\n💭 パーソナライズ生成とは、プロンプト（提示詞）を設定し、参考画像をアップロード（オプション）して動画を生成する機能です。\n\n📝 プロンプトの質によってAIが完全に内容を実現できない場合があります。この点をご理解ください。\n\n✅ 下記からプロンプトの設定方法をお選びください：'
+    );
+    
+    await this.client.replyMessage(event.replyToken, promptSelectionMessage);
 
     await this.db.logInteraction(user.line_id, user.id, 'custom_action_selected', {});
   }
@@ -2255,14 +2365,15 @@ class MessageHandler {
         return;
       }
       
-      // 设置用户状态为等待提示词输入
-      await this.db.setUserState(user.id, 'waiting_custom_prompt_input', { action: 'custom' });
+      // 设置用户状态为等待提示词选择
+      await this.db.setUserState(user.id, 'waiting_custom_prompt_selection', { action: 'custom' });
       
-      // 发送个性化生成说明消息
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '🎨【パーソナライズ動画生成】について\n\n💭 パーソナライズ生成とは、お客様ご自身でプロンプト（提示詞）を入力していただき、参考画像をアップロード（オプション）して動画を生成する機能です。\n\n📝 プロンプトの質によってAIが完全に内容を実現できない場合があります。この点をご理解ください。\n\n✅ 上記の条件でよろしければ、プロンプト（提示詞）を入力してください。\n\n例：「海辺で楽しく走る」「カフェで本を読む」'
-      });
+      // 发送个性化生成说明消息和提示词选择菜单
+      const promptSelectionMessage = this.lineBot.createCustomPromptSelectionQuickReply(
+        '🎨【パーソナライズ動画生成】について\n\n💭 パーソナライズ生成とは、プロンプト（提示詞）を設定し、参考画像をアップロード（オプション）して動画を生成する機能です。\n\n📝 プロンプトの質によってAIが完全に内容を実現できない場合があります。この点をご理解ください。\n\n✅ 下記からプロンプトの設定方法をお選びください：'
+      );
+      
+      await this.client.replyMessage(event.replyToken, promptSelectionMessage);
       
       // 记录交互
       await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_custom_action', {
