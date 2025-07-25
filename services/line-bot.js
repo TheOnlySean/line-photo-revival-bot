@@ -52,8 +52,7 @@ class LineBot {
             action: {
               type: "postback",
               label: "手振り動画生成",
-              data: "action=wave&mode=video_generation",
-              displayText: "手振り動画生成"
+              data: "action=wave&mode=video_generation"
             }
           },
           // 第一行：中 (833-1666)  
@@ -67,8 +66,7 @@ class LineBot {
             action: {
               type: "postback",
               label: "寄り添い動画生成",
-              data: "action=group&mode=video_generation",
-              displayText: "寄り添い動画生成"
+              data: "action=group&mode=video_generation"
             }
           },
           // 第一行：右 (1666-2500)
@@ -82,8 +80,7 @@ class LineBot {
             action: {
               type: "postback",
               label: "パーソナライズ動画生成",
-              data: "action=custom&mode=video_generation",
-              displayText: "パーソナライズ動画生成"
+              data: "action=custom&mode=video_generation"
             }
           },
           // 第二行：左 (0-833)
@@ -97,8 +94,7 @@ class LineBot {
             action: {
               type: "postback",
               label: "ポイント購入",
-              data: "action=credits&mode=purchase",
-              displayText: "ポイント購入"
+              data: "action=credits&mode=purchase"
             }
           },
           // 第二行：中 (833-1666)
@@ -125,8 +121,7 @@ class LineBot {
             action: {
               type: "postback",
               label: "友達にシェア",
-              data: "action=share&mode=referral",
-              displayText: "友達にシェア"
+              data: "action=share&mode=referral"
             }
           }
         ]
@@ -156,8 +151,7 @@ class LineBot {
             action: {
               type: "postback",
               label: "進捗確認",
-              data: "action=status_check",
-              displayText: "進捗確認"
+              data: "action=status_check"
             }
           }
         ]
@@ -1483,8 +1477,7 @@ class LineBot {
                   action: {
                     type: 'postback',
                     label: '🎬 この写真で体験',
-                    data: `action=free_trial&photo_id=${photo.id}&type=${photo.type}`,
-                    displayText: `${details.title}で無料体験開始`
+                    data: `action=free_trial&photo_id=${photo.id}&type=${photo.type}`
                   },
                   style: 'primary',
                   color: '#FF6B9D'
@@ -1587,8 +1580,7 @@ class LineBot {
               action: {
                 type: "postback",
                 label: "🎬 無料体験開始",
-                data: `action=free_trial&photo_id=${photo.id}&type=${photo.type}`,
-                displayText: `${details.title}で無料体験`
+                data: `action=free_trial&photo_id=${photo.id}&type=${photo.type}`
               },
               style: "primary",
               color: "#FF6B9D"
@@ -2073,9 +2065,9 @@ class LineBot {
           {
             type: 'action',
             action: {
-              type: 'message',
+              type: 'postback',
               label: '🎲 ランダム',
-              text: 'RANDOM_PROMPT'
+              data: 'action=RANDOM_PROMPT'
             }
           },
           {
@@ -2116,9 +2108,9 @@ class LineBot {
           {
             type: 'action',
             action: {
-              type: 'message',
+              type: 'postback',
               label: '🚫 写真なし',
-              text: 'Nashi'
+              data: 'action=NO_PHOTO'
             }
           }
         ]

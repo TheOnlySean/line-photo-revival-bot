@@ -568,6 +568,61 @@ class MessageHandler {
     }
   }
 
+  // 处理来自postback的随机prompt选择
+  async handleRandomPromptPostback(event, user) {
+    try {
+      console.log('🎲 处理postback: 用户选择随机生成提示词');
+      
+      // 获取用户当前状态
+      const userState = await this.db.getUserState(user.id);
+      console.log('🔍 当前用户状态:', userState);
+      
+      // 确保传递 action: 'custom' 给处理函数
+      const stateData = {
+        ...(userState?.data || {}),
+        action: 'custom'
+      };
+      
+      // 调用随机提示词生成逻辑
+      await this.handleRandomPromptGeneration(event, user, stateData);
+
+    } catch (error) {
+      console.error('❌ 处理随机prompt postback失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 処理中にエラーが発生しました。もう一度お試しください。'
+      });
+    }
+  }
+
+  // 处理来自postback的无照片选择
+  async handleNoPhotoPostback(event, user) {
+    try {
+      console.log('🚫 处理postback: 用户选择无照片生成');
+      
+      // 获取用户当前状态
+      const userState = await this.db.getUserState(user.id);
+      console.log('🔍 当前用户状态:', userState);
+      
+      // 检查用户是否在等待照片上传状态
+      if (userState && userState.state === 'waiting_custom_photo_upload') {
+        await this.handleCustomVideoGenerationWithoutPhoto(event, user, userState.data);
+      } else {
+        await this.client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '❌ 現在は写真のアップロードを待機していません。パーソナライズ生成を最初からやり直してください。'
+        });
+      }
+
+    } catch (error) {
+      console.error('❌ 处理无照片postback失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 処理中にエラーが発生しました。もう一度お試しください。'
+      });
+    }
+  }
+
   // 处理用户状态重置
   async handleResetUserState(event, user) {
     try {
@@ -1809,6 +1864,16 @@ class MessageHandler {
         case 'INPUT_CUSTOM_PROMPT':
           // 处理用户选择自定义输入提示词
           await this.handleInputCustomPromptPostback(event, user);
+          break;
+
+        case 'RANDOM_PROMPT':
+          // 处理用户选择随机生成提示词
+          await this.handleRandomPromptPostback(event, user);
+          break;
+
+        case 'NO_PHOTO':
+          // 处理用户选择无照片生成
+          await this.handleNoPhotoPostback(event, user);
           break;
           
         case 'cancel':
