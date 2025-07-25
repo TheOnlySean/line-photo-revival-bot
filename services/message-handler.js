@@ -1,5 +1,6 @@
 const VideoGenerator = require('./video-generator');
 const ImageUploader = require('./image-uploader');
+const { openai, TRANSLATION_SYSTEM_PROMPT } = require('../config/openai-config');
 
 class MessageHandler {
   constructor(client, db, lineBot) {
@@ -395,9 +396,9 @@ class MessageHandler {
         return;
       }
 
-      // 🔧 将日语prompt转换为英语（适合Runway模型）
-      const englishPrompt = this.translatePromptToEnglish(customPrompt);
-      console.log('🌐 Prompt翻译:', { 
+      // 🔧 将日语prompt转换为英语（适合Runway模型）- 混合翻译
+      const englishPrompt = await this.translatePromptToEnglish(customPrompt);
+      console.log('🌐 混合翻译结果:', { 
         original: customPrompt, 
         english: englishPrompt 
       });
@@ -436,135 +437,178 @@ class MessageHandler {
     }
   }
 
-  // 🌐 将日语prompt转换为英语（针对视频生成优化）- 最终优化版
-  translatePromptToEnglish(japaneseText) {
-    // 预处理：处理常见的组合短语
-    let processedText = japaneseText;
+  // 🌐 将日语prompt转换为英语（针对视频生成优化）- 混合翻译版
+  async translatePromptToEnglish(japaneseText) {
+    console.log('🌐 开始混合翻译:', japaneseText);
     
-    // 先处理完整的短语组合
-    const phraseTranslations = {
-      '海辺で微笑みながら手を振る': 'person smiling and waving hand at the beach',
-      'カフェで本を読んでいる': 'person reading a book in a cafe',
-      '桜の下で踊っている': 'person dancing under cherry blossoms',
-      '公園で歩いている': 'person walking in the park',
-      '夕日を見ている': 'person looking at the sunset',
-      '雨の中で歌っている': 'person singing in the rain',
-      '家で料理を食べる': 'person eating food at home',
-      '優しい笑顔で話している': 'person talking with a gentle smile',
-      '美しい花を見ながら微笑む': 'person smiling while looking at beautiful flowers',
-      '可愛いドレスを着て踊る': 'person dancing wearing a cute dress'
-    };
+    // 🚀 第一层：词典翻译（快速）
+    const dictionaryResult = this.translateWithDictionary(japaneseText);
     
-    // 检查是否匹配完整短语
-    for (const [japanese, english] of Object.entries(phraseTranslations)) {
-      if (processedText === japanese) {
-        return `${english}, cinematic quality, natural movements, smooth animation, high quality portrait video`;
-      }
+    // 如果词典翻译成功且质量良好，直接返回
+    if (dictionaryResult.success && !this.containsMainlyJapanese(dictionaryResult.translation)) {
+      console.log('✅ 词典翻译成功:', dictionaryResult.translation);
+      return dictionaryResult.translation;
     }
     
-    // 完整的词汇翻译映射
-    const translations = {
-      // 完整动作短语优先
-      '微笑みながら手を振る': 'smiling and waving hand',
-      '本を読んでいる': 'reading a book',
-      '踊っている': 'dancing',
-      '歩いている': 'walking',
-      '見ている': 'looking at',
-      '歌っている': 'singing',
-      '話している': 'talking',
-      '食べている': 'eating',
-      '着て踊る': 'wearing and dancing',
-      '見ながら微笑む': 'smiling while looking at',
-      
-      // 动作词汇 - 基础形式
-      '手を振る': 'waving hand',
-      '手を振って': 'waving hand',
-      '微笑む': 'smiling',
-      '微笑み': 'smile',
-      '微笑んで': 'smiling',
-      '笑う': 'laughing',
-      '笑って': 'laughing',
-      '歩く': 'walking',
-      '歩いて': 'walking',
-      '踊る': 'dancing',
-      '踊って': 'dancing',
-      '読む': 'reading',
-      '読んで': 'reading',
-      '歌う': 'singing',
-      '歌って': 'singing',
-      '見る': 'looking at',
-      '見て': 'looking at',
-      '見': 'looking at',
-      '話す': 'talking',
-      '話して': 'talking',
-      '食べる': 'eating',
-      '食べて': 'eating',
-      
-      // 名词
-      '料理': 'food',
-      '本': 'book',
-      '花': 'flowers',
-      '笑顔': 'smile',
-      'ドレス': 'dress',
-      
-      // 场景词汇
-      '海辺': 'beach',
-      '海': 'ocean',
-      'カフェ': 'cafe',
-      '桜': 'cherry blossoms',
-      '公園': 'park',
-      '街': 'street',
-      '家': 'home',
-      '学校': 'school',
-      '夕日': 'sunset',
-      '雨': 'rain',
-      '雪': 'snow',
-      
-      // 情感词汇
-      '嬉しい': 'happy',
-      '楽しい': 'joyful',
-      '優しい': 'gentle',
-      '美しい': 'beautiful',
-      '可愛い': 'cute',
-      '素敵': 'wonderful',
-      
-      // 介词和语法词汇
-      'の下で': ' under ',
-      'の中で': ' in ',
-      'を着て': ' wearing ',
-      'ながら': ' while ',
-      'で': ' at ',
-      'を': ' ',
-      'に': ' ',
-      'が': ' ',
-      'は': ' ',
-      'と': ' and ',
-      '中': ' in '
-    };
+    // 🤖 第二层：OpenAI翻译（高质量）
+    console.log('📡 词典翻译不完整，尝试OpenAI翻译...');
+    const openaiResult = await this.translateWithOpenAI(japaneseText);
+    
+    if (openaiResult.success) {
+      console.log('✅ OpenAI翻译成功:', openaiResult.translation);
+      // 确保包含视频生成关键词
+      const enhancedTranslation = openaiResult.translation.includes('cinematic') 
+        ? openaiResult.translation 
+        : `${openaiResult.translation}, cinematic quality, natural movements, smooth animation`;
+      return enhancedTranslation;
+    }
+    
+    // 🛡️ 第三层：通用模板兜底
+    console.log('⚠️ OpenAI翻译失败，使用通用模板');
+    return `Transform this photo into a dynamic video based on the concept: "${japaneseText}". Create natural movements and expressions that bring the scene to life with cinematic quality and smooth animations.`;
+  }
 
-    let englishPrompt = processedText;
-    
-    // 按长度排序，优先处理长短语
-    const sortedTranslations = Object.entries(translations).sort(([a], [b]) => b.length - a.length);
-    
-    for (const [japanese, english] of sortedTranslations) {
-      englishPrompt = englishPrompt.replace(new RegExp(japanese, 'g'), english);
+  // 📚 词典翻译方法（从原方法中提取）
+  translateWithDictionary(japaneseText) {
+    try {
+      // 预处理：处理常见的组合短语
+      let processedText = japaneseText;
+      
+      // 先处理完整的短语组合
+      const phraseTranslations = {
+        '海辺で微笑みながら手を振る': 'person smiling and waving hand at the beach',
+        'カフェで本を読んでいる': 'person reading a book in a cafe',
+        '桜の下で踊っている': 'person dancing under cherry blossoms',
+        '公園で歩いている': 'person walking in the park',
+        '夕日を見ている': 'person looking at the sunset',
+        '雨の中で歌っている': 'person singing in the rain',
+        '家で料理を食べる': 'person eating food at home',
+        '優しい笑顔で話している': 'person talking with a gentle smile',
+        '美しい花を見ながら微笑む': 'person smiling while looking at beautiful flowers',
+        '可愛いドレスを着て踊る': 'person dancing wearing a cute dress'
+      };
+      
+      // 检查是否匹配完整短语
+      for (const [japanese, english] of Object.entries(phraseTranslations)) {
+        if (processedText === japanese) {
+          return { 
+            success: true, 
+            translation: `${english}, cinematic quality, natural movements, smooth animation, high quality portrait video` 
+          };
+        }
+      }
+      
+      // 完整的词汇翻译映射
+      const translations = {
+        // 完整动作短语优先
+        '微笑みながら手を振る': 'smiling and waving hand',
+        '本を読んでいる': 'reading a book',
+        '踊っている': 'dancing',
+        '歩いている': 'walking',
+        '見ている': 'looking at',
+        '歌っている': 'singing',
+        '話している': 'talking',
+        '食べている': 'eating',
+        '着て踊る': 'wearing and dancing',
+        '見ながら微笑む': 'smiling while looking at',
+        
+        // 动作词汇 - 基础形式
+        '手を振る': 'waving hand',
+        '手を振って': 'waving hand',
+        '微笑む': 'smiling',
+        '微笑み': 'smile',
+        '微笑んで': 'smiling',
+        '笑う': 'laughing',
+        '笑って': 'laughing',
+        '歩く': 'walking',
+        '歩いて': 'walking',
+        '踊る': 'dancing',
+        '踊って': 'dancing',
+        '読む': 'reading',
+        '読んで': 'reading',
+        '歌う': 'singing',
+        '歌って': 'singing',
+        '見る': 'looking at',
+        '見て': 'looking at',
+        '見': 'looking at',
+        '話す': 'talking',
+        '話して': 'talking',
+        '食べる': 'eating',
+        '食べて': 'eating',
+        
+        // 名词
+        '料理': 'food',
+        '本': 'book',
+        '花': 'flowers',
+        '笑顔': 'smile',
+        'ドレス': 'dress',
+        
+        // 场景词汇
+        '海辺': 'beach',
+        '海': 'ocean',
+        'カフェ': 'cafe',
+        '桜': 'cherry blossoms',
+        '公園': 'park',
+        '街': 'street',
+        '家': 'home',
+        '学校': 'school',
+        '夕日': 'sunset',
+        '雨': 'rain',
+        '雪': 'snow',
+        
+        // 情感词汇
+        '嬉しい': 'happy',
+        '楽しい': 'joyful',
+        '優しい': 'gentle',
+        '美しい': 'beautiful',
+        '可愛い': 'cute',
+        '素敵': 'wonderful',
+        
+        // 介词和语法词汇
+        'の下で': ' under ',
+        'の中で': ' in ',
+        'を着て': ' wearing ',
+        'ながら': ' while ',
+        'で': ' at ',
+        'を': ' ',
+        'に': ' ',
+        'が': ' ',
+        'は': ' ',
+        'と': ' and ',
+        '中': ' in '
+      };
+
+      let englishPrompt = processedText;
+      
+      // 按长度排序，优先处理长短语
+      const sortedTranslations = Object.entries(translations).sort(([a], [b]) => b.length - a.length);
+      
+      for (const [japanese, english] of sortedTranslations) {
+        englishPrompt = englishPrompt.replace(new RegExp(japanese, 'g'), english);
+      }
+      
+      // 清理多余空格
+      englishPrompt = englishPrompt.replace(/\s+/g, ' ').trim();
+      
+      // 如果翻译不完整（仍有大量日语），标记为失败
+      if (this.containsMainlyJapanese(englishPrompt) || englishPrompt.length < 5) {
+        return { success: false, translation: englishPrompt };
+      }
+      
+      // 添加"person"如果没有主语
+      if (!englishPrompt.includes('person') && !englishPrompt.includes('people')) {
+        englishPrompt = `person ${englishPrompt}`;
+      }
+      
+      return { 
+        success: true, 
+        translation: `${englishPrompt}, cinematic quality, natural movements, smooth animation, high quality portrait video` 
+      };
+
+    } catch (error) {
+      console.error('❌ 词典翻译异常:', error.message);
+      return { success: false, translation: null };
     }
-    
-    // 清理多余空格
-    englishPrompt = englishPrompt.replace(/\s+/g, ' ').trim();
-    
-    // 如果翻译不完整（仍有大量日语），使用通用prompt
-    if (this.containsMainlyJapanese(englishPrompt) || englishPrompt.length < 5) {
-      return `Transform this photo into a dynamic video based on the concept: "${japaneseText}". Create natural movements and expressions that bring the scene to life with cinematic quality and smooth animations.`;
-    }
-    
-    // 添加"person"如果没有主语
-    if (!englishPrompt.includes('person') && !englishPrompt.includes('people')) {
-      englishPrompt = `person ${englishPrompt}`;
-    }
-    
-    return `${englishPrompt}, cinematic quality, natural movements, smooth animation, high quality portrait video`;
   }
 
   // 检查文本是否主要包含日语字符
@@ -2293,6 +2337,50 @@ class MessageHandler {
       console.log('✅ 试用完成日志记录成功');
     } catch (error) {
       console.error('⚠️ 记录试用完成日志失败（不影响用户体验）:', error.message);
+    }
+  }
+
+  // 🤖 使用OpenAI翻译日语prompt（智能翻译）
+  async translateWithOpenAI(japaneseText) {
+    try {
+      console.log('🤖 调用OpenAI翻译:', japaneseText);
+      
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: TRANSLATION_SYSTEM_PROMPT
+          },
+          {
+            role: 'user',
+            content: `Translate this Japanese text to an English video generation prompt: "${japaneseText}"`
+          }
+        ],
+        max_tokens: 150,
+        temperature: 0.3
+      });
+
+      const translation = completion.choices[0]?.message?.content?.trim();
+      
+      if (translation && translation.length > 0) {
+        console.log('✅ OpenAI翻译成功:', translation);
+        return {
+          success: true,
+          translation: translation
+        };
+      } else {
+        console.warn('⚠️ OpenAI返回空翻译结果');
+        return { success: false, error: 'Empty translation result' };
+      }
+
+    } catch (error) {
+      console.error('❌ OpenAI翻译失败:', error.message);
+      return { 
+        success: false, 
+        error: error.message,
+        isTimeout: error.message.includes('timeout')
+      };
     }
   }
 }
