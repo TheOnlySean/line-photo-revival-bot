@@ -2513,19 +2513,9 @@ class MessageHandler {
   // 处理Rich Menu个性化动作
   async handleRichMenuCustomAction(event, user) {
     try {
-      // 检查用户点数
-      if (user.credits < 2) {
-        const insufficientCard = this.lineBot.createInsufficientCreditsCard(user.credits, 2);
-        await this.client.replyMessage(event.replyToken, [
-          {
-            type: 'text',
-            text: '💸 パーソナライズ生成には2ポイントが必要です。ポイントが不足しています。'
-          },
-          insufficientCard
-        ]);
-        return;
-      }
+      console.log('🎨 處理個性化動作，用戶信息:', { id: user.id, credits: user.credits });
       
+      // 暫時跳過點數檢查，直接進入流程
       // 立即發送回復 - 最高優先級
       const promptSelectionMessage = this.lineBot.createCustomPromptSelectionQuickReply(
         '🎨【パーソナライズ動画生成】について\n\n💭 パーソナライズ生成とは、プロンプト（提示詞）を設定し、参考画像をアップロード（オプション）して動画を生成する機能です。\n\n📝 プロンプトの質によってAIが完全に内容を実現できない場合があります。この点をご理解ください。\n\n✅ 下記からプロンプトの設定方法をお選びください：'
@@ -2545,6 +2535,7 @@ class MessageHandler {
       
     } catch (error) {
       console.error('❌ Custom处理错误:', error.message);
+      console.error('❌ 完整錯誤:', error);
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
         text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
