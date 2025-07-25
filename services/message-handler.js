@@ -2463,9 +2463,10 @@ class MessageHandler {
       await this.client.replyMessage(event.replyToken, quickReplyMessage);
       
       // 異步設置用戶狀態 - 不阻塞回復
+      const userId = user.id; // 提前獲取用戶ID
       setImmediate(async () => {
         try {
-          await this.db.setUserState(user.id, 'waiting_wave_photo', { action: 'wave' });
+          await this.db.setUserState(userId, 'waiting_wave_photo', { action: 'wave' });
         } catch (dbError) {
           console.error('❌ 異步數據庫操作失敗:', dbError.message);
         }
@@ -2491,9 +2492,10 @@ class MessageHandler {
       await this.client.replyMessage(event.replyToken, quickReplyMessage);
       
       // 異步設置用戶狀態 - 不阻塞回復
+      const userId = user.id; // 提前獲取用戶ID
       setImmediate(async () => {
         try {
-          await this.db.setUserState(user.id, 'waiting_group_photo', { action: 'group' });
+          await this.db.setUserState(userId, 'waiting_group_photo', { action: 'group' });
         } catch (dbError) {
           console.error('❌ 異步數據庫操作失敗:', dbError.message);
         }
@@ -2532,9 +2534,10 @@ class MessageHandler {
       await this.client.replyMessage(event.replyToken, promptSelectionMessage);
       
       // 異步處理數據庫操作 - 不阻塞回復
+      const userId = user.id; // 提前獲取用戶ID
       setImmediate(async () => {
         try {
-          await this.db.setUserState(user.id, 'waiting_custom_prompt_selection', { action: 'custom' });
+          await this.db.setUserState(userId, 'waiting_custom_prompt_selection', { action: 'custom' });
         } catch (dbError) {
           console.error('❌ 異步數據庫操作失敗:', dbError.message);
         }
