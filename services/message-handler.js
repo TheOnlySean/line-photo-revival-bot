@@ -133,9 +133,21 @@ class MessageHandler {
     // 首先检查用户状态
     const userState = await this.db.getUserState(user.id);
     
+    if (userState.state === 'waiting_custom_prompt_input') {
+      // 用户正在输入个性化生成的初始提示词
+      await this.handleCustomPromptInput(event, user, text, userState.data);
+      return;
+    }
+    
     if (userState.state === 'waiting_custom_prompt') {
-      // 用户正在个性化生成中输入prompt
+      // 用户正在个性化生成中输入prompt (旧流程保留)
       await this.handleCustomPromptReceived(event, user, text, userState.data);
+      return;
+    }
+    
+    if (userState.state === 'waiting_custom_photo_or_none') {
+      // 用户需要选择是否上传照片或输入"Nashi"
+      await this.handleCustomPhotoChoice(event, user, text, userState.data);
       return;
     }
     
@@ -377,6 +389,147 @@ class MessageHandler {
     }
   }
 
+  // 处理用户输入的个性化提示词（新流程）
+  async handleCustomPromptInput(event, user, customPrompt, stateData) {
+    try {
+      console.log('🎨 收到用户输入的提示词:', customPrompt);
+      
+      // 使用OpenAI翻译日语提示词为英语
+      const englishPrompt = await this.translatePromptToEnglish(customPrompt);
+      console.log('🌐 翻译结果:', { 
+        original: customPrompt, 
+        english: englishPrompt 
+      });
+
+      // 设置用户状态为等待照片选择
+      await this.db.setUserState(user.id, 'waiting_custom_photo_or_none', { 
+        action: 'custom',
+        originalPrompt: customPrompt,
+        englishPrompt: englishPrompt
+      });
+      
+      // 发送照片上传选择消息，包含快捷回复
+      const quickReplyMessage = {
+        type: 'text',
+        text: `💭 プロンプトを受信しました：\n「${customPrompt}」\n\n📸 次に、参考画像をアップロードしてください（オプション）\n\n画像が不要な場合は「Nashi」と入力するか、下記のボタンをクリックしてください：`,
+        quickReply: {
+          items: [
+            {
+              type: 'action',
+              action: {
+                type: 'message',
+                label: '📸 写真をアップロード',
+                text: '写真をアップロードします'
+              }
+            },
+            {
+              type: 'action',
+              action: {
+                type: 'message', 
+                label: '🚫 写真なし',
+                text: 'Nashi'
+              }
+            }
+          ]
+        }
+      };
+
+      await this.client.replyMessage(event.replyToken, quickReplyMessage);
+
+      await this.db.logInteraction(user.line_id, user.id, 'custom_prompt_input_received', {
+        originalPrompt: customPrompt,
+        englishPrompt: englishPrompt
+      });
+
+    } catch (error) {
+      console.error('❌ 处理提示词输入失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ プロンプトの処理に失敗しました。もう一度お試しください。'
+      });
+    }
+  }
+
+  // 处理用户选择照片上传或无照片
+  async handleCustomPhotoChoice(event, user, text, stateData) {
+    try {
+      console.log('📷 用户照片选择:', text);
+      
+      if (text === 'Nashi' || text === '🚫 写真なし' || text.includes('写真なし')) {
+        // 用户选择不上传照片，直接生成视频
+        await this.handleCustomVideoGenerationWithoutPhoto(event, user, stateData);
+      } else if (text.includes('アップロード') || text.includes('写真をアップロードします')) {
+        // 用户选择上传照片，等待照片上传
+        await this.db.setUserState(user.id, 'waiting_custom_photo_upload', stateData);
+        await this.client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '📸 写真をアップロードしてください。アップロード後、すぐに動画生成を開始いたします。'
+        });
+      } else {
+        // 无效输入，重新提示
+        await this.client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '❌ 無効な選択です。「Nashi」と入力するか、下記のボタンをお使いください：\n\n📸 写真をアップロードする場合：「写真をアップロードします」\n🚫 写真なしの場合：「Nashi」'
+        });
+      }
+      
+    } catch (error) {
+      console.error('❌ 处理照片选择失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 処理中にエラーが発生しました。もう一度お試しください。'
+      });
+    }
+  }
+
+  // 处理无照片的个性化视频生成
+  async handleCustomVideoGenerationWithoutPhoto(event, user, stateData) {
+    try {
+      console.log('🎬 开始无照片的个性化视频生成');
+      
+      const { originalPrompt, englishPrompt } = stateData;
+      
+      // 检查点数
+      if (user.credits < 2) {
+        await this.sendInsufficientCreditsMessage(event.replyToken, user.credits, 2);
+        return;
+      }
+
+      // 立即切换到处理中Rich Menu
+      await this.lineBot.switchToProcessingMenu(user.line_id);
+      
+      // 发送生成开始消息
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: `🎬 「${originalPrompt}」の動画生成を開始いたします！\n\n⏱️ 参考画像なしでの生成のため、プロンプトの内容に基づいて動画を作成いたします。\n\n生成には約30-60秒かかります。完成次第お送りいたします。`
+      });
+
+      // 扣除点数
+      await this.db.updateUserCredits(user.id, -2);
+      
+      // 清除用户状态
+      await this.db.clearUserState(user.id);
+
+      // 异步开始视频生成（无照片）
+      await this.startVideoGenerationWithoutPhoto(user, englishPrompt, originalPrompt);
+      
+    } catch (error) {
+      console.error('❌ 无照片视频生成失败:', error);
+      
+      // 切换回主菜单
+      try {
+        await this.lineBot.switchToMainMenu(user.line_id);
+      } catch (menuError) {
+        console.warn('⚠️ 切换菜单失败:', menuError.message);
+      }
+      
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 動画生成の開始に失敗しました。しばらくしてから再度お試しください。'
+      });
+    }
+  }
+
   // 处理个性化生成中用户输入的自定义prompt（增强版）
   async handleCustomPromptReceived(event, user, customPrompt, stateData) {
     try {
@@ -484,6 +637,10 @@ class MessageHandler {
           break;
         case 'waiting_custom_photo':
           await this.handlePhotoUploadForAction(event, user, imageUrl, 'custom');
+          break;
+        case 'waiting_custom_photo_upload':
+          // 新的个性化生成流程：用户已输入提示词，现在上传照片
+          await this.handleCustomPhotoUpload(event, user, imageUrl, userState.data);
           break;
         default:
           // 如果没有明确状态，但用户发送了图片，可以提供一个通用的选择
@@ -1066,8 +1223,105 @@ class MessageHandler {
     });
   }
 
+  // 处理新流程中的照片上传（已有提示词）
+  async handleCustomPhotoUpload(event, user, imageUrl, stateData) {
+    try {
+      console.log('📸 新流程照片上传:', imageUrl);
+      
+      const { originalPrompt, englishPrompt } = stateData;
+      
+      // 检查点数
+      if (user.credits < 2) {
+        await this.sendInsufficientCreditsMessage(event.replyToken, user.credits, 2);
+        return;
+      }
+
+      // 立即切换到处理中Rich Menu
+      await this.lineBot.switchToProcessingMenu(user.line_id);
+      
+      // 发送生成开始消息
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: `🎬 「${originalPrompt}」の動画生成を開始いたします！\n\n📸 アップロードいただいた画像を参考に動画を作成いたします。\n\n⏱️ 生成には約30-60秒かかります。完成次第お送りいたします。`
+      });
+
+      // 扣除点数
+      await this.db.updateUserCredits(user.id, -2);
+      
+      // 清除用户状态
+      await this.db.clearUserState(user.id);
+
+      // 异步开始视频生成（有照片）
+      await this.startVideoGenerationWithPrompt(user, imageUrl, englishPrompt, 2, originalPrompt);
+      
+    } catch (error) {
+      console.error('❌ 处理新流程照片上传失败:', error);
+      
+      // 切换回主菜单
+      try {
+        await this.lineBot.switchToMainMenu(user.line_id);
+      } catch (menuError) {
+        console.warn('⚠️ 切换菜单失败:', menuError.message);
+      }
+      
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 動画生成の開始に失敗しました。しばらくしてから再度お試しください。'
+      });
+    }
+  }
+
+  // 开始无照片的视频生成
+  async startVideoGenerationWithoutPhoto(user, englishPrompt, originalPrompt) {
+    try {
+      console.log('🎬 开始无照片视频生成:', { englishPrompt, originalPrompt });
+
+      // 创建视频记录
+      const videoRecord = await this.db.createVideoGeneration(
+        user.id,
+        englishPrompt,  // 英语prompt
+        false,          // is_demo
+        2               // creditsUsed
+      );
+      console.log('✅ 视频记录已创建:', videoRecord.id);
+
+      // 调用视频生成器（无照片模式）
+      await this.videoGenerator.generateVideoWithoutPhoto(
+        user.line_id, 
+        videoRecord.id, 
+        englishPrompt
+      );
+
+      console.log('✅ 无照片视频生成任务已提交，轮询机制将自动处理');
+
+    } catch (error) {
+      console.error('❌ 无照片视频生成失败:', error);
+      
+      // 切换回主菜单
+      try {
+        await this.lineBot.switchToMainMenu(user.line_id);
+      } catch (menuError) {
+        console.warn('⚠️ 切换菜单失败:', menuError.message);
+      }
+      
+      // 发送错误消息
+      try {
+        await this.client.pushMessage(user.line_id, {
+          type: 'text',
+          text: '❌ 動画生成に失敗しました。しばらくしてから再度お試しください。\n\n💡 ポイントは返却されました。'
+        });
+        
+        // 退还点数
+        await this.db.updateUserCredits(user.id, 2);
+        
+      } catch (sendError) {
+        console.error('❌ 发送错误消息失败:', sendError.message);
+      }
+    }
+  }
+
   // 使用指定prompt开始视频生成（修复版）
-  async startVideoGenerationWithPrompt(user, imageUrl, prompt, creditsUsed) {
+  async startVideoGenerationWithPrompt(user, imageUrl, prompt, creditsUsed, originalPrompt = null) {
     try {
       console.log('🎬 开始使用自定义prompt生成视频:', { prompt, creditsUsed });
 
@@ -1693,12 +1947,25 @@ class MessageHandler {
 
   // 处理个性化动作关键字
   async handleCustomActionKeyword(event, user) {
-    // 设置用户状态
-    await this.db.setUserState(user.id, 'waiting_custom_photo', { action: 'custom' });
+    // 检查用户点数
+    if (user.credits < 2) {
+      const insufficientCard = this.lineBot.createInsufficientCreditsCard(user.credits, 2);
+      await this.client.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: '💸 パーソナライズ生成には2ポイントが必要です。ポイントが不足しています。'
+        },
+        insufficientCard
+      ]);
+      return;
+    }
+    
+    // 设置用户状态为等待提示词输入
+    await this.db.setUserState(user.id, 'waiting_custom_prompt_input', { action: 'custom' });
     
     await this.client.replyMessage(event.replyToken, {
       type: 'text',
-      text: '🎨【パーソナライズ動画生成】が選択されました\n\n📸 写真をアップロードしていただければ、すぐにパーソナライズ動画の制作を開始いたします！\n\n💭 その後、ご希望の動画内容をお聞かせください。'
+      text: '🎨【パーソナライズ動画生成】について\n\n💭 パーソナライズ生成とは、お客様ご自身でプロンプト（提示詞）を入力していただき、参考画像をアップロード（オプション）して動画を生成する機能です。\n\n📝 プロンプトの質によってAIが完全に内容を実現できない場合があります。この点をご理解ください。\n\n✅ 上記の条件でよろしければ、プロンプト（提示詞）を入力してください。\n\n例：「海辺で楽しく走る」「カフェで本を読む」'
     });
 
     await this.db.logInteraction(user.line_id, user.id, 'custom_action_selected', {});
@@ -1975,15 +2242,27 @@ class MessageHandler {
     try {
       console.log('🎨 Rich Menu: 个性化动作被点击');
       
-      // 设置用户状态
-      await this.db.setUserState(user.id, 'waiting_custom_photo', { action: 'custom' });
+      // 检查用户点数
+      if (user.credits < 2) {
+        const insufficientCard = this.lineBot.createInsufficientCreditsCard(user.credits, 2);
+        await this.client.replyMessage(event.replyToken, [
+          {
+            type: 'text',
+            text: '💸 パーソナライズ生成には2ポイントが必要です。ポイントが不足しています。'
+          },
+          insufficientCard
+        ]);
+        return;
+      }
       
-      // 发送带Quick Reply的回复消息
-      const quickReplyMessage = this.lineBot.createPhotoUploadQuickReply(
-        '🎨【パーソナライズ動画生成】が選択されました\n\n📸 下記のボタンから写真をアップロードしてください：'
-      );
+      // 设置用户状态为等待提示词输入
+      await this.db.setUserState(user.id, 'waiting_custom_prompt_input', { action: 'custom' });
       
-      await this.client.replyMessage(event.replyToken, quickReplyMessage);
+      // 发送个性化生成说明消息
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '🎨【パーソナライズ動画生成】について\n\n💭 パーソナライズ生成とは、お客様ご自身でプロンプト（提示詞）を入力していただき、参考画像をアップロード（オプション）して動画を生成する機能です。\n\n📝 プロンプトの質によってAIが完全に内容を実現できない場合があります。この点をご理解ください。\n\n✅ 上記の条件でよろしければ、プロンプト（提示詞）を入力してください。\n\n例：「海辺で楽しく走る」「カフェで本を読む」'
+      });
       
       // 记录交互
       await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_custom_action', {

@@ -150,3 +150,4 @@ demo-files/*.png
 # Keep demo-files directory structure but ignore actual files
 !demo-files/
 !demo-files/README.md 
+.vercel

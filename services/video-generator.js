@@ -8,6 +8,43 @@ class VideoGenerator {
     this.kieAiConfig = lineConfig.kieAi;
   }
 
+  // 生成视频（无照片模式）
+  async generateVideoWithoutPhoto(lineUserId, videoRecordId, customPrompt) {
+    try {
+      console.log('🎬 开始生成视频（无照片模式）:', { lineUserId, videoRecordId, customPrompt });
+
+      // 更新状态为处理中
+      await this.db.updateVideoGeneration(videoRecordId, {
+        status: 'processing'
+      });
+
+      // 调用KIE.AI Runway API生成视频（文本到视频模式）
+      const result = await this.callRunwayApiTextToVideo(customPrompt);
+
+      if (result.success && result.taskId) {
+        // 保存taskId到数据库
+        await this.db.updateVideoGeneration(videoRecordId, {
+          task_id: result.taskId
+        });
+
+        console.log('🚀 启动轮询任务状态检查:', result.taskId);
+        // 开始轮询任务状态
+        this.pollVideoStatus(lineUserId, result.taskId, videoRecordId);
+      } else if (result.success && result.videoUrl) {
+        // 直接返回了视频URL（同步模式）
+        console.log('✅ 同步模式：直接返回视频URL');
+        await this.handleVideoSuccess(lineUserId, videoRecordId, result);
+      } else {
+        console.error('❌ 任务提交失败:', result.error);
+        await this.handleVideoFailure(lineUserId, videoRecordId, result.error || '视频生成失败');
+      }
+
+    } catch (error) {
+      console.error('❌ 视频生成过程出错:', error);
+      await this.handleVideoFailure(lineUserId, videoRecordId, '系统错误，请稍后再试');
+    }
+  }
+
   // 生成视频（主要方法）- 支持自定义prompt
   async generateVideo(lineUserId, imageUrl, videoRecordId, customPrompt = null) {
     try {
@@ -42,6 +79,57 @@ class VideoGenerator {
     } catch (error) {
       console.error('❌ 视频生成过程出错:', error);
       await this.handleVideoFailure(lineUserId, videoRecordId, '系统错误，请稍后再试');
+    }
+  }
+
+  // 调用KIE.AI Runway API（文本到视频模式）
+  async callRunwayApiTextToVideo(customPrompt) {
+    try {
+      console.log('🤖 调用KIE.AI Runway API（文本到视频模式）:', customPrompt);
+
+      if (!this.kieAiConfig.apiKey) {
+        throw new Error('KIE.AI API Key未配置');
+      }
+
+      const requestData = {
+        prompt: customPrompt,
+        // 文本到视频模式，不传递imageUrl
+        aspectRatio: this.kieAiConfig.defaultParams.aspectRatio,
+        duration: this.kieAiConfig.defaultParams.duration,
+        quality: this.kieAiConfig.defaultParams.quality,
+        waterMark: this.kieAiConfig.defaultParams.waterMark
+      };
+
+      const response = await axios.post(
+        `${this.kieAiConfig.baseUrl}${this.kieAiConfig.generateEndpoint}`,
+        requestData,
+        {
+          headers: {
+            'Authorization': `Bearer ${this.kieAiConfig.apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 60000
+        }
+      );
+
+      console.log('📡 API响应状态:', response.status);
+
+      if (response.data && response.data.code === 200) {
+        return {
+          success: true,
+          taskId: response.data.data.taskId,
+          message: response.data.message || '任务提交成功'
+        };
+      } else {
+        return {
+          success: false,
+          error: response.data?.message || '视频生成任务提交失败'
+        };
+      }
+
+    } catch (error) {
+      console.error('❌ Runway API调用失败（文本到视频）:', error.message);
+      return this.handleApiError(error);
     }
   }
 
