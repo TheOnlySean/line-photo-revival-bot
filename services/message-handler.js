@@ -2462,71 +2462,38 @@ class MessageHandler {
   // 处理Rich Menu手振り动作
   async handleRichMenuWaveAction(event, user) {
     try {
-      console.log('👋 Rich Menu: 手振り动作被点击');
-      console.log('👤 用户:', user.id, user.line_user_id);
+      // 直接發送功能介紹，移除不必要的Quick Reply
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '👋【手振り動画生成】\n\n✨ 自然な笑顔で手を振る素敵な動画を作成いたします。\n\n📸 続行するには写真をアップロードしてください（任意のタイミングでカメラロールまたはカメラから）'
+      });
       
-      // 发送带Quick Reply的回复消息（核心功能）
-      console.log('📤 发送带Quick Reply的回复消息...');
-      const quickReplyMessage = this.lineBot.createPhotoUploadQuickReply(
-        '👋【手振り動画生成】が選択されました\n\n📸 下記のボタンから写真をアップロードしてください：'
-      );
-      
-      await this.client.replyMessage(event.replyToken, quickReplyMessage);
-      console.log('✅ Quick Reply消息发送成功');
-      
-      // 异步执行数据库操作（避免阻塞回复）
-      try {
-        console.log('📝 设置用户状态...');
-        await this.db.setUserState(user.id, 'waiting_wave_photo', { action: 'wave' });
-        console.log('✅ 用户状态设置成功');
-        
-        console.log('📊 记录交互日志...');
-        await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_wave_action', {
-          timestamp: new Date().toISOString()
-        });
-        console.log('✅ 交互日志记录成功');
-      } catch (dbError) {
-        console.error('⚠️ 数据库操作失败，但不影响主要功能:', dbError.message);
-      }
+      // 設置用戶狀態 - 簡化數據庫操作
+      await this.db.setUserState(user.id, 'waiting_wave_photo', { action: 'wave' });
       
     } catch (error) {
-      console.error('❌ Rich Menu Wave动作处理错误:', error.message);
-      console.error('❌ 错误堆栈:', error.stack);
-      
-      // 发送错误回复
-      try {
-        await this.client.replyMessage(event.replyToken, {
-          type: 'text',
-          text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
-        });
-      } catch (replyError) {
-        console.error('❌ 发送错误回复失败:', replyError.message);
-      }
+      console.error('❌ Wave处理错误:', error.message);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
+      });
     }
   }
   
   // 处理Rich Menu寄り添い动作
   async handleRichMenuGroupAction(event, user) {
     try {
-      console.log('🤝 Rich Menu: 寄り添い动作被点击');
-      
-      // 设置用户状态
-      await this.db.setUserState(user.id, 'waiting_group_photo', { action: 'group' });
-      
-      // 发送带Quick Reply的回复消息
-      const quickReplyMessage = this.lineBot.createPhotoUploadQuickReply(
-        '🤝【寄り添い動画生成】が選択されました\n\n📸 下記のボタンから写真をアップロードしてください：'
-      );
-      
-      await this.client.replyMessage(event.replyToken, quickReplyMessage);
-      
-      // 记录交互
-      await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_group_action', {
-        timestamp: new Date().toISOString()
+      // 直接發送功能介紹，移除Quick Reply
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '🤝【寄り添い動画生成】\n\n💕 温かい雰囲気の素敵な動画を作成いたします。\n\n📸 続行するには写真をアップロードしてください（任意のタイミングでカメラロールまたはカメラから）'
       });
       
+      // 設置用戶狀態
+      await this.db.setUserState(user.id, 'waiting_group_photo', { action: 'group' });
+      
     } catch (error) {
-      console.error('❌ Rich Menu Group动作处理错误:', error);
+      console.error('❌ Group处理错误:', error.message);
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
         text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
