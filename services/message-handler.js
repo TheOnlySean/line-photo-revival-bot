@@ -1778,78 +1778,70 @@ class MessageHandler {
   }
 
   // 处理Postback事件
-  async handlePostback(event) {
-    const userId = event.source.userId;
-    const data = this.parsePostbackData(event.postback.data);
-
-    console.log('🎯 收到Postback:', data);
-    console.log('👤 用户ID:', userId);
-    console.log('🔖 Reply Token:', event.replyToken);
-
+  async handlePostback(event, user) {
+    const startTime = Date.now(); // 性能監控開始
+    
     try {
-      console.log('📝 开始获取用户信息...');
-      const user = await this.ensureUserExists(userId);
-      console.log('✅ 用户信息获取成功:', user.id);
+      const data = this.parsePostbackData(event.postback.data);
+      console.log('📨 Postback接收:', data);
 
       switch (data.action) {
-        // 新的Rich Menu postback动作
         case 'wave':
           await this.handleRichMenuWaveAction(event, user);
           break;
-          
+
         case 'group':
           await this.handleRichMenuGroupAction(event, user);
           break;
-          
+
         case 'custom':
           await this.handleRichMenuCustomAction(event, user);
           break;
-          
+
         case 'credits':
           await this.handleRichMenuCreditsAction(event, user);
           break;
-          
+
         case 'share':
           await this.handleRichMenuShareAction(event, user);
           break;
-          
+
         case 'status_check':
           await this.handleStatusCheck(event, user);
           break;
 
-        // 原有动作保持不变
         case 'wave_hello':
           await this.handleWaveHello(event, user);
           break;
-          
+
         case 'group_support':
           await this.handleGroupSupport(event, user);
           break;
-          
+
         case 'custom_generate':
           await this.handleCustomGenerate(event, user);
           break;
-          
+
         case 'buy_credits':
           await this.handleBuyCredits(event, user);
           break;
-          
+
         case 'share_bot':
           await this.handleShareBot(event, user);
           break;
-          
+
         case 'demo_generate':
           await this.handleDemoGenerate(event, user, data.demo_id);
           break;
-          
+
         case 'free_trial':
           await this.handleFreeTrialGenerate(event, user, data);
           break;
-          
+
         case 'confirm_generate':
           await this.handleConfirmGenerate(event, user, data);
           break;
-          
+
         case 'confirm_preset_generate':
           await this.handleConfirmPresetGenerate(event, user, data);
           break;
@@ -1858,11 +1850,10 @@ class MessageHandler {
           await this.handleConfirmCustomGenerate(event, user, data);
           break;
 
-        // 新的URI流程确认动作
         case 'confirm_wave_generate':
           await this.handleConfirmWaveGenerate(event, user, data);
           break;
-          
+
         case 'confirm_group_generate':
           await this.handleConfirmGroupGenerate(event, user, data);
           break;
@@ -1912,6 +1903,8 @@ class MessageHandler {
         text: '❌ 处理请求时发生错误，请稍后再试'
       });
     }
+
+    console.log(`📊 Postback处理时间: ${Date.now() - startTime}ms`); // 性能監控結束
   }
 
   // 处理挥手生成确认（URI流程）
@@ -1923,7 +1916,7 @@ class MessageHandler {
       if (user.credits < 1) {
         await this.client.replyMessage(event.replyToken, {
           type: 'text',
-          text: '💸 ポイントが不足しています。\n\n現在のポイント: 0\n必要なポイント: 1\n\n🌐 ポイント購入は公式サイトをご確認ください。'
+          text: '�� ポイントが不足しています。\n\n現在のポイント: 0\n必要なポイント: 1\n\n🌐 ポイント購入は公式サイトをご確認ください。'
         });
         return;
       }
@@ -2462,15 +2455,21 @@ class MessageHandler {
   // 处理Rich Menu手振り动作
   async handleRichMenuWaveAction(event, user) {
     try {
-      // 發送功能介紹並提供照片上傳選項
+      // 立即發送回復 - 最高優先級
       const quickReplyMessage = this.lineBot.createPhotoUploadQuickReply(
         '👋【手振り動画生成】\n\n✨ 自然な笑顔で手を振る素敵な動画を作成いたします。\n\n📸 下記のボタンから写真をアップロードしてください：'
       );
       
       await this.client.replyMessage(event.replyToken, quickReplyMessage);
       
-      // 設置用戶狀態
-      await this.db.setUserState(user.id, 'waiting_wave_photo', { action: 'wave' });
+      // 異步設置用戶狀態 - 不阻塞回復
+      setImmediate(async () => {
+        try {
+          await this.db.setUserState(user.id, 'waiting_wave_photo', { action: 'wave' });
+        } catch (dbError) {
+          console.error('❌ 異步數據庫操作失敗:', dbError.message);
+        }
+      });
       
     } catch (error) {
       console.error('❌ Wave处理错误:', error.message);
@@ -2484,15 +2483,21 @@ class MessageHandler {
   // 处理Rich Menu寄り添い动作
   async handleRichMenuGroupAction(event, user) {
     try {
-      // 發送功能介紹並提供照片上傳選項
+      // 立即發送回復 - 最高優先級
       const quickReplyMessage = this.lineBot.createPhotoUploadQuickReply(
         '🤝【寄り添い動画生成】\n\n💕 温かい雰囲気の素敵な動画を作成いたします。\n\n📸 下記のボタンから写真をアップロードしてください：'
       );
       
       await this.client.replyMessage(event.replyToken, quickReplyMessage);
       
-      // 設置用戶狀態
-      await this.db.setUserState(user.id, 'waiting_group_photo', { action: 'group' });
+      // 異步設置用戶狀態 - 不阻塞回復
+      setImmediate(async () => {
+        try {
+          await this.db.setUserState(user.id, 'waiting_group_photo', { action: 'group' });
+        } catch (dbError) {
+          console.error('❌ 異步數據庫操作失敗:', dbError.message);
+        }
+      });
       
     } catch (error) {
       console.error('❌ Group处理错误:', error.message);
@@ -2506,8 +2511,6 @@ class MessageHandler {
   // 处理Rich Menu个性化动作
   async handleRichMenuCustomAction(event, user) {
     try {
-      console.log('🎨 Rich Menu: 个性化动作被点击');
-      
       // 检查用户点数
       if (user.credits < 2) {
         const insufficientCard = this.lineBot.createInsufficientCreditsCard(user.credits, 2);
@@ -2521,23 +2524,24 @@ class MessageHandler {
         return;
       }
       
-      // 设置用户状态为等待提示词选择
-      await this.db.setUserState(user.id, 'waiting_custom_prompt_selection', { action: 'custom' });
-      
-      // 发送个性化生成说明消息和提示词选择菜单
+      // 立即發送回復 - 最高優先級
       const promptSelectionMessage = this.lineBot.createCustomPromptSelectionQuickReply(
         '🎨【パーソナライズ動画生成】について\n\n💭 パーソナライズ生成とは、プロンプト（提示詞）を設定し、参考画像をアップロード（オプション）して動画を生成する機能です。\n\n📝 プロンプトの質によってAIが完全に内容を実現できない場合があります。この点をご理解ください。\n\n✅ 下記からプロンプトの設定方法をお選びください：'
       );
       
       await this.client.replyMessage(event.replyToken, promptSelectionMessage);
       
-      // 记录交互
-      await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_custom_action', {
-        timestamp: new Date().toISOString()
+      // 異步處理數據庫操作 - 不阻塞回復
+      setImmediate(async () => {
+        try {
+          await this.db.setUserState(user.id, 'waiting_custom_prompt_selection', { action: 'custom' });
+        } catch (dbError) {
+          console.error('❌ 異步數據庫操作失敗:', dbError.message);
+        }
       });
       
     } catch (error) {
-      console.error('❌ Rich Menu Custom动作处理错误:', error);
+      console.error('❌ Custom处理错误:', error.message);
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
         text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
