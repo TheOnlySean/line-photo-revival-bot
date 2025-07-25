@@ -3,7 +3,7 @@ const line = require('@line/bot-sdk');
 const bodyParser = require('body-parser');
 const cors = require('cors');
 
-// 部署觸發 - 修復用戶體驗優化 2025-07-25
+// 部署觸發 - 修復Postback用戶問題 2025-07-25 17:25
 
 const lineConfig = require('./config/line-config');
 const db = require('./config/database');
