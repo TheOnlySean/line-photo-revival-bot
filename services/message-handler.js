@@ -1778,10 +1778,14 @@ class MessageHandler {
   }
 
   // 处理Postback事件
-  async handlePostback(event, user) {
+  async handlePostback(event) {
     const startTime = Date.now(); // 性能監控開始
+    const userId = event.source.userId;
     
     try {
+      // 獲取用戶信息
+      const user = await this.ensureUserExists(userId);
+      
       const data = this.parsePostbackData(event.postback.data);
       console.log('📨 Postback接收:', data);
 
