@@ -81,12 +81,12 @@ class VideoGenerator {
       });
 
       if (response.status === 200 && response.data) {
-        const result = response.data;
+        const result = response.data.data || response.data; // 處理嵌套data結構
         console.log('✅ Runway API响应成功');
 
         return {
           success: true,
-          taskId: result.task_id || result.taskId,
+          taskId: result.videoInfo?.taskId || result.task_id || result.taskId,
           videoUrl: result.video_url,
           thumbnailUrl: result.thumbnail_url,
           message: result.message
@@ -173,7 +173,7 @@ class VideoGenerator {
   // 检查任务状态
   async checkTaskStatus(taskId) {
     try {
-      const apiUrl = `${this.kieAiConfig.baseUrl}${this.kieAiConfig.detailEndpoint}/${taskId}`;
+      const apiUrl = `${this.kieAiConfig.baseUrl}${this.kieAiConfig.detailEndpoint}?taskId=${taskId}`;
 
       const response = await axios.get(apiUrl, {
         headers: {
@@ -184,12 +184,13 @@ class VideoGenerator {
       });
 
       if (response.status === 200 && response.data) {
+        const result = response.data.data || response.data; // 處理嵌套data結構
         return {
-          state: response.data.state || response.data.status,
-          videoUrl: response.data.video_url,
-          thumbnailUrl: response.data.thumbnail_url,
-          message: response.data.message,
-          progress: response.data.progress
+          state: result.state || result.status,
+          videoUrl: result.videoInfo?.videoUrl || result.video_url,
+          thumbnailUrl: result.videoInfo?.imageUrl || result.thumbnail_url,
+          message: result.message,
+          progress: result.progress
         };
       } else {
         throw new Error(`状态查询失败: ${response.status}`);
