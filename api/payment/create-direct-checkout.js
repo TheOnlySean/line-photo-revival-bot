@@ -15,7 +15,11 @@ export default async function handler(req, res) {
     }
 
     const planConfig = stripeConfig.plans[plan];
-    console.log('🚀 創建直接跳轉Stripe Checkout:', { plan, userId });
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : 'https://line-photo-revival-bot.vercel.app';
+    
+    console.log('🚀 創建直接跳轉Stripe Checkout:', { plan, userId, baseUrl });
 
     // 創建 Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
@@ -47,7 +51,7 @@ export default async function handler(req, res) {
               name: planConfig.nameJa,
               description: `月間${planConfig.videoCount}本の動画生成 - AI写真復活サービス`,
               images: [
-                'https://line-photo-revival-bot.vercel.app/logo-placeholder.svg'
+                `${baseUrl}/logo-placeholder.svg`
               ]
             },
             recurring: {
@@ -60,8 +64,8 @@ export default async function handler(req, res) {
       ],
       
       // 成功和取消 URL
-      success_url: 'https://line-photo-revival-bot.vercel.app/payment/success?session_id={CHECKOUT_SESSION_ID}',
-      cancel_url: 'https://line-photo-revival-bot.vercel.app/payment/cancel',
+      success_url: `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/payment/cancel`,
       
       // 客戶信息
       customer_creation: 'always',
@@ -126,13 +130,25 @@ export default async function handler(req, res) {
       amount: planConfig.price
     });
 
-    // 直接重定向到 Stripe 頁面（buy.stripe.com 域名）
+    // 驗證 Stripe URL 是否為官方域名
+    if (session.url && session.url.includes('checkout.stripe.com')) {
+      console.log('🎯 正確跳轉到 Stripe 官方域名:', session.url);
+    } else {
+      console.warn('⚠️ Stripe URL 可能不正確:', session.url);
+    }
+
+    // 直接重定向到 Stripe 頁面（checkout.stripe.com 或 buy.stripe.com 域名）
     return res.redirect(302, session.url);
 
   } catch (error) {
     console.error('❌ 創建直接跳轉 Stripe Checkout 失敗:', error);
     
+    // 構建基礎 URL（錯誤處理也需要）
+    const baseUrl = process.env.VERCEL_URL 
+      ? `https://${process.env.VERCEL_URL}` 
+      : 'https://line-photo-revival-bot.vercel.app';
+    
     // 重定向到錯誤頁面而不是返回 JSON
-    return res.redirect(302, '/payment/cancel?error=checkout_creation_failed');
+    return res.redirect(302, `${baseUrl}/payment/cancel?error=checkout_creation_failed`);
   }
 } 

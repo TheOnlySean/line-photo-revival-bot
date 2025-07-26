@@ -2562,10 +2562,12 @@ class MessageHandler {
   // 处理Rich Menu充值动作 - 直接跳轉Stripe
   async handleRichMenuCreditsAction(event, user) {
     try {
-      console.log('💎 Rich Menu: 充值动作被点击 - 創建Stripe Pricing Table鏈接');
+      console.log('💎 Rich Menu: 充值动作被点击 - 創建直接支付確認鍵');
       
-      // 創建 Stripe Pricing Table URL（用戶可以選擇多個計劃）
-      const stripeBaseUrl = 'https://buy.stripe.com';
+      // 獲取正確的基礎 URL
+      const baseUrl = process.env.VERCEL_URL 
+        ? `https://${process.env.VERCEL_URL}` 
+        : 'https://line-photo-revival-bot.vercel.app';
       
       // 發送包含兩個訂閱選項的消息
       const paymentMessage = {
@@ -2579,7 +2581,7 @@ class MessageHandler {
             contents: [
               {
                 type: 'text',
-                text: '💎 料金プラン選択',
+                text: '💳 お支払い確認',
                 weight: 'bold',
                 size: 'xl',
                 color: '#333333',
@@ -2608,8 +2610,8 @@ class MessageHandler {
                     style: 'primary',
                     action: {
                       type: 'uri',
-                      label: '🎁 トライアルプラン - ¥300/月',
-                      uri: `https://line-photo-revival-bot.vercel.app/api/payment/create-direct-checkout?plan=trial&userId=${user.line_user_id}`
+                      label: '💳 トライアル決済 - ¥300/月',
+                      uri: `${baseUrl}/api/payment/create-direct-checkout?plan=trial&userId=${user.line_user_id}`
                     },
                     color: '#ff6b6b',
                     height: 'md'
@@ -2630,8 +2632,8 @@ class MessageHandler {
                     style: 'primary',
                     action: {
                       type: 'uri',
-                      label: '⭐ スタンダードプラン - ¥2,980/月',
-                      uri: `https://line-photo-revival-bot.vercel.app/api/payment/create-direct-checkout?plan=standard&userId=${user.line_user_id}`
+                      label: '💳 スタンダード決済 - ¥2,980/月',
+                      uri: `${baseUrl}/api/payment/create-direct-checkout?plan=standard&userId=${user.line_user_id}`
                     },
                     color: '#667eea',
                     height: 'md'
@@ -2661,7 +2663,7 @@ class MessageHandler {
               },
               {
                 type: 'text',
-                text: 'Stripeの安全な決済ページに移動します',
+                text: 'ボタンをタップするとStripe決済ページに直接移動します',
                 size: 'xs',
                 color: '#999999',
                 align: 'center'
