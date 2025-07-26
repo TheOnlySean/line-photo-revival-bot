@@ -8,12 +8,11 @@ class VideoGenerator {
     this.kieAiConfig = lineConfig.kieAi;
   }
 
-  // 生成视频（主要方法）- 支持自定义prompt
+  // 生成视频（主要方法）
   async generateVideo(lineUserId, imageUrl, videoRecordId, customPrompt = null) {
     try {
-      console.log('🎬 开始生成视频:', { lineUserId, videoRecordId, hasCustomPrompt: !!customPrompt });
+      console.log('🎬 开始生成视频:', videoRecordId);
 
-      // 通过videoRecordId获取视频记录
       const videoRecord = await this.db.query(
         'SELECT * FROM videos WHERE id = $1',
         [videoRecordId]
@@ -25,28 +24,25 @@ class VideoGenerator {
 
       const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // 更新状态为处理中并保存taskId
+      // 更新状态为处理中
       await this.db.updateVideoStatus(taskId, 'processing');
       await this.db.query(
         'UPDATE videos SET task_id = $1, status = $2 WHERE id = $3',
         [taskId, 'processing', videoRecordId]
       );
 
-      // 调用KIE.AI Runway API生成视频（传递自定义prompt）
+      // 调用KIE.AI API
       const result = await this.callRunwayApi(imageUrl, customPrompt);
 
       if (result.success && result.taskId) {
-        // 更新真实的taskId
         await this.db.query(
           'UPDATE videos SET task_id = $1 WHERE id = $2',
           [result.taskId, videoRecordId]
         );
 
         console.log('🚀 启动轮询任务状态检查:', result.taskId);
-        // 开始轮询任务状态
         this.pollVideoStatus(lineUserId, result.taskId, videoRecordId);
       } else if (result.success && result.videoUrl) {
-        // 直接返回了视频URL（同步模式）
         console.log('✅ 同步模式：直接返回视频URL');
         await this.handleVideoSuccess(lineUserId, videoRecordId, result);
       } else {
@@ -63,21 +59,16 @@ class VideoGenerator {
   // 调用Runway API生成视频
   async callRunwayApi(imageUrl, customPrompt = null) {
     try {
-      // 如果没有提供自定义prompt，使用默认的
       const prompt = customPrompt || 'natural breathing with gentle eye movement, warm lighting';
-
-      console.log('📡 调用Runway API:', { imageUrl, prompt });
 
       const apiUrl = `${this.kieAiConfig.baseUrl}/api/v1/video/runway/gen`;
       
       const requestData = {
         image_url: imageUrl,
         prompt: prompt,
-        duration: 10, // 10秒视频
+        duration: 10,
         model: 'runway-gen3'
       };
-
-      console.log('📤 API请求数据:', requestData);
 
       const response = await axios.post(apiUrl, requestData, {
         headers: {
@@ -87,11 +78,9 @@ class VideoGenerator {
         timeout: 30000
       });
 
-      console.log('📡 API响应状态:', response.status);
-
       if (response.status === 200 && response.data) {
         const result = response.data;
-        console.log('✅ Runway API响应成功:', result);
+        console.log('✅ Runway API响应成功');
 
         return {
           success: true,
@@ -101,7 +90,7 @@ class VideoGenerator {
           message: result.message
         };
       } else {
-        console.error('❌ API响应异常:', response.status, response.data);
+        console.error('❌ API响应异常:', response.status);
         return {
           success: false,
           error: `API响应异常: ${response.status}`
@@ -112,19 +101,16 @@ class VideoGenerator {
       console.error('❌ 调用Runway API失败:', error.message);
       
       if (error.response) {
-        console.error('❌ API错误响应:', error.response.status, error.response.data);
         return {
           success: false,
           error: `API错误: ${error.response.status} - ${error.response.data?.message || error.message}`
         };
       } else if (error.request) {
-        console.error('❌ 网络请求失败');
         return {
           success: false,
           error: '网络连接失败，请检查网络'
         };
       } else {
-        console.error('❌ 其他错误:', error.message);
         return {
           success: false,
           error: '视频生成服务暂时不可用'
@@ -135,18 +121,16 @@ class VideoGenerator {
 
   // 轮询任务状态
   async pollVideoStatus(lineUserId, taskId, videoRecordId) {
-    console.log('🔄 开始轮询任务状态:', { taskId, videoRecordId });
+    console.log('🔄 开始轮询任务状态:', taskId);
     
-    const maxAttempts = 30; // 最多轮询30次
-    const pollInterval = 10000; // 每10秒轮询一次
+    const maxAttempts = 30;
+    const pollInterval = 10000;
     let attempts = 0;
 
     const poll = async () => {
       try {
         attempts++;
-        console.log(`🔍 轮询第 ${attempts} 次 - TaskID: ${taskId}`);
 
-        // 调用状态查询API
         const status = await this.checkTaskStatus(taskId);
 
         if (status.state === 'success') {
@@ -158,15 +142,12 @@ class VideoGenerator {
           await this.handleVideoFailure(lineUserId, videoRecordId, status.message || '视频生成失败');
           return;
         } else if (status.state === 'processing' || status.state === 'pending') {
-          console.log(`⏳ 视频正在生成中... (${attempts}/${maxAttempts})`);
-          
           if (attempts >= maxAttempts) {
             console.log('⏰ 轮询超时');
             await this.handleVideoFailure(lineUserId, videoRecordId, '视频生成超时，请稍后再试');
             return;
           }
 
-          // 继续轮询
           setTimeout(poll, pollInterval);
         } else {
           console.log('⚠️ 未知状态:', status.state);
@@ -184,7 +165,6 @@ class VideoGenerator {
       }
     };
 
-    // 开始轮询
     setTimeout(poll, pollInterval);
   }
 
@@ -192,8 +172,6 @@ class VideoGenerator {
   async checkTaskStatus(taskId) {
     try {
       const apiUrl = `${this.kieAiConfig.baseUrl}/api/v1/video/runway/status/${taskId}`;
-      
-      console.log('📡 查询任务状态:', apiUrl);
 
       const response = await axios.get(apiUrl, {
         headers: {
@@ -202,8 +180,6 @@ class VideoGenerator {
         },
         timeout: 15000
       });
-
-      console.log('📡 状态API响应:', response.status, response.data);
 
       if (response.status === 200 && response.data) {
         return {
@@ -226,7 +202,7 @@ class VideoGenerator {
   // 处理视频生成成功
   async handleVideoSuccess(lineUserId, videoRecordId, result) {
     try {
-      // 防重複處理：先檢查當前狀態
+      // 防重複處理
       const currentRecord = await this.db.query(
         'SELECT status FROM videos WHERE id = $1',
         [videoRecordId]
@@ -253,7 +229,6 @@ class VideoGenerator {
       } catch (sendError) {
         console.error('❌ 视频发送失败:', sendError.message);
         
-        // 检查是否因为用户取消关注导致的发送失败
         if (sendError.message.includes('User not found') || 
             sendError.message.includes('Invalid user') ||
             sendError.response?.status === 400) {
@@ -271,8 +246,6 @@ class VideoGenerator {
         }
       }
 
-      console.log('✅ 视频生成成功处理完成:', result.videoUrl);
-
     } catch (error) {
       console.error('❌ 处理视频成功时出错:', error);
     }
@@ -281,7 +254,7 @@ class VideoGenerator {
   // 处理视频生成失败
   async handleVideoFailure(lineUserId, videoRecordId, errorMessage) {
     try {
-      console.log('❌ 处理视频生成失败:', { videoRecordId, errorMessage });
+      console.log('❌ 处理视频生成失败:', errorMessage);
 
       // 更新数据库状态为失败
       await this.db.query(
@@ -297,7 +270,6 @@ class VideoGenerator {
             text: `❌ 申し訳ございません。動画生成に失敗しました。\n\n${errorMessage}\n\n再度お試しください。`
           });
 
-          // 切换回主要Rich Menu
           await this.lineBot.switchToMainMenu(lineUserId);
           console.log('✅ 失败消息已发送，切换回主菜单');
 
@@ -314,8 +286,6 @@ class VideoGenerator {
   // 发送视频给用户
   async sendVideoToUser(lineUserId, result) {
     try {
-      console.log('📤 发送视频给用户:', lineUserId);
-
       if (!result.videoUrl) {
         throw new Error('视频URL不存在');
       }
@@ -353,7 +323,6 @@ class VideoGenerator {
     try {
       console.log('🔍 检查用户待完成任务:', lineUserId);
 
-      // 获取用户的待处理任务
       const pendingTasks = await this.db.getUserPendingTasks(lineUserId);
 
       if (pendingTasks.length === 0) {
@@ -361,14 +330,9 @@ class VideoGenerator {
         return;
       }
 
-      console.log(`📋 发现 ${pendingTasks.length} 个待处理任务`);
-
       for (const task of pendingTasks) {
         try {
           if (task.task_id) {
-            console.log('🔄 检查任务状态:', task.task_id);
-            
-            // 查询任务状态
             const status = await this.checkTaskStatus(task.task_id);
             
             if (status.state === 'success') {
@@ -377,8 +341,6 @@ class VideoGenerator {
             } else if (status.state === 'failed' || status.state === 'error') {
               console.log('❌ 发现失败的任务:', task.task_id);
               await this.handleVideoFailure(lineUserId, task.id, status.message);
-            } else {
-              console.log('⏳ 任务仍在处理中:', task.task_id);
             }
           }
         } catch (taskError) {

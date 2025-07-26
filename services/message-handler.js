@@ -17,19 +17,14 @@ class MessageHandler {
     console.log('👋 新用户添加好友:', userId);
 
     try {
-      // 获取用户资料
       const profile = await this.client.getProfile(userId);
-      console.log('👤 用户资料:', profile);
-
-      // 创建或确保用户记录存在
       const user = await this.db.ensureUserExists(userId, profile.displayName);
 
-      // 记录交互日志
       await this.db.logInteraction(userId, user.id, 'follow', {
         displayName: profile.displayName,
       });
 
-      // 欢迎消息和免费试用
+      // 欢迎消息
       const welcomeMessage = '🎉 **写真復活へようこそ！**\n\n✨ AIが古い写真を美しい動画に変換します';
       
       await this.client.replyMessage(event.replyToken, {
@@ -37,12 +32,10 @@ class MessageHandler {
         text: welcomeMessage
       });
 
-      // 发送免费试用选项
-      try {
-        await this.lineBot.sendFreeTrialOptions(userId);
-      } catch (trialError) {
-        console.warn('⚠️ 发送试用选项失败:', trialError.message);
-      }
+      // 发送测试视频选项
+      setTimeout(() => {
+        this.lineBot.sendDemoVideos(userId);
+      }, 1000);
 
     } catch (error) {
       console.error('❌ 处理用户关注失败:', error);
@@ -56,16 +49,13 @@ class MessageHandler {
       const userId = event.source.userId;
       const messageText = event.message.text.trim();
       
-      console.log(`📨 收到文本消息: "${messageText}" 来自用户: ${userId}`);
-
-      // 确保用户存在
       const user = await this.db.ensureUserExists(userId);
       if (!user) {
         console.error('❌ 无法获取用户信息');
         return;
       }
 
-      // 检查是否为调试命令
+      // 调试命令
       if (messageText === '状态' || messageText === 'debug') {
         const subscription = await this.db.getUserSubscription(user.id);
         const quota = await this.db.checkVideoQuota(user.id);
@@ -81,23 +71,22 @@ class MessageHandler {
         return;
       }
 
-      // 根据用户状态处理不同消息
+      // 根据用户状态处理消息
       switch (user.current_state) {
         case 'awaiting_custom_prompt':
           await this.handleCustomPromptInput(event, user, messageText);
           break;
           
         case 'awaiting_photo':
-          await this.client.replyMessage(event.replyToken, {
-            type: 'text',
-            text: '📸 写真をアップロードしてください。\n\n下のボタンから選択できます：'
-          });
-          await this.sendPhotoUploadOptions(event, user);
+          const quickReply = this.lineBot.createPhotoUploadQuickReply('📸 写真をアップロードしてください：');
+          await this.client.replyMessage(event.replyToken, quickReply);
           break;
 
         default:
-          // 处理一般文本消息
-          await this.handleGeneralTextMessage(event, user, messageText);
+          await this.client.replyMessage(event.replyToken, {
+            type: 'text',
+            text: '🤔 申し訳ございません。下部のメニューからご利用ください。'
+          });
           break;
       }
 
@@ -113,41 +102,17 @@ class MessageHandler {
   // 处理自定义prompt输入
   async handleCustomPromptInput(event, user, promptText) {
     try {
-      // 立即發送確認消息，無等待
       await this.client.replyMessage(event.replyToken, [
         {
           type: 'text',
           text: `✅ プロンプトを設定しました：\n"${promptText}"\n\n📸 次に写真をアップロードしてください：`
         },
-        {
-          type: 'text',
-          text: '📸 写真のアップロード方法を選択してください：',
-          quickReply: {
-            items: [
-              {
-                type: 'action',
-                action: {
-                  type: 'camera',
-                  label: '📷 カメラで撮影'
-                }
-              },
-              {
-                type: 'action',
-                action: {
-                  type: 'cameraRoll',
-                  label: '📁 アルバムから選択'
-                }
-              }
-            ]
-          }
-        }
+        this.lineBot.createPhotoUploadQuickReply('📸 写真のアップロード方法を選択してください：')
       ]);
 
-      // 完全異步保存狀態
+      // 异步设置状态
       setImmediate(() => {
-        this.db.setUserState(user.id, 'awaiting_photo', promptText).catch(error => {
-          console.error('❌ 設置自定義Prompt狀態失敗:', error);
-        });
+        this.db.setUserState(user.id, 'awaiting_photo', promptText).catch(console.error);
       });
 
     } catch (error) {
@@ -156,45 +121,10 @@ class MessageHandler {
     }
   }
 
-  // 发送照片上传选项
-  async sendPhotoUploadOptions(event, user) {
-    try {
-      const quickReply = {
-        items: [
-          {
-            type: 'action',
-            action: {
-              type: 'camera',
-              label: '📷 カメラで撮影'
-            }
-          },
-          {
-            type: 'action',
-            action: {
-              type: 'cameraRoll',
-              label: '📁 アルバムから選択'
-            }
-          }
-        ]
-      };
-
-      await this.client.pushMessage(user.line_user_id, {
-        type: 'text',
-        text: '📸 写真のアップロード方法を選択してください：',
-        quickReply: quickReply
-      });
-
-    } catch (error) {
-      console.error('❌ 发送照片上传选项失败:', error);
-    }
-  }
-
   // 处理图片消息
   async handleImageMessage(event, user) {
     try {
-      console.log('📷 收到图片消息');
-
-      // 检查用户是否有有效订阅和配额
+      // 检查用户订阅配额
       const quota = await this.db.checkVideoQuota(user.id);
       if (!quota.hasQuota) {
         await this.handleInsufficientQuota(event, user, quota);
@@ -211,22 +141,10 @@ class MessageHandler {
         return;
       }
 
-      console.log('✅ 图片上传成功:', imageUrl);
-
-      console.log('📊 用戶狀態:', { 
-        state: user.current_state, 
-        hasPrompt: !!user.current_prompt,
-        prompt: user.current_prompt 
-      });
-
-      // 根据用户状态决定下一步 - 顯示確認卡片而不是直接生成
+      // 显示确认卡片
       if (user.current_state === 'awaiting_photo' && user.current_prompt) {
-        console.log('📋 顯示生成確認卡片');
-        // 显示确认卡片，让用户最终确认
         await this.showGenerationConfirmation(event, user, imageUrl, user.current_prompt);
       } else {
-        console.log('🎨 需要選擇Prompt，顯示選項');
-        // 用户未设置prompt，显示prompt选项
         await this.showPromptOptions(event, user, imageUrl);
       }
 
@@ -241,542 +159,24 @@ class MessageHandler {
 
   // 处理配额不足
   async handleInsufficientQuota(event, user, quota) {
-    try {
-      const subscription = await this.db.getUserSubscription(user.id);
-      
-      let message;
-      if (!subscription) {
-        message = '💳 動画を生成するには有料プランのご契約が必要です。\n\n下部メニューの「ポイント購入」からお手続きください。';
-      } else {
-        message = `📊 今月の動画生成配額を超過しました。\n\n使用済み: ${quota.used}/${quota.total}\n\n来月1日に配額がリセットされます。`;
-      }
-
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: message
-      });
-
-    } catch (error) {
-      console.error('❌ 处理配额不足失败:', error);
+    const subscription = await this.db.getUserSubscription(user.id);
+    
+    let message;
+    if (!subscription) {
+      message = '💳 動画を生成するには有料プランのご契約が必要です。\n\n下部メニューの「優惠券+充値」からお手続きください。';
+    } else {
+      message = `📊 今月の動画生成配額を超過しました。\n\n使用済み: ${quota.used}/${quota.total}\n\n来月1日に配額がリセットされます。`;
     }
+
+    await this.client.replyMessage(event.replyToken, {
+      type: 'text',
+      text: message
+    });
   }
 
-  // 开始视频生成
-  async startVideoGeneration(event, user, imageUrl, prompt) {
-    try {
-      console.log('🎬 开始视频生成流程');
-
-      // 使用视频配额
-      await this.db.useVideoQuota(user.id);
-
-      // 发送处理中消息
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '🎬 動画生成を開始します！\n\n⏱️ 約30-60秒で完成します。お待ちください...'
-      });
-
-      // 切换到处理中菜单
-      await this.lineBot.switchToProcessingMenuSilent(user.line_user_id);
-
-      // 获取用户订阅信息
-      const subscription = await this.db.getUserSubscription(user.id);
-
-      // 创建视频记录
-      const videoRecord = await this.db.createVideoRecord(user.id, {
-        subscriptionId: subscription?.id,
-        taskId: null, // 将在videoGenerator中设置
-        promptText: prompt,
-        imageUrl: imageUrl,
-        status: 'pending'
-      });
-
-      // 重置用户状态
-      await this.db.setUserState(user.id, 'idle');
-
-      // 异步开始视频生成
-      await this.videoGenerator.generateVideo(user.line_user_id, imageUrl, videoRecord.id, prompt);
-
-      // 记录交互
-      await this.db.logInteraction(user.line_user_id, user.id, 'video_generation_started', {
-        imageUrl: imageUrl,
-        prompt: prompt,
-        videoRecordId: videoRecord.id
-      });
-
-    } catch (error) {
-      console.error('❌ 开始视频生成失败:', error);
-      throw error;
-    }
-  }
-
-  // 显示prompt选项
-  async showPromptOptions(event, user, imageUrl) {
-    try {
-      // 保存图片URL到用户状态
-      await this.db.setUserState(user.id, 'selecting_prompt', imageUrl);
-
-      const promptMessage = {
-        type: 'flex',
-        altText: 'プロンプト設定を選択',
-        contents: {
-          type: 'bubble',
-          body: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-              {
-                type: 'text',
-                text: '🎨 動画のスタイルを選択',
-                weight: 'bold',
-                size: 'lg',
-                align: 'center'
-              },
-              {
-                type: 'separator',
-                margin: 'md'
-              },
-              {
-                type: 'box',
-                layout: 'vertical',
-                spacing: 'sm',
-                margin: 'lg',
-                contents: [
-                  {
-                    type: 'button',
-                    action: {
-                      type: 'postback',
-                      label: '🎯 ランダムプロンプト',
-                      data: `action=RANDOM_PROMPT&image_url=${encodeURIComponent(imageUrl)}`
-                    },
-                    style: 'primary',
-                    color: '#667eea'
-                  },  
-                  {
-                    type: 'button',
-                    action: {
-                      type: 'postback',
-                      label: '✏️ 自分で入力',
-                      data: `action=INPUT_CUSTOM_PROMPT&image_url=${encodeURIComponent(imageUrl)}`,
-                      inputOption: 'openKeyboard'
-                    },
-                    style: 'secondary'
-                  }
-                ]
-              }
-            ]
-          }
-        }
-      };
-
-      await this.client.replyMessage(event.replyToken, promptMessage);
-
-    } catch (error) {
-      console.error('❌ 显示prompt选项失败:', error);
-      throw error;
-    }
-  }
-
-  // 处理postback事件
-  async handlePostback(event) {
-    try {
-      const userId = event.source.userId;
-      const data = this.parsePostbackData(event.postback.data);
-      
-      console.log(`📫 Postback: ${data.action} - ${userId}`);
-
-      // 優化：延後用戶創建到實際需要時
-      let user = null;
-      const getUser = async () => {
-        if (!user) {
-          user = await this.db.ensureUserExists(userId);
-        }
-        return user;
-      };
-      
-      switch (data.action) {
-        case 'INPUT_CUSTOM_PROMPT':
-          await this.handleInputCustomPromptPostback(event, await getUser(), data);
-          break;
-          
-        case 'RANDOM_PROMPT':
-          await this.handleRandomPromptPostback(event, await getUser(), data);
-          break;
-
-        case 'PERSONALIZE':
-          await this.handlePersonalizePostback(event, await getUser());
-          break;
-
-        case 'WAVE_VIDEO':
-          console.log('🎯 開始處理WAVE_VIDEO postback');
-          const waveUser = await getUser();
-          console.log('✅ 用戶獲取成功:', waveUser?.id);
-          await this.handleWaveVideoPostback(event, waveUser);
-          console.log('✅ WAVE_VIDEO處理完成');
-          break;
-
-        case 'GROUP_VIDEO':
-          await this.handleGroupVideoPostback(event, await getUser());
-          break;
-
-        case 'CREDITS':
-          await this.handleRichMenuCreditsAction(event, await getUser());
-          break;
-
-        case 'confirm_generate':
-          await this.handleConfirmGenerate(event, await getUser(), data);
-          break;
-
-        default:
-          console.log('⚠️ 未知的postback action:', data.action);
-          break;
-      }
-
-    } catch (error) {
-      console.error('❌ 处理postback失败:', error);
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '❌ 処理中にエラーが発生しました。'
-      });
-    }
-  }
-
-  // 处理个性化prompt postback
-  async handlePersonalizePostback(event, user) {
-    try {
-      // 立即回復，無需等待任何操作
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '✏️ **個性化プロンプト設定**\n\n動画のスタイルや雰囲気を自由に入力してください：\n\n例：\n・ゆっくりと微笑む\n・懐かしい雰囲気で\n・映画のようなドラマチックに'
-      });
-
-      // 異步設置狀態，完全不阻塞響應
-      setImmediate(() => {
-        this.db.setUserState(user.id, 'awaiting_custom_prompt').catch(error => {
-          console.error('❌ 設置個性化狀態失敗:', error);
-        });
-      });
-
-    } catch (error) {
-      console.error('❌ 处理个性化postback失败:', error);
-      throw error;
-    }
-  }
-
-  // 处理挥手视频postback
-  async handleWaveVideoPostback(event, user) {
-    try {
-      // 立即回復用戶，無等待
-      await this.client.replyMessage(event.replyToken, [
-        {
-          type: 'text',
-          text: '👋 **手振り動画生成**\n\n写真の人物が自然に手を振る動画を作成します。\n\n📸 写真をアップロードしてください：'
-        },
-        {
-          type: 'text',
-          text: '📸 写真のアップロード方法を選択してください：',
-          quickReply: {
-            items: [
-              {
-                type: 'action',
-                action: {
-                  type: 'camera',
-                  label: '📷 カメラで撮影'
-                }
-              },
-              {
-                type: 'action',
-                action: {
-                  type: 'cameraRoll',
-                  label: '📁 アルバムから選択'
-                }
-              }
-            ]
-          }
-        }
-      ]);
-
-      // 完全異步設置狀態
-      setImmediate(() => {
-        this.db.setUserState(user.id, 'awaiting_photo', 'gentle waving hand motion').catch(error => {
-          console.error('❌ 設置手振り狀態失敗:', error);
-        });
-      });
-
-    } catch (error) {
-      console.error('❌ 处理挥手视频postback失败:', error);
-      throw error;
-    }
-  }
-
-  // 处理群组视频postback
-  async handleGroupVideoPostback(event, user) {
-    try {
-      // 立即回復用戶，無等待
-      await this.client.replyMessage(event.replyToken, [
-        {
-          type: 'text',
-          text: '👨‍👩‍👧‍👦 **寄り添い動画生成**\n\n家族や友人との温かい瞬間を動画にします。\n\n📸 写真をアップロードしてください：'
-        },
-        {
-          type: 'text',
-          text: '📸 写真のアップロード方法を選択してください：',
-          quickReply: {
-            items: [
-              {
-                type: 'action',
-                action: {
-                  type: 'camera',
-                  label: '📷 カメラで撮影'
-                }
-              },
-              {
-                type: 'action',
-                action: {
-                  type: 'cameraRoll',
-                  label: '📁 アルバムから選択'
-                }
-              }
-            ]
-          }
-        }
-      ]);
-
-      // 完全異步設置狀態
-      setImmediate(() => {
-        this.db.setUserState(user.id, 'awaiting_photo', 'warm family gathering with gentle smiles').catch(error => {
-          console.error('❌ 設置寄り添い狀態失敗:', error);
-        });
-      });
-
-    } catch (error) {
-      console.error('❌ 处理群组视频postback失败:', error);
-      throw error;
-    }
-  }
-
-  // 处理確認生成
-  async handleConfirmGenerate(event, user, data) {
-    try {
-      console.log('🎬 確認生成按鈕被點擊:', data);
-
-      const imageUrl = decodeURIComponent(data.image_url);
-      const prompt = decodeURIComponent(data.prompt);
-
-      console.log('🎬 開始視頻生成:', { imageUrl, prompt });
-
-      // 直接開始視頻生成
-      await this.startVideoGeneration(event, user, imageUrl, prompt);
-
-    } catch (error) {
-      console.error('❌ 处理确认生成失败:', error);
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '❌ 生成処理中にエラーが発生しました。再度お試しください。'
-      });
-    }
-  }
-
-  // 处理充值action
-  async handleRichMenuCreditsAction(event, user) {
-    try {
-      console.log('💎 充值按钮被点击 - 创建滑动套餐选择');
-      
-      // 创建可左右滑动的套餐选择 Carousel
-      const paymentCarousel = {
-        type: 'flex',
-        altText: '💳 料金プラン選択 - 左右にスワイプ',
-        contents: {
-          type: 'carousel',
-          contents: [
-            // Trial Plan Card
-            {
-              type: 'bubble',
-              hero: {
-                type: 'image',
-                url: 'https://picsum.photos/400/300?random=1',
-                size: 'full',
-                aspectRatio: '4:3',
-                aspectMode: 'cover'
-              },
-              body: {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                  {
-                    type: 'text',
-                    text: '🎯 トライアルプラン',
-                    weight: 'bold',
-                    size: 'xl',
-                    color: '#FF6B6B'
-                  },
-                  {
-                    type: 'text',
-                    text: '¥300/月 (50%OFF)',
-                    size: 'lg',
-                    color: '#333333',
-                    margin: 'md'
-                  },
-                  {
-                    type: 'text',
-                    text: '月間8本の動画生成',
-                    size: 'sm',
-                    color: '#666666',
-                    margin: 'sm'
-                  }
-                ]
-              },
-              footer: {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                  {
-                    type: 'button',
-                    action: {
-                      type: 'uri',
-                      label: '🚀 このプランを選択',
-                      uri: `https://line-photo-revival-bot.vercel.app/api/payment/create-direct-checkout?plan=trial&userId=${user.line_user_id}`
-                    },
-                    style: 'primary',
-                    color: '#FF6B6B'
-                  }
-                ]
-              }
-            },
-            // Standard Plan Card  
-            {
-              type: 'bubble',
-              hero: {
-                type: 'image',
-                url: 'https://picsum.photos/400/300?random=2',
-                size: 'full',
-                aspectRatio: '4:3',
-                aspectMode: 'cover'
-              },
-              body: {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                  {
-                    type: 'text',
-                    text: '⭐ スタンダードプラン',
-                    weight: 'bold',
-                    size: 'xl',
-                    color: '#667EEA'
-                  },
-                  {
-                    type: 'text',
-                    text: '¥2,980/月',
-                    size: 'lg',
-                    color: '#333333',
-                    margin: 'md'
-                  },
-                  {
-                    type: 'text',
-                    text: '月間100本の動画生成',
-                    size: 'sm',
-                    color: '#666666',
-                    margin: 'sm'
-                  }
-                ]
-              },
-              footer: {
-                type: 'box',
-                layout: 'vertical',
-                contents: [
-                  {
-                    type: 'button',
-                    action: {
-                      type: 'uri',
-                      label: '🚀 このプランを選択',
-                      uri: `https://line-photo-revival-bot.vercel.app/api/payment/create-direct-checkout?plan=standard&userId=${user.line_user_id}`
-                    },
-                    style: 'primary',
-                    color: '#667EEA'
-                  }
-                ]
-              }
-            }
-          ]
-        }
-      };
-
-      await this.client.replyMessage(event.replyToken, [
-        {
-          type: 'text',
-          text: '💳 料金プランをお選びください\n👈👉 左右にスワイプして選択できます'
-        },
-        paymentCarousel
-      ]);
-      
-    } catch (error) {
-      console.error('❌ 充值处理错误:', error);
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
-      });
-    }
-  }
-
-  // 处理随机prompt postback
-  async handleRandomPromptPostback(event, user, data) {
-    try {
-      const imageUrl = decodeURIComponent(data.image_url);
-      
-      // 生成随机prompt
-      const randomPrompts = [
-        'gentle smiling with warm lighting',
-        'nostalgic family moment with soft focus',
-        'elegant portrait with vintage feel',
-        'natural breathing with peaceful expression',
-        'warm eyes looking directly at camera'
-      ];
-      
-      const randomPrompt = randomPrompts[Math.floor(Math.random() * randomPrompts.length)];
-      
-      // 模拟用户发送prompt消息，然后处理
-      const simulatedEvent = {
-        ...event,
-        message: { text: randomPrompt },
-        type: 'message'
-      };
-
-      // 设置用户状态
-      await this.db.setUserState(user.id, 'awaiting_photo', randomPrompt);
-      
-      // 直接开始视频生成
-      await this.startVideoGeneration(simulatedEvent, user, imageUrl, randomPrompt);
-
-    } catch (error) {
-      console.error('❌ 处理随机prompt失败:', error);
-      throw error;
-    }
-  }
-
-  // 处理自定义prompt输入postback
-  async handleInputCustomPromptPostback(event, user, data) {
-    try {
-      const imageUrl = decodeURIComponent(data.image_url);
-      
-      // 设置用户状态为等待自定义prompt输入
-      await this.db.setUserState(user.id, 'awaiting_custom_prompt', imageUrl);
-      
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '✏️ **プロンプトをカスタマイズ**\n\n動画のスタイルを自由に入力してください：\n\n例：\n・ゆっくりと瞬きをする\n・懐かしい雰囲気で\n・映画のような演出で'
-      });
-
-    } catch (error) {
-      console.error('❌ 处理自定义prompt输入失败:', error);
-      throw error;
-    }
-  }
-
-  // 显示生成確認卡片
+  // 显示生成确认卡片
   async showGenerationConfirmation(event, user, imageUrl, prompt) {
     try {
-      console.log('📋 創建確認卡片:', { imageUrl, prompt });
-
-      // 根據prompt判斷動作類型
       let actionType = 'custom';
       let actionInfo = {
         title: 'パーソナライズ動画生成',
@@ -863,29 +263,6 @@ class MessageHandler {
                         margin: 'sm'
                       }
                     ]
-                  },
-                  {
-                    type: 'box',
-                    layout: 'baseline',
-                    spacing: 'sm',
-                    contents: [
-                      {
-                        type: 'text',
-                        text: 'スタイル:',
-                        color: '#aaaaaa',
-                        size: 'sm',
-                        flex: 0
-                      },
-                      {
-                        type: 'text',
-                        text: actionInfo.description,
-                        wrap: true,
-                        color: '#666666',
-                        size: 'sm',
-                        flex: 0,
-                        margin: 'sm'
-                      }
-                    ]
                   }
                 ]
               }
@@ -914,11 +291,9 @@ class MessageHandler {
 
       await this.client.replyMessage(event.replyToken, confirmationCard);
       
-      // 異步清除用戶狀態
+      // 异步清除用户状态
       setImmediate(() => {
-        this.db.setUserState(user.id, 'idle').catch(error => {
-          console.error('❌ 清除用戶狀態失敗:', error);
-        });
+        this.db.setUserState(user.id, 'idle').catch(console.error);
       });
 
     } catch (error) {
@@ -927,36 +302,402 @@ class MessageHandler {
     }
   }
 
-  // 处理一般文本消息
-  async handleGeneralTextMessage(event, user, messageText) {
+  // 处理postback事件
+  async handlePostback(event) {
     try {
-      // 如果用户在等待自定义prompt输入且有保存的图片URL
-      if (user.current_state === 'awaiting_custom_prompt' && user.current_prompt) {
-        const imageUrl = user.current_prompt; // 这里存储的是图片URL
-        await this.startVideoGeneration(event, user, imageUrl, messageText);
-        return;
+      const userId = event.source.userId;
+      const data = this.parsePostbackData(event.postback.data);
+      
+      let user = null;
+      const getUser = async () => {
+        if (!user) {
+          user = await this.db.ensureUserExists(userId);
+        }
+        return user;
+      };
+      
+      switch (data.action) {
+        // 核心视频生成功能
+        case 'WAVE_VIDEO':
+          await this.handleWaveVideoPostback(event, await getUser());
+          break;
+
+        case 'GROUP_VIDEO':
+          await this.handleGroupVideoPostback(event, await getUser());
+          break;
+
+        case 'PERSONALIZE':
+          await this.handlePersonalizePostback(event, await getUser());
+          break;
+
+        case 'confirm_generate':
+          await this.handleConfirmGenerate(event, await getUser(), data);
+          break;
+
+        // 新增辅助功能
+        case 'COUPON':
+          await this.handleCouponAction(event, await getUser());
+          break;
+
+        case 'WEBSITE':
+          await this.handleWebsiteAction(event, await getUser());
+          break;
+
+        case 'SHARE':
+          await this.handleShareAction(event, await getUser());
+          break;
+
+        // 测试视频功能
+        case 'demo_generate':
+          await this.handleDemoGenerate(event, await getUser(), data);
+          break;
+
+        // 个性化功能
+        case 'INPUT_CUSTOM_PROMPT':
+          await this.handleInputCustomPromptPostback(event, await getUser(), data);
+          break;
+          
+        case 'RANDOM_PROMPT':
+          await this.handleRandomPromptPostback(event, await getUser(), data);
+          break;
+
+        default:
+          console.log('⚠️ 未知的postback action:', data.action);
+          break;
       }
 
-      // 其他情况的通用回复
+    } catch (error) {
+      console.error('❌ 处理postback失败:', error);
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '🤔 申し訳ございません。よくわかりません。\n\n下部のメニューからご利用ください。'
+        text: '❌ 処理中にエラーが発生しました。'
+      });
+    }
+  }
+
+  // 处理手振り视频postback
+  async handleWaveVideoPostback(event, user) {
+    try {
+      await this.client.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: '👋 **手振り動画生成**\n\n写真の人物が自然に手を振る動画を作成します。\n\n📸 写真をアップロードしてください：'
+        },
+        this.lineBot.createPhotoUploadQuickReply('📸 写真のアップロード方法を選択してください：')
+      ]);
+
+      setImmediate(() => {
+        this.db.setUserState(user.id, 'awaiting_photo', 'gentle waving hand motion').catch(console.error);
       });
 
     } catch (error) {
-      console.error('❌ 处理一般文本消息失败:', error);
+      console.error('❌ 处理挥手视频postback失败:', error);
       throw error;
     }
   }
 
-  // 簡化的postback數據解析
+  // 处理寄り添い视频postback
+  async handleGroupVideoPostback(event, user) {
+    try {
+      await this.client.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: '👨‍👩‍👧‍👦 **寄り添い動画生成**\n\n家族や友人との温かい瞬間を動画にします。\n\n📸 写真をアップロードしてください：'
+        },
+        this.lineBot.createPhotoUploadQuickReply('📸 写真のアップロード方法を選択してください：')
+      ]);
+
+      setImmediate(() => {
+        this.db.setUserState(user.id, 'awaiting_photo', 'warm family gathering with gentle smiles').catch(console.error);
+      });
+
+    } catch (error) {
+      console.error('❌ 处理群组视频postback失败:', error);
+      throw error;
+    }
+  }
+
+  // 处理个性化postback
+  async handlePersonalizePostback(event, user) {
+    try {
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '✏️ **個性化プロンプト設定**\n\n動画のスタイルや雰囲気を自由に入力してください：\n\n例：\n・ゆっくりと微笑む\n・懐かしい雰囲気で\n・映画のようなドラマチックに'
+      });
+
+      setImmediate(() => {
+        this.db.setUserState(user.id, 'awaiting_custom_prompt').catch(console.error);
+      });
+
+    } catch (error) {
+      console.error('❌ 处理个性化postback失败:', error);
+      throw error;
+    }
+  }
+
+  // 处理確認生成
+  async handleConfirmGenerate(event, user, data) {
+    try {
+      const imageUrl = decodeURIComponent(data.image_url);
+      const prompt = decodeURIComponent(data.prompt);
+
+      await this.startVideoGeneration(event, user, imageUrl, prompt);
+
+    } catch (error) {
+      console.error('❌ 处理确认生成失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 生成処理中にエラーが発生しました。再度お試しください。'
+      });
+    }
+  }
+
+  // 🎟️ 处理优惠券+充值功能
+  async handleCouponAction(event, user) {
+    try {
+      const message = {
+        type: 'flex',
+        altText: '🎟️ 優惠券・充値オプション',
+        contents: {
+          type: 'bubble',
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: '🎟️ 優惠券・充値',
+                weight: 'bold',
+                size: 'xl',
+                color: '#FF6B6B'
+              },
+              {
+                type: 'separator',
+                margin: 'md'
+              },
+              {
+                type: 'text',
+                text: 'プラン購入や優惠券のご利用はこちらから',
+                size: 'sm',
+                color: '#666666',
+                margin: 'md'
+              }
+            ]
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                action: {
+                  type: 'postback',
+                  label: '💳 プラン購入',
+                  data: 'action=CREDITS'
+                },
+                style: 'primary',
+                color: '#667EEA'
+              },
+              {
+                type: 'button',
+                action: {
+                  type: 'postback',
+                  label: '🎫 優惠券を使用',
+                  data: 'action=USE_COUPON'
+                },
+                style: 'secondary'
+              }
+            ]
+          }
+        }
+      };
+
+      await this.client.replyMessage(event.replyToken, message);
+    } catch (error) {
+      console.error('❌ 处理优惠券功能失败:', error);
+    }
+  }
+
+  // 🌐 处理官网客服功能
+  async handleWebsiteAction(event, user) {
+    try {
+      const message = {
+        type: 'template',
+        altText: '🌐 公式サイト・サポート',
+        template: {
+          type: 'buttons',
+          text: '🌐 **公式サイト・サポート**\n\nより詳しいサポートが必要でしたら、こちらをご利用ください',
+          actions: [
+            {
+              type: 'uri',
+              label: '🌐 公式サイトへ',
+              uri: 'https://your-website.com'
+            },
+            {
+              type: 'postback',
+              label: '📧 お問い合わせ',
+              data: 'action=CONTACT'
+            }
+          ]
+        }
+      };
+
+      await this.client.replyMessage(event.replyToken, message);
+    } catch (error) {
+      console.error('❌ 处理官网客服功能失败:', error);
+    }
+  }
+
+  // 👥 处理好友分享功能
+  async handleShareAction(event, user) {
+    try {
+      const shareCard = {
+        type: 'flex',
+        altText: '👥 友達にシェア',
+        contents: {
+          type: 'bubble',
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: '👥 友達にシェア',
+                weight: 'bold',
+                size: 'xl',
+                color: '#8B5A96',
+                align: 'center'
+              },
+              {
+                type: 'separator',
+                margin: 'md'
+              },
+              {
+                type: 'text',
+                text: '📸✨ 写真復活 AI\nあなたの写真が動き出す！',
+                size: 'md',
+                color: '#333333',
+                align: 'center',
+                margin: 'lg'
+              },
+              {
+                type: 'text',
+                text: '友達にもこの素晴らしい体験をシェアしませんか？',
+                size: 'sm',
+                color: '#666666',
+                wrap: true,
+                align: 'center',
+                margin: 'md'
+              }
+            ]
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'button',
+                action: {
+                  type: 'uri',
+                  label: '📱 友達に紹介する',
+                  uri: 'https://line.me/R/nv/recommendOA/@' + this.lineBot.channelId
+                },
+                style: 'primary',
+                color: '#8B5A96'
+              }
+            ]
+          }
+        }
+      };
+
+      await this.client.replyMessage(event.replyToken, shareCard);
+    } catch (error) {
+      console.error('❌ 处理好友分享功能失败:', error);
+    }
+  }
+
+  // 处理测试视频生成
+  async handleDemoGenerate(event, user, data) {
+    try {
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '🎬 テスト動画を生成中...\n\n⏱️ 約10秒でお送りします！'
+      });
+
+      // 切换到处理中菜单
+      await this.lineBot.switchToProcessingMenuSilent(user.line_user_id);
+
+      // 模拟生成过程
+      setTimeout(async () => {
+        try {
+          // 发送预设测试视频
+          await this.client.pushMessage(user.line_user_id, [
+            {
+              type: 'text',
+              text: '🎉 **テスト動画生成完了！**\n\nいかがでしょうか？\n\n実際の写真で試してみたい場合は、下部メニューからご利用ください！'
+            },
+            {
+              type: 'video',
+              originalContentUrl: 'https://example.com/demo-video.mp4',
+              previewImageUrl: 'https://example.com/demo-thumbnail.jpg'
+            }
+          ]);
+
+          // 切换回主菜单
+          await this.lineBot.switchToMainMenu(user.line_user_id);
+        } catch (error) {
+          console.error('❌ 发送测试视频失败:', error);
+        }
+      }, 10000);
+
+    } catch (error) {
+      console.error('❌ 处理测试视频生成失败:', error);
+    }
+  }
+
+  // 其他辅助方法...
+  async startVideoGeneration(event, user, imageUrl, prompt) {
+    try {
+      await this.db.useVideoQuota(user.id);
+
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '🎬 動画生成を開始します！\n\n⏱️ 約30-60秒で完成します。お待ちください...'
+      });
+
+      await this.lineBot.switchToProcessingMenuSilent(user.line_user_id);
+
+      const subscription = await this.db.getUserSubscription(user.id);
+      const videoRecord = await this.db.createVideoRecord(user.id, {
+        subscriptionId: subscription?.id,
+        taskId: null,
+        promptText: prompt,
+        imageUrl: imageUrl,
+        status: 'pending'
+      });
+
+      await this.db.setUserState(user.id, 'idle');
+      await this.videoGenerator.generateVideo(user.line_user_id, imageUrl, videoRecord.id, prompt);
+
+      await this.db.logInteraction(user.line_user_id, user.id, 'video_generation_started', {
+        imageUrl: imageUrl,
+        prompt: prompt,
+        videoRecordId: videoRecord.id
+      });
+
+    } catch (error) {
+      console.error('❌ 开始视频生成失败:', error);
+      throw error;
+    }
+  }
+
+  // 简化的postback数据解析
   parsePostbackData(data) {
-    // 如果是簡單的action=VALUE格式，直接解析
     if (data.startsWith('action=') && !data.includes('&')) {
       return { action: data.substring(7) };
     }
     
-    // 否則使用URLSearchParams解析
     try {
       const params = new URLSearchParams(data);
       const result = {};
@@ -969,9 +710,110 @@ class MessageHandler {
     }
   }
 
-  // 休眠函数
-  sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+  // 显示prompt选项（简化版）
+  async showPromptOptions(event, user, imageUrl) {
+    try {
+      await this.db.setUserState(user.id, 'selecting_prompt', imageUrl);
+
+      const promptMessage = {
+        type: 'flex',
+        altText: 'プロンプト設定を選択',
+        contents: {
+          type: 'bubble',
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: '🎨 動画のスタイルを選択',
+                weight: 'bold',
+                size: 'lg',
+                align: 'center'
+              },
+              {
+                type: 'separator',
+                margin: 'md'
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                spacing: 'sm',
+                margin: 'lg',
+                contents: [
+                  {
+                    type: 'button',
+                    action: {
+                      type: 'postback',
+                      label: '🎯 ランダムプロンプト',
+                      data: `action=RANDOM_PROMPT&image_url=${encodeURIComponent(imageUrl)}`
+                    },
+                    style: 'primary',
+                    color: '#667eea'
+                  },  
+                  {
+                    type: 'button',
+                    action: {
+                      type: 'postback',
+                      label: '✏️ 自分で入力',
+                      data: `action=INPUT_CUSTOM_PROMPT&image_url=${encodeURIComponent(imageUrl)}`,
+                      inputOption: 'openKeyboard'
+                    },
+                    style: 'secondary'
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      };
+
+      await this.client.replyMessage(event.replyToken, promptMessage);
+    } catch (error) {
+      console.error('❌ 显示prompt选项失败:', error);
+      throw error;
+    }
+  }
+
+  // 处理随机prompt postback (简化版)
+  async handleRandomPromptPostback(event, user, data) {
+    try {
+      const imageUrl = decodeURIComponent(data.image_url);
+      
+      const randomPrompts = [
+        'gentle smiling with warm lighting',
+        'nostalgic family moment with soft focus',
+        'elegant portrait with vintage feel',
+        'natural breathing with peaceful expression',
+        'warm eyes looking directly at camera'
+      ];
+      
+      const randomPrompt = randomPrompts[Math.floor(Math.random() * randomPrompts.length)];
+      
+      await this.db.setUserState(user.id, 'awaiting_photo', randomPrompt);
+      await this.startVideoGeneration(event, user, imageUrl, randomPrompt);
+
+    } catch (error) {
+      console.error('❌ 处理随机prompt失败:', error);
+      throw error;
+    }
+  }
+
+  // 处理自定义prompt输入postback (简化版)
+  async handleInputCustomPromptPostback(event, user, data) {
+    try {
+      const imageUrl = decodeURIComponent(data.image_url);
+      await this.db.setUserState(user.id, 'awaiting_custom_prompt', imageUrl);
+      
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '✏️ **プロンプトをカスタマイズ**\n\n動画のスタイルを自由に入力してください：\n\n例：\n・ゆっくりと瞬きをする\n・懐かしい雰囲気で\n・映画のような演出で'
+      });
+
+    } catch (error) {
+      console.error('❌ 处理自定义prompt输入失败:', error);
+      throw error;
+    }
   }
 }
 
