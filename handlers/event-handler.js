@@ -279,6 +279,8 @@ class EventHandler {
           return await this.handleWebsiteAction(event, user);
         case 'SHARE':
           return await this.handleShareAction(event, user);
+        case 'CHECK_STATUS':
+          return await this.handleCheckStatusAction(event, user);
         default:
           await this.lineAdapter.replyMessage(event.replyToken, 
             MessageTemplates.createTextMessage('🤔 申し訳ございません。下部のメニューからご利用ください。')
@@ -696,6 +698,58 @@ class EventHandler {
       console.error('❌ 處理No Photo動作失敗:', error);
       await this.lineAdapter.replyMessage(event.replyToken, 
         MessageTemplates.createErrorMessage('system_error')
+      );
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleCheckStatusAction(event, user) {
+    try {
+      // 發送正在檢查進度的消息
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createTextMessage('🔄 正在為您確認動画生成進度...')
+      );
+      
+      // 檢查該用戶的待處理視頻任務
+      const videoGenerator = new (require('../services/video-generator'))(
+        require('../config/database'),
+        async (eventType, data) => {
+          if (eventType === 'video_completed') {
+            const { lineUserId, videoUrl, thumbnailUrl } = data;
+            const message = {
+              type: 'video',
+              originalContentUrl: videoUrl,
+              previewImageUrl: thumbnailUrl || videoUrl
+            };
+            
+            await this.lineAdapter.pushMessage(lineUserId, [
+              { type: 'text', text: '✅ 動画生成が完了しました！' },
+              message
+            ]);
+            
+            // 切換回主菜單
+            await this.lineAdapter.switchToMainMenu(lineUserId);
+          } else if (eventType === 'video_failed') {
+            const { lineUserId, errorMessage } = data;
+            await this.lineAdapter.pushMessage(lineUserId, [{
+              type: 'text',
+              text: `❌ 動画生成に失敗しました：${errorMessage || '再度お試しください'}`
+            }]);
+            
+            // 切換回主菜單
+            await this.lineAdapter.switchToMainMenu(lineUserId);
+          }
+        }
+      );
+      
+      // 檢查用戶的待處理任務
+      await videoGenerator.checkPendingTasks(user.line_user_id);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('❌ 處理狀態確認失敗:', error);
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createTextMessage('❌ 進度確認中にエラーが発生しました。しばらくしてから再度お試しください。')
       );
       return { success: false, error: error.message };
     }
