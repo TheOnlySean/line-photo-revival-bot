@@ -718,7 +718,7 @@ class EventHandler {
     try {
       // 發送正在檢查進度的消息
       await this.lineAdapter.replyMessage(event.replyToken, 
-        MessageTemplates.createTextMessage('🔄 正在為您確認動画生成進度...')
+        MessageTemplates.createTextMessage('🔄 動画生成の進捗を確認中です...')
       );
       
       // 檢查該用戶的待處理視頻任務
@@ -771,7 +771,7 @@ class EventHandler {
     } catch (error) {
       console.error('❌ 處理狀態確認失敗:', error);
       await this.lineAdapter.replyMessage(event.replyToken, 
-        MessageTemplates.createTextMessage('❌ 進度確認中にエラーが発生しました。しばらくしてから再度お試しください。')
+        MessageTemplates.createTextMessage('❌ 進捗確認中にエラーが発生しました。しばらくしてから再度お試しください。')
       );
       return { success: false, error: error.message };
     }
