@@ -25,17 +25,28 @@ class MessageHandler {
       });
 
       // 欢迎消息
-      const welcomeMessage = '🎉 **写真復活へようこそ！**\n\n✨ AIが古い写真を美しい動画に変換します';
+      const welcomeMessage = '🎉 **写真復活へようこそ！**\n\n✨ AIが古い写真を美しい動画に変換します\n\n🎁 新規ユーザー様には無料体験をご用意しております';
       
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
         text: welcomeMessage
       });
 
-      // 发送测试视频选项
-      setTimeout(() => {
-        this.lineBot.sendDemoVideos(userId);
-      }, 1000);
+      // 确保用户有Rich Menu
+      await this.lineBot.ensureUserHasRichMenu(userId);
+
+      // 直接发送测试视频选项（不使用setTimeout）
+      try {
+        await this.lineBot.sendDemoVideos(userId);
+        console.log('✅ 测试视频选项发送成功');
+      } catch (demoError) {
+        console.error('❌ 发送测试视频选项失败:', demoError);
+        // 发送简化版本
+        await this.client.pushMessage(userId, {
+          type: 'text',
+          text: '🎁 無料体験をご希望の場合は、下部メニューからお気軽にお選びください！'
+        });
+      }
 
     } catch (error) {
       console.error('❌ 处理用户关注失败:', error);
@@ -620,6 +631,20 @@ class MessageHandler {
   // 处理测试视频生成
   async handleDemoGenerate(event, user, data) {
     try {
+      const photoId = data.photo_id;
+      
+      // 获取对应的演示视频
+      const { trialPhotos } = require('../config/demo-trial-photos');
+      const selectedPhoto = trialPhotos.find(photo => photo.id === photoId);
+      
+      if (!selectedPhoto) {
+        await this.client.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '❌ 申し訳ございません。選択した写真が見つかりません。'
+        });
+        return;
+      }
+
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
         text: '🎬 テスト動画を生成中...\n\n⏱️ 約10秒でお送りします！'
@@ -628,28 +653,37 @@ class MessageHandler {
       // 切换到处理中菜单
       await this.lineBot.switchToProcessingMenuSilent(user.line_user_id);
 
-      // 模拟生成过程
-      setTimeout(async () => {
-        try {
-          // 发送预设测试视频
-          await this.client.pushMessage(user.line_user_id, [
-            {
-              type: 'text',
-              text: '🎉 **テスト動画生成完了！**\n\nいかがでしょうか？\n\n実際の写真で試してみたい場合は、下部メニューからご利用ください！'
-            },
-            {
-              type: 'video',
-              originalContentUrl: 'https://example.com/demo-video.mp4',
-              previewImageUrl: 'https://example.com/demo-thumbnail.jpg'
-            }
-          ]);
+      // 使用 Promise 代替 setTimeout，确保在 serverless 环境中正常工作
+      await new Promise(resolve => setTimeout(resolve, 3000));
 
-          // 切换回主菜单
-          await this.lineBot.switchToMainMenu(user.line_user_id);
-        } catch (error) {
-          console.error('❌ 发送测试视频失败:', error);
-        }
-      }, 10000);
+      try {
+        // 发送真实的演示视频
+        await this.client.pushMessage(user.line_user_id, [
+          {
+            type: 'text',
+            text: '🎉 **テスト動画生成完了！**\n\nいかがでしょうか？\n\n実際の写真で試してみたい場合は、下部メニューからご利用ください！'
+          },
+          {
+            type: 'video',
+            originalContentUrl: selectedPhoto.demo_video_url,
+            previewImageUrl: selectedPhoto.image_url
+          }
+        ]);
+
+        // 切换回主菜单
+        await this.lineBot.switchToMainMenu(user.line_user_id);
+        console.log('✅ 演示视频发送成功');
+        
+      } catch (sendError) {
+        console.error('❌ 发送测试视频失败:', sendError);
+        
+        // 发送错误消息并切换回主菜单
+        await this.client.pushMessage(user.line_user_id, {
+          type: 'text',
+          text: '❌ 申し訳ございません。動画の送信に失敗しました。再度お試しください。'
+        });
+        await this.lineBot.switchToMainMenu(user.line_user_id);
+      }
 
     } catch (error) {
       console.error('❌ 处理测试视频生成失败:', error);
