@@ -723,6 +723,21 @@ class EventHandler {
         MessageTemplates.createTextMessage('🔄 動画生成の進捗を確認中です...')
       );
       
+      // 首先检查用户是否有正在进行的视频任务
+      const db = require('../config/database');
+      const pendingTasks = await db.getUserPendingVideoTasks(user.id);
+      
+      if (pendingTasks.length === 0) {
+        // 没有正在生成的视频，切换到主菜单并提示
+        await this.lineAdapter.switchToMainMenu(user.line_user_id);
+        
+        await this.lineAdapter.pushMessage(user.line_user_id, 
+          MessageTemplates.createTextMessage('📱 現在生成中の動画はありません。\n\nメインメニューに戻りました。')
+        );
+        
+        return { success: true, message: 'No pending tasks, switched to main menu' };
+      }
+      
       // 檢查該用戶的待處理視頻任務
       const lineAdapter = this.lineAdapter; // 保存this引用
       const videoGenerator = new (require('../services/video-generator'))(
