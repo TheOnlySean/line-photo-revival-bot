@@ -182,14 +182,22 @@ class LineAdapter {
             type: 'action',
             action: {
               type: 'camera',
-              label: '📷 カメラで撮影'
+              label: '📷 撮影'
             }
           },
           {
             type: 'action',
             action: {
               type: 'cameraRoll',
-              label: '🖼️ アルバムから選択'
+              label: '🖼️ アルバム'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'postback',
+              label: '❌ 写真なし',
+              data: 'action=NO_PHOTO'
             }
           }
         ]

@@ -123,10 +123,36 @@ class MessageTemplates {
               type: 'separator',
               margin: 'md'
             }] : []),
-            {
+            // 無圖片提示
+            ...(imageUrl === null ? [{
               type: 'box',
               layout: 'vertical',
               margin: quotaInfo ? 'sm' : 'md',
+              contents: [
+                {
+                  type: 'text',
+                  text: '📝 生成方式:',
+                  size: 'sm',
+                  color: '#666666',
+                  weight: 'bold'
+                },
+                {
+                  type: 'text',
+                  text: 'プロンプトのみで生成',
+                  size: 'sm',
+                  color: '#FF6B9D',
+                  weight: 'bold',
+                  margin: 'xs'
+                }
+              ]
+            }, {
+              type: 'separator',
+              margin: 'md'
+            }] : []),
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: (quotaInfo || imageUrl === null) ? 'sm' : 'md',
               contents: [
                 {
                   type: 'text',
@@ -756,7 +782,7 @@ class MessageTemplates {
     const messages = {
       starting: {
         type: 'text',
-        text: '🎬 動画生成を開始します！\n\n⏱️ 約30-60秒で完成します。お待ちください...'
+        text: '🎬 動画生成を開始します！\n\n⏱️ 約3-5分で完成します。お待ちください...'
       },
       processing: {
         type: 'text',

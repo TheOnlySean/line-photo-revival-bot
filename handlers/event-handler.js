@@ -273,6 +273,8 @@ class EventHandler {
           return await this.handleUpgradeToStandard(event, user);
         case 'CANCEL_UPGRADE':
           return await this.handleCancelUpgrade(event, user);
+        case 'NO_PHOTO':
+          return await this.handleNoPhotoAction(event, user);
         case 'WEBSITE':
           return await this.handleWebsiteAction(event, user);
         case 'SHARE':
@@ -405,7 +407,7 @@ class EventHandler {
   }
 
   async handleCustomPromptInput(event, user, promptText) {
-    const confirmMessage = MessageTemplates.createTextMessage(`✅ プロンプトを設定しました：\n"${promptText}"\n\n📸 次に写真をアップロードしてください：`);
+    const confirmMessage = MessageTemplates.createTextMessage(`✅ プロンプトを設定しました：\n"${promptText}"`);
     const photoUploadReply = this.lineAdapter.createPhotoUploadQuickReply();
     
     await this.lineAdapter.replyMessage(event.replyToken, [confirmMessage, photoUploadReply]);
@@ -416,7 +418,7 @@ class EventHandler {
 
   async handleRandomPromptAction(event, user) {
     const randomPrompt = this.videoService.generateRandomPrompt();
-    const confirmMessage = MessageTemplates.createTextMessage(`✨ ランダムプロンプト：\n"${randomPrompt}"\n\n📸 写真をアップロードしてください：`);
+    const confirmMessage = MessageTemplates.createTextMessage(`✨ ランダムプロンプト：\n"${randomPrompt}"`);
     const photoUploadReply = this.lineAdapter.createPhotoUploadQuickReply();
     
     await this.lineAdapter.replyMessage(event.replyToken, [confirmMessage, photoUploadReply]);
@@ -660,6 +662,40 @@ class EventHandler {
       return { success: true };
     } catch (error) {
       console.error('❌ 處理取消升級失敗:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleNoPhotoAction(event, user) {
+    try {
+      // 檢查用戶是否有 prompt
+      if (!user.current_prompt) {
+        await this.lineAdapter.replyMessage(event.replyToken, 
+          MessageTemplates.createErrorMessage('system_error')
+        );
+        return { success: false, error: 'No prompt found' };
+      }
+      
+      // 獲取用戶配額信息
+      const quota = await this.videoService.checkVideoQuota(user.id);
+      
+      // 使用 null 作為 imageUrl，顯示確認卡片
+      const confirmationCard = MessageTemplates.createGenerationConfirmCard(null, user.current_prompt, quota);
+      await this.lineAdapter.replyMessage(event.replyToken, confirmationCard);
+       
+      // 將 prompt 和 無圖片 狀態暫存
+      await this.userService.setUserState(
+        user.id,
+        'awaiting_confirm',
+        JSON.stringify({ prompt: user.current_prompt, imageUrl: null })
+      );
+      
+      return { success: true };
+    } catch (error) {
+      console.error('❌ 處理No Photo動作失敗:', error);
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createErrorMessage('system_error')
+      );
       return { success: false, error: error.message };
     }
   }

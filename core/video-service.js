@@ -174,7 +174,8 @@ class VideoService {
   validateVideoParams(imageUrl, prompt) {
     const errors = [];
 
-    if (!imageUrl || typeof imageUrl !== 'string') {
+    // imageUrl可以為null（僅使用prompt生成）
+    if (imageUrl !== null && (!imageUrl || typeof imageUrl !== 'string')) {
       errors.push('图片URL无效');
     }
 
