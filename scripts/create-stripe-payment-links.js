@@ -35,9 +35,9 @@ async function createStripeProducts() {
     // 1. 創建Trial產品
     console.log('📦 創建Trial產品...');
     const trialProduct = await stripe.products.create({
-      name: 'Trial Plan - 動画生成サービス',
-      description: '月8本の動画生成が可能なトライアルプラン',
-      images: ['https://placehold.co/600x400/FF6B9D/FFFFFF?text=Trial+Plan'],
+      name: 'お試しプラン - 動画生成サービス',
+      description: '月8本の動画生成が可能なお試しプラン',
+      images: ['https://placehold.co/600x400/FF6B9D/FFFFFF?text=お試しプラン'],
       metadata: {
         plan_type: 'trial',
         video_quota: '8'
@@ -62,9 +62,9 @@ async function createStripeProducts() {
     // 3. 創建Standard產品
     console.log('📦 創建Standard產品...');
     const standardProduct = await stripe.products.create({
-      name: 'Standard Plan - 動画生成サービス',
+      name: 'スタンダードプラン - 動画生成サービス',
       description: '月100本の動画生成が可能なスタンダードプラン',
-      images: ['https://placehold.co/600x400/42C76A/FFFFFF?text=Standard+Plan'],
+      images: ['https://placehold.co/600x400/42C76A/FFFFFF?text=スタンダードプラン'],
       metadata: {
         plan_type: 'standard',
         video_quota: '100'
@@ -153,12 +153,12 @@ async function createStripeProducts() {
     
     console.log('📋 結果摘要:');
     console.log('============================================');
-    console.log(`Trial Plan:`);
+    console.log(`お試しプラン:`);
     console.log(`  Product ID: ${results.trial.product_id}`);
     console.log(`  Price ID: ${results.trial.price_id}`);
     console.log(`  Payment Link: ${results.trial.payment_link_url}`);
     console.log('');
-    console.log(`Standard Plan:`);
+    console.log(`スタンダードプラン:`);
     console.log(`  Product ID: ${results.standard.product_id}`);
     console.log(`  Price ID: ${results.standard.price_id}`);
     console.log(`  Payment Link: ${results.standard.payment_link_url}`);
