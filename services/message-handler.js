@@ -407,7 +407,11 @@ class MessageHandler {
           break;
 
         case 'WAVE_VIDEO':
-          await this.handleWaveVideoPostback(event, await getUser());
+          console.log('🎯 開始處理WAVE_VIDEO postback');
+          const waveUser = await getUser();
+          console.log('✅ 用戶獲取成功:', waveUser?.id);
+          await this.handleWaveVideoPostback(event, waveUser);
+          console.log('✅ WAVE_VIDEO處理完成');
           break;
 
         case 'GROUP_VIDEO':
