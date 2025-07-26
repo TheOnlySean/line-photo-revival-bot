@@ -170,17 +170,41 @@ class Database {
   // 檢查用戶是否有剩餘配額
   async checkVideoQuota(userId) {
     try {
-      const subscription = await this.getUserSubscription(userId);
+      // 直接查询 active 状态的订阅
+      const result = await this.query(
+        'SELECT * FROM subscriptions WHERE user_id = $1 AND status = $2',
+        [userId, 'active']
+      );
+      
+      const subscription = result.rows[0];
+      
+      // 如果没有 active 订阅，返回无配额
       if (!subscription) {
+        console.log(`🚫 用户 ${userId} 没有 active 订阅`);
         return { hasQuota: false, remaining: 0, total: 0 };
       }
 
+      // 检查配额是否过期
+      const now = new Date();
+      const periodEnd = new Date(subscription.current_period_end);
+      
+      if (now > periodEnd) {
+        console.log(`🚫 用户 ${userId} 订阅已过期 (${subscription.current_period_end})`);
+        return { hasQuota: false, remaining: 0, total: subscription.monthly_video_quota };
+      }
+
       const remaining = subscription.monthly_video_quota - subscription.videos_used_this_month;
+      const hasQuota = remaining > 0;
+      
+      console.log(`📊 用户 ${userId} 配额检查: ${hasQuota ? '✅' : '❌'} (剩余: ${remaining}/${subscription.monthly_video_quota})`);
+      
       return {
-        hasQuota: remaining > 0,
+        hasQuota: hasQuota,
         remaining: remaining,
         total: subscription.monthly_video_quota,
-        used: subscription.videos_used_this_month
+        used: subscription.videos_used_this_month,
+        planType: subscription.plan_type,
+        status: subscription.status
       };
     } catch (error) {
       console.error('❌ 檢查視頻配額失敗:', error);
