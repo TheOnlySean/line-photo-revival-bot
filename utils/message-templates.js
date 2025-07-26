@@ -276,104 +276,50 @@ class MessageTemplates {
         contents: [
           {
             type: 'bubble',
-            hero: {
-              type: 'image',
-              url: trialImageUrl,
-              size: 'full',
-              aspectRatio: '2:1',
-              aspectMode: 'cover'
-            },
+            size: 'kilo',
             body: {
               type: 'box',
               layout: 'vertical',
               contents: [
                 {
-                  type: 'text',
-                  text: 'お試しプラン',
-                  weight: 'bold',
-                  size: 'xl'
-                },
-                {
-                  type: 'text',
-                  text: '¥300/月',
-                  size: 'lg',
-                  color: '#FF6B9D',
-                  weight: 'bold'
-                },
-                {
-                  type: 'text',
-                  text: '8本の動画生成',
-                  size: 'sm',
-                  color: '#666666'
-                }
-              ]
-            },
-            footer: {
-              type: 'box',
-              layout: 'vertical',
-              contents: [
-                {
-                  type: 'button',
-                  style: 'primary',
-                  color: '#FF6B9D',
+                  type: 'image',
+                  url: trialImageUrl,
+                  size: 'full',
+                  aspectRatio: '1:1.2',
+                  aspectMode: 'cover',
                   action: {
                     type: 'uri',
-                    label: 'お申し込み',
                     uri: trialUrl
                   }
                 }
-              ]
+              ],
+              spacing: 'none',
+              margin: 'none',
+              paddingAll: '0px'
             }
           },
           {
             type: 'bubble',
-            hero: {
-              type: 'image',
-              url: standardImageUrl,
-              size: 'full',
-              aspectRatio: '2:1',
-              aspectMode: 'cover'
-            },
+            size: 'kilo',
             body: {
               type: 'box',
               layout: 'vertical',
               contents: [
                 {
-                  type: 'text',
-                  text: 'スタンダードプラン',
-                  weight: 'bold',
-                  size: 'xl'
-                },
-                {
-                  type: 'text',
-                  text: '¥2,980/月',
-                  size: 'lg',
-                  color: '#42C76A',
-                  weight: 'bold'
-                },
-                {
-                  type: 'text',
-                  text: '100本の動画生成',
-                  size: 'sm',
-                  color: '#666666'
-                }
-              ]
-            },
-            footer: {
-              type: 'box',
-              layout: 'vertical',
-              contents: [
-                {
-                  type: 'button',
-                  style: 'primary',
-                  color: '#42C76A',
+                  type: 'image',
+                  url: standardImageUrl,
+                  size: 'full',
+                  aspectRatio: '1:1.2',
+                  aspectMode: 'cover',
                   action: {
                     type: 'uri',
-                    label: 'お申し込み',
                     uri: standardUrl
                   }
                 }
-              ]
+              ],
+              spacing: 'none',
+              margin: 'none',
+              paddingAll: '0px'
             }
           }
         ]
