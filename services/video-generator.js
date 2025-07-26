@@ -61,7 +61,7 @@ class VideoGenerator {
     try {
       const prompt = customPrompt || 'natural breathing with gentle eye movement, warm lighting';
 
-      const apiUrl = `${this.kieAiConfig.baseUrl}/api/v1/video/runway/gen`;
+      const apiUrl = `${this.kieAiConfig.baseUrl}${this.kieAiConfig.generateEndpoint}`;
       
       const requestData = {
         image_url: imageUrl,
@@ -171,7 +171,7 @@ class VideoGenerator {
   // 检查任务状态
   async checkTaskStatus(taskId) {
     try {
-      const apiUrl = `${this.kieAiConfig.baseUrl}/api/v1/video/runway/status/${taskId}`;
+      const apiUrl = `${this.kieAiConfig.baseUrl}${this.kieAiConfig.detailEndpoint}/${taskId}`;
 
       const response = await axios.get(apiUrl, {
         headers: {
