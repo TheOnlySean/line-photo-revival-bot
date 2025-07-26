@@ -211,19 +211,20 @@ class VideoGenerator {
         [videoRecordId]
       );
       
-      if (currentRecord.rows.length > 0 && currentRecord.rows[0].status === 'completed') {
-        console.log('⚠️ 視頻已處理完成，跳過重複處理:', videoRecordId);
-        return;
+      const isAlreadyCompleted = currentRecord.rows.length > 0 && currentRecord.rows[0].status === 'completed';
+       
+      if (!isAlreadyCompleted) {
+        // 更新数据库记录
+        await this.db.query(
+          `UPDATE videos 
+           SET status = $1, video_url = $2, generated_at = CURRENT_TIMESTAMP
+           WHERE id = $3`,
+          ['completed', result.videoUrl, videoRecordId]
+        );
+        console.log('✅ 数据库记录已更新为完成状态');
+      } else {
+        console.log('⚠️ 視頻已處理完成，但仍發送通知:', videoRecordId);
       }
-      
-      // 更新数据库记录
-      await this.db.query(
-        `UPDATE videos 
-         SET status = $1, video_url = $2, generated_at = CURRENT_TIMESTAMP
-         WHERE id = $3`,
-        ['completed', result.videoUrl, videoRecordId]
-      );
-      console.log('✅ 数据库记录已更新为完成状态');
 
       // 通过回调函数发送视频完成通知
       if (this.messageCallback) {
