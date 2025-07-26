@@ -1,274 +1,322 @@
 const { Pool } = require('pg');
 
-// 数据库配置 - 优化连接池设置
-const dbConfig = {
-  // Neon数据库连接字符串 (映像工房共用数据库)
-  connectionString: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_JIjeL7Dp4YrG@ep-holy-smoke-a14e7x3f-pooler.ap-southeast-1.aws.neon.tech/neondb?sslmode=require',
-  ssl: {
-    rejectUnauthorized: false
-  },
-  max: 10, // 减少最大连接数，避免过载
-  min: 2, // 保持最小连接数
-  idleTimeoutMillis: 60000, // 增加空闲超时到60秒
-  connectionTimeoutMillis: 10000, // 增加连接超时到10秒
-  statement_timeout: 30000, // SQL语句超时30秒
-  query_timeout: 25000, // 查询超时25秒
-  application_name: 'line-photo-revival-bot', // 应用名称，便于监控
-};
-
-// 创建连接池
-const pool = new Pool(dbConfig);
-
-// 连接测试
-pool.on('connect', () => {
-  console.log('✅ 数据库连接成功');
-});
-
-pool.on('error', (err) => {
-  console.error('❌ 数据库连接错误:', err);
-});
-
-// 数据库查询封装
-const db = {
-  // 通用查询方法 - 增强版本，支持重试和更好的错误处理
-  async query(text, params, maxRetries = 2) {
-    const start = Date.now();
-    let lastError;
-    
-    for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
-      try {
-        console.log(`🔍 SQL查询尝试 ${attempt}/${maxRetries + 1}:`, { 
-          query: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
-          params: params?.length || 0
-        });
-        
-        const res = await pool.query(text, params);
-        const duration = Date.now() - start;
-        
-        if (duration > 5000) {
-          console.warn('⚠️ 慢查询警告:', { duration: `${duration}ms`, rows: res.rowCount });
-        } else {
-          console.log('📊 SQL查询成功:', { duration: `${duration}ms`, rows: res.rowCount });
-        }
-        
-        return res;
-        
-      } catch (error) {
-        lastError = error;
-        const duration = Date.now() - start;
-        
-        console.error(`❌ SQL查询失败 (尝试 ${attempt}/${maxRetries + 1}):`, {
-          error: error.message,
-          code: error.code,
-          duration: `${duration}ms`
-        });
-        
-        // 检查是否是可重试的错误
-        const retryableErrors = [
-          'ECONNRESET',
-          'ENOTFOUND', 
-          'ETIMEDOUT',
-          'Connection terminated due to connection timeout',
-          'Connection terminated unexpectedly'
-        ];
-        
-        const isRetryable = retryableErrors.some(errType => 
-          error.message.includes(errType) || error.code === errType
-        );
-        
-        if (attempt > maxRetries || !isRetryable) {
-          console.error('❌ SQL查询最终失败:', { 
-            error: error.message,
-            attempts: attempt,
-            isRetryable 
-          });
-          throw error;
-        }
-        
-        // 等待一下再重试
-        const waitTime = attempt * 1000; // 第1次重试等1秒，第2次等2秒
-        console.log(`⏱️ ${waitTime}ms后重试...`);
-        await new Promise(resolve => setTimeout(resolve, waitTime));
-      }
-    }
-    
-    throw lastError;
-  },
-
-  // 数据库健康检查
-  async healthCheck() {
-    try {
-      console.log('🏥 执行数据库健康检查...');
-      const start = Date.now();
-      const result = await pool.query('SELECT 1 as health_check');
-      const duration = Date.now() - start;
-      
-      console.log('✅ 数据库健康检查通过:', { duration: `${duration}ms` });
-      return { healthy: true, duration };
-    } catch (error) {
-      console.error('❌ 数据库健康检查失败:', error.message);
-      return { healthy: false, error: error.message };
-    }
-  },
-
-  // 获取连接池状态
-  getPoolStatus() {
-    return {
-      totalCount: pool.totalCount,
-      idleCount: pool.idleCount,
-      waitingCount: pool.waitingCount
-    };
-  },
-
-  // 用户相关查询
-  async getUserByLineId(lineId) {
-    const query = 'SELECT * FROM users WHERE line_id = $1';
-    const result = await this.query(query, [lineId]);
-    return result.rows[0];
-  },
-
-  async createLineUser(lineId, displayName, avatarUrl) {
-    const query = `
-      INSERT INTO users (line_id, display_name, avatar_url, auth_provider, credits, is_active)
-      VALUES ($1, $2, $3, 'line', 100, true)
-      ON CONFLICT (line_id) 
-      DO UPDATE SET 
-        display_name = EXCLUDED.display_name,
-        avatar_url = EXCLUDED.avatar_url,
-        updated_at = CURRENT_TIMESTAMP
-      RETURNING *
-    `;
-    const result = await this.query(query, [lineId, displayName, avatarUrl]);
-    return result.rows[0];
-  },
-
-  // 获取用户点数
-  async getUserCredits(userId) {
-    const query = 'SELECT credits FROM users WHERE id = $1';
-    const result = await this.query(query, [userId]);
-    return result.rows[0]?.credits || 0;
-  },
-
-  // 设置用户状态
-  async setUserState(userId, state, data = null) {
-    const query = `
-      UPDATE users 
-      SET current_state = $2, state_data = $3, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1
-      RETURNING *
-    `;
-    const result = await this.query(query, [userId, state, JSON.stringify(data)]);
-    return result.rows[0];
-  },
-
-  // 获取用户状态
-  async getUserState(userId) {
-    const query = 'SELECT current_state, state_data FROM users WHERE id = $1';
-    const result = await this.query(query, [userId]);
-    const user = result.rows[0];
-    return {
-      state: user?.current_state || null,
-      data: user?.state_data ? JSON.parse(user.state_data) : null
-    };
-  },
-
-  // 清除用户状态
-  async clearUserState(userId) {
-    const query = `
-      UPDATE users 
-      SET current_state = NULL, state_data = NULL, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1
-    `;
-    await this.query(query, [userId]);
-  },
-
-  async updateUserCredits(userId, creditsChange, isAbsolute = false) {
-    let query;
-    if (isAbsolute) {
-      // 設置絕對值（用於訂閱支付）
-      query = `
-        UPDATE users 
-        SET credits = $2, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-        RETURNING *
-      `;
-    } else {
-      // 相對變化（原有行為）
-      query = `
-        UPDATE users 
-        SET credits = credits + $2, updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1
-        RETURNING *
-      `;
-    }
-    const result = await this.query(query, [userId, creditsChange]);
-    return result.rows[0];
-  },
-
-  // 演示内容相关查询
-  async getDemoContents() {
-    const query = `
-      SELECT * FROM line_demo_contents 
-      WHERE is_active = true 
-      ORDER BY sort_order ASC, id ASC
-    `;
-    const result = await this.query(query);
-    return result.rows;
-  },
-
-  async insertDemoContent(title, imageUrl, videoUrl, description, sortOrder = 0) {
-    const query = `
-      INSERT INTO line_demo_contents (title, image_url, video_url, description, sort_order)
-      VALUES ($1, $2, $3, $4, $5)
-      RETURNING *
-    `;
-    const result = await this.query(query, [title, imageUrl, videoUrl, description, sortOrder]);
-    return result.rows[0];
-  },
-
-  // 视频生成记录
-  async createVideoGeneration(userId, originalPrompt, isDemo = false, creditsUsed = 1) {
-    const query = `
-      INSERT INTO videos (user_id, original_prompt, credits_used, status)
-      VALUES ($1, $2, $3, 'processing')
-      RETURNING *
-    `;
-    const result = await this.query(query, [userId, originalPrompt, creditsUsed]);
-    return result.rows[0];
-  },
-
-  async updateVideoGeneration(videoId, updates) {
-    const setClause = Object.keys(updates)
-      .map((key, index) => `${key} = $${index + 2}`)
-      .join(', ');
-    
-    const query = `
-      UPDATE videos 
-      SET ${setClause}, updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1
-      RETURNING *
-    `;
-    
-    const values = [videoId, ...Object.values(updates)];
-    const result = await this.query(query, values);
-    return result.rows[0];
-  },
-
-  // 交互日志
-  async logInteraction(lineUserId, userId, interactionType, data = {}) {
-    const query = `
-      INSERT INTO line_interactions (line_user_id, user_id, interaction_type, data)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *
-    `;
-    const result = await this.query(query, [lineUserId, userId, interactionType, JSON.stringify(data)]);
-    return result.rows[0];
-  },
-
-  // 关闭连接池
-  async close() {
-    await pool.end();
+class Database {
+  constructor() {
+    // 新的Neon數據庫連接配置 - angelsphoto-line項目
+    this.pool = new Pool({
+      connectionString: process.env.DATABASE_URL || 'postgresql://neondb_owner:npg_5BVRk8NOJIFf@ep-square-haze-afdewteo-pooler.c-2.us-west-2.aws.neon.tech/neondb?channel_binding=require&sslmode=require',
+      ssl: { rejectUnauthorized: false },
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 10000,
+    });
   }
-};
 
-module.exports = db; 
+  async query(text, params) {
+    const client = await this.pool.connect();
+    try {
+      const result = await client.query(text, params);
+      return result;
+    } finally {
+      client.release();
+    }
+  }
+
+  // === 用戶管理方法 ===
+
+  // 確保用戶存在（自動創建）
+  async ensureUserExists(lineUserId, displayName = null) {
+    try {
+      // 先嘗試查詢用戶
+      const existingUser = await this.query(
+        'SELECT * FROM users WHERE line_user_id = $1',
+        [lineUserId]
+      );
+
+      if (existingUser.rows.length > 0) {
+        return existingUser.rows[0];
+      }
+
+      // 用戶不存在，創建新用戶
+      const newUser = await this.query(
+        `INSERT INTO users (line_user_id, display_name) 
+         VALUES ($1, $2) 
+         RETURNING *`,
+        [lineUserId, displayName]
+      );
+
+      console.log('✅ 新用戶創建成功:', { lineUserId, id: newUser.rows[0].id });
+      return newUser.rows[0];
+    } catch (error) {
+      console.error('❌ 確保用戶存在失敗:', error);
+      throw error;
+    }
+  }
+
+  // 獲取用戶信息
+  async getUser(lineUserId) {
+    try {
+      const result = await this.query(
+        'SELECT * FROM users WHERE line_user_id = $1',
+        [lineUserId]
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('❌ 獲取用戶失敗:', error);
+      throw error;
+    }
+  }
+
+  // 設置用戶狀態
+  async setUserState(userId, state, prompt = null) {
+    try {
+      const result = await this.query(
+        `UPDATE users 
+         SET current_state = $2, current_prompt = $3, updated_at = CURRENT_TIMESTAMP
+         WHERE id = $1 
+         RETURNING *`,
+        [userId, state, prompt]
+      );
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ 設置用戶狀態失敗:', error);
+      throw error;
+    }
+  }
+
+  // === 訂閱管理方法 ===
+
+  // 創建或更新訂閱
+  async upsertSubscription(userId, subscriptionData) {
+    try {
+      const {
+        stripeCustomerId,
+        stripeSubscriptionId,
+        planType,
+        status = 'active',
+        currentPeriodStart,
+        currentPeriodEnd,
+        monthlyVideoQuota,
+        videosUsedThisMonth = 0
+      } = subscriptionData;
+
+      // 先檢查是否已存在訂閱
+      const existing = await this.query(
+        'SELECT * FROM subscriptions WHERE user_id = $1',
+        [userId]
+      );
+
+      if (existing.rows.length > 0) {
+        // 更新現有訂閱
+        const result = await this.query(
+          `UPDATE subscriptions 
+           SET stripe_customer_id = $2, stripe_subscription_id = $3, plan_type = $4,
+               status = $5, current_period_start = $6, current_period_end = $7,
+               monthly_video_quota = $8, videos_used_this_month = $9,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE user_id = $1 
+           RETURNING *`,
+          [userId, stripeCustomerId, stripeSubscriptionId, planType, status, 
+           currentPeriodStart, currentPeriodEnd, monthlyVideoQuota, videosUsedThisMonth]
+        );
+        return result.rows[0];
+      } else {
+        // 創建新訂閱
+        const result = await this.query(
+          `INSERT INTO subscriptions 
+           (user_id, stripe_customer_id, stripe_subscription_id, plan_type, status,
+            current_period_start, current_period_end, monthly_video_quota, videos_used_this_month)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING *`,
+          [userId, stripeCustomerId, stripeSubscriptionId, planType, status,
+           currentPeriodStart, currentPeriodEnd, monthlyVideoQuota, videosUsedThisMonth]
+        );
+        return result.rows[0];
+      }
+    } catch (error) {
+      console.error('❌ 創建/更新訂閱失敗:', error);
+      throw error;
+    }
+  }
+
+  // 獲取用戶訂閱信息
+  async getUserSubscription(userId) {
+    try {
+      const result = await this.query(
+        'SELECT * FROM subscriptions WHERE user_id = $1 AND status = $2',
+        [userId, 'active']
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('❌ 獲取用戶訂閱失敗:', error);
+      throw error;
+    }
+  }
+
+  // 通過Stripe訂閱ID獲取訂閱
+  async getSubscriptionByStripeId(stripeSubscriptionId) {
+    try {
+      const result = await this.query(
+        'SELECT s.*, u.line_user_id FROM subscriptions s JOIN users u ON s.user_id = u.id WHERE s.stripe_subscription_id = $1',
+        [stripeSubscriptionId]
+      );
+      return result.rows[0] || null;
+    } catch (error) {
+      console.error('❌ 通過Stripe ID獲取訂閱失敗:', error);
+      throw error;
+    }
+  }
+
+  // 檢查用戶是否有剩餘配額
+  async checkVideoQuota(userId) {
+    try {
+      const subscription = await this.getUserSubscription(userId);
+      if (!subscription) {
+        return { hasQuota: false, remaining: 0, total: 0 };
+      }
+
+      const remaining = subscription.monthly_video_quota - subscription.videos_used_this_month;
+      return {
+        hasQuota: remaining > 0,
+        remaining: remaining,
+        total: subscription.monthly_video_quota,
+        used: subscription.videos_used_this_month
+      };
+    } catch (error) {
+      console.error('❌ 檢查視頻配額失敗:', error);
+      throw error;
+    }
+  }
+
+  // 使用視頻配額
+  async useVideoQuota(userId) {
+    try {
+      const result = await this.query(
+        `UPDATE subscriptions 
+         SET videos_used_this_month = videos_used_this_month + 1,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = $1 AND status = 'active'
+         RETURNING *`,
+        [userId]
+      );
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ 使用視頻配額失敗:', error);
+      throw error;
+    }
+  }
+
+  // 重置月度配額
+  async resetMonthlyQuota(userId) {
+    try {
+      const result = await this.query(
+        `UPDATE subscriptions 
+         SET videos_used_this_month = 0,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = $1
+         RETURNING *`,
+        [userId]
+      );
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ 重置月度配額失敗:', error);
+      throw error;
+    }
+  }
+
+  // === 視頻記錄方法 ===
+
+  // 創建視頻記錄
+  async createVideoRecord(userId, videoData) {
+    try {
+      const {
+        subscriptionId,
+        taskId,
+        promptText,
+        imageUrl,
+        status = 'pending'
+      } = videoData;
+
+      const result = await this.query(
+        `INSERT INTO videos 
+         (user_id, subscription_id, task_id, prompt_text, image_url, status)
+         VALUES ($1, $2, $3, $4, $5, $6)
+         RETURNING *`,
+        [userId, subscriptionId, taskId, promptText, imageUrl, status]
+      );
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ 創建視頻記錄失敗:', error);
+      throw error;
+    }
+  }
+
+  // 更新視頻狀態
+  async updateVideoStatus(taskId, status, videoUrl = null) {
+    try {
+      let query, params;
+      
+      if (videoUrl) {
+        query = `UPDATE videos 
+                 SET status = $2, video_url = $3, generated_at = CURRENT_TIMESTAMP
+                 WHERE task_id = $1 
+                 RETURNING *`;
+        params = [taskId, status, videoUrl];
+      } else {
+        query = `UPDATE videos 
+                 SET status = $2
+                 WHERE task_id = $1 
+                 RETURNING *`;
+        params = [taskId, status];
+      }
+
+      const result = await this.query(query, params);
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ 更新視頻狀態失敗:', error);
+      throw error;
+    }
+  }
+
+  // 獲取用戶的處理中任務
+  async getUserPendingTasks(lineUserId) {
+    try {
+      const result = await this.query(
+        `SELECT v.* FROM videos v 
+         JOIN users u ON v.user_id = u.id 
+         WHERE u.line_user_id = $1 AND v.status IN ('pending', 'processing')`,
+        [lineUserId]
+      );
+      return result.rows;
+    } catch (error) {
+      console.error('❌ 獲取用戶待處理任務失敗:', error);
+      throw error;
+    }
+  }
+
+  // === 交互日誌方法 ===
+
+  // 記錄用戶交互
+  async logInteraction(lineUserId, userId, interactionType, interactionData = {}) {
+    try {
+      const result = await this.query(
+        `INSERT INTO user_interactions 
+         (user_id, line_user_id, interaction_type, interaction_data)
+         VALUES ($1, $2, $3, $4)
+         RETURNING *`,
+        [userId, lineUserId, interactionType, JSON.stringify(interactionData)]
+      );
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ 記錄用戶交互失敗:', error);
+      throw error;
+    }
+  }
+
+  // 關閉數據庫連接
+  async close() {
+    await this.pool.end();
+  }
+}
+
+module.exports = new Database(); 
