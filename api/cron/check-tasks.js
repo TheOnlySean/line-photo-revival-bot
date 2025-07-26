@@ -1,8 +1,9 @@
 const line = require('@line/bot-sdk');
 const lineConfig = require('../../config/line-config');
 const db = require('../../config/database');
-const LineBot = require('../../services/line-bot');
 const VideoGenerator = require('../../services/video-generator');
+
+// 移除 LINE SDK 依賴，使用 VideoGenerator 直接檢查任務
 
 // GET /api/cron/check-tasks - 適配新數據庫結構
 module.exports = async (req, res) => {
@@ -40,13 +41,8 @@ module.exports = async (req, res) => {
       return;
     }
 
-    // 初始化 LINE 客户端和工具
-    const client = new line.Client({
-      channelSecret: lineConfig.channelSecret,
-      channelAccessToken: lineConfig.channelAccessToken
-    });
-    const lineBot = new LineBot(client, db);
-    const videoGenerator = new VideoGenerator(db, lineBot);
+    // 初始化 VideoGenerator（不需要消息回調）
+    const videoGenerator = new VideoGenerator(db, null);
 
     let processedUsers = 0;
     let successCount = 0;
@@ -55,7 +51,7 @@ module.exports = async (req, res) => {
     for (const row of rows) {
       const lineUserId = row.line_user_id;
       try {
-        console.log(`📌 处理用户 ${lineUserId}`);
+        console.log(`📌 處理用戶 ${lineUserId}`);
         
         // 檢查用戶的待處理任務
         await videoGenerator.checkPendingTasks(lineUserId);
