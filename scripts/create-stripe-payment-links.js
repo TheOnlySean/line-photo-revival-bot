@@ -1,16 +1,18 @@
-// 檢查API密鑰類型
-const isTestMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_test_');
-const isLiveMode = process.env.STRIPE_SECRET_KEY?.startsWith('sk_live_');
+// 檢查API密鑰類型 - 支援兩種環境變數名稱
+const stripeKey = process.env.STRIPE_KEY || process.env.STRIPE_SECRET_KEY;
+const isTestMode = stripeKey?.startsWith('sk_test_');
+const isLiveMode = stripeKey?.startsWith('sk_live_');
 
 if (!isTestMode && !isLiveMode) {
   console.error('❌ 無效的Stripe API密鑰格式');
   console.error('請確保使用正確格式的密鑰:');
   console.error('  測試模式: sk_test_...');
   console.error('  生產模式: sk_live_...');
+  console.error('環境變數名稱: STRIPE_KEY 或 STRIPE_SECRET_KEY');
   process.exit(1);
 }
 
-const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const stripe = require('stripe')(stripeKey);
 
 /**
  * 創建Stripe產品和價格，然後生成Payment Links
@@ -22,13 +24,12 @@ async function createStripeProducts() {
     console.log(`🚀 開始創建Stripe產品和Payment Links... (${isTestMode ? '測試模式' : '生產模式'})`);
 
     // 根據模式調整支付方式
-    const paymentMethods = ['card'];
+    const paymentMethods = ['card']; // 基本的信用卡支付
     
     if (isLiveMode) {
-      // 生產模式支援更多支付方式
-      paymentMethods.push('apple_pay', 'google_pay');
-      // 注意：konbini 和 paypay 需要在Stripe Dashboard中啟用
-      console.log('💡 提示：如需支援便利店支付和PayPay，請先在Stripe Dashboard中啟用');
+      // 生產模式可以嘗試添加更多支付方式，但需要謹慎
+      // paymentMethods.push('apple_pay', 'google_pay'); // 暫時註釋掉，避免錯誤
+      console.log('💡 提示：目前只啟用信用卡支付，如需更多支付方式請在Stripe Dashboard中啟用');
     }
 
     // 1. 創建Trial產品
@@ -47,13 +48,13 @@ async function createStripeProducts() {
     console.log('💰 創建Trial價格...');
     const trialPrice = await stripe.prices.create({
       product: trialProduct.id,
-      unit_amount: 30000, // ¥300 (in cents)
+      unit_amount: 300, // ¥300 (JPY不需要轉換為cents)
       currency: 'jpy',
       recurring: {
         interval: 'month'
       },
       metadata: {
-        original_price: '60000', // 原價¥600
+        original_price: '600', // 原價¥600
         discount_info: '限定価格 (通常¥600 → ¥300)'
       }
     });
@@ -74,7 +75,7 @@ async function createStripeProducts() {
     console.log('💰 創建Standard價格...');
     const standardPrice = await stripe.prices.create({
       product: standardProduct.id,
-      unit_amount: 298000, // ¥2,980 (in cents)
+      unit_amount: 2980, // ¥2,980 (JPY不需要轉換為cents)
       currency: 'jpy',
       recurring: {
         interval: 'month'
@@ -216,13 +217,13 @@ async function createStripeProducts() {
 // 如果直接執行此腳本
 if (require.main === module) {
   // 檢查環境變數
-  if (!process.env.STRIPE_SECRET_KEY) {
-    console.error('❌ 請設置 STRIPE_SECRET_KEY 環境變數');
+  if (!stripeKey) {
+    console.error('❌ 請設置 STRIPE_KEY 或 STRIPE_SECRET_KEY 環境變數');
     console.error('');
     console.error('使用方法:');
-    console.error('STRIPE_SECRET_KEY=sk_test_... node scripts/create-stripe-payment-links.js');
+    console.error('STRIPE_KEY=sk_test_... node scripts/create-stripe-payment-links.js');
     console.error('或');
-    console.error('STRIPE_SECRET_KEY=sk_live_... node scripts/create-stripe-payment-links.js');
+    console.error('STRIPE_KEY=sk_live_... node scripts/create-stripe-payment-links.js');
     process.exit(1);
   }
 

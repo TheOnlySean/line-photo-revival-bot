@@ -165,7 +165,7 @@ export default async function handler(req, res) {
     // 5. Environment Variables Test
     console.log('🧪 測試環境變數...');
     const envTest = {
-      hasStripeSecretKey: !!process.env.STRIPE_SECRET_KEY || !!stripeConfig.secretKey,
+      hasStripeSecretKey: !!(process.env.STRIPE_KEY || process.env.STRIPE_SECRET_KEY || stripeConfig.secretKey),
       hasDatabaseUrl: !!process.env.DATABASE_URL,
       hasVercelUrl: !!process.env.VERCEL_URL,
       nodeEnv: process.env.NODE_ENV,
@@ -181,6 +181,12 @@ export default async function handler(req, res) {
     if (!envTest.hasStripeSecretKey || !envTest.hasDatabaseUrl) {
       allTestsPassed = false;
     }
+
+    // Stripe 配置檢查
+    testResults.tests.stripe = {
+      hasStripeSecretKey: !!(process.env.STRIPE_KEY || process.env.STRIPE_SECRET_KEY || stripeConfig.secretKey),
+      stripeConfigured: !!stripeConfig.secretKey
+    };
 
     // Generate Summary
     const passedTests = Object.values(testResults.tests).filter(test => test.status === 'pass').length;
