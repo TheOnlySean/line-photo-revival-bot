@@ -16,7 +16,7 @@
       "maxDuration": 30
     },
     "api/payment/create-direct-checkout.js": {
-      "maxDuration": 30
+      "maxDuration": 15
     }
   },
   "crons": [
@@ -34,10 +34,7 @@
       "source": "/demo-files/(.*)",
       "destination": "/demo-files/$1"
     },
-    {
-      "source": "/payment.html",
-      "destination": "/public/payment.html"
-    },
+
     {
       "source": "/payment/(.*)",
       "destination": "/public/payment/$1"

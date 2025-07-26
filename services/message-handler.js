@@ -2559,131 +2559,35 @@ class MessageHandler {
     }
   }
   
-  // 处理Rich Menu充值动作 - 直接跳轉Stripe
+  // 处理Rich Menu充值动作 - 发送两张图片选择
   async handleRichMenuCreditsAction(event, user) {
     try {
-      console.log('💎 Rich Menu: 充值动作被点击 - 創建直接支付確認鍵');
+      console.log('💎 充值按钮被点击');
       
-      // 獲取正確的基礎 URL
-      const baseUrl = process.env.VERCEL_URL 
-        ? `https://${process.env.VERCEL_URL}` 
-        : 'https://line-photo-revival-bot.vercel.app';
-      
-      // 發送包含兩個訂閱選項的消息
-      const paymentMessage = {
-        type: 'flex',
-        altText: '料金プラン選択 - 写真復活',
-        contents: {
-          type: 'bubble',
-          body: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-              {
-                type: 'text',
-                text: '💳 お支払い確認',
-                weight: 'bold',
-                size: 'xl',
-                color: '#333333',
-                align: 'center'
-              },
-              {
-                type: 'text',
-                text: `現在のポイント: ${user.credits}ポイント`,
-                size: 'sm',
-                color: '#666666',
-                align: 'center',
-                margin: 'md'
-              },
-              {
-                type: 'separator',
-                margin: 'lg'
-              },
-              {
-                type: 'box',
-                layout: 'vertical',
-                margin: 'lg',
-                spacing: 'md',
-                contents: [
-                  {
-                    type: 'button',
-                    style: 'primary',
-                    action: {
-                      type: 'uri',
-                      label: '💳 トライアル決済 - ¥300/月',
-                      uri: `${baseUrl}/api/payment/create-direct-checkout?plan=trial&userId=${user.line_user_id}`
-                    },
-                    color: '#ff6b6b',
-                    height: 'md'
-                  },
-                  {
-                    type: 'text',
-                    text: '月間8本の動画生成（50%OFF！）',
-                    size: 'xs',
-                    color: '#999999',
-                    align: 'center'
-                  },
-                  {
-                    type: 'separator',
-                    margin: 'md'
-                  },
-                  {
-                    type: 'button',
-                    style: 'primary',
-                    action: {
-                      type: 'uri',
-                      label: '💳 スタンダード決済 - ¥2,980/月',
-                      uri: `${baseUrl}/api/payment/create-direct-checkout?plan=standard&userId=${user.line_user_id}`
-                    },
-                    color: '#667eea',
-                    height: 'md'
-                  },
-                  {
-                    type: 'text',
-                    text: '月間100本の動画生成（人気プラン）',
-                    size: 'xs',
-                    color: '#999999',
-                    align: 'center'
-                  }
-                ]
-              }
-            ]
-          },
-          footer: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [
-              {
-                type: 'text',
-                text: '💳 Apple Pay・クレジットカード・コンビニ払い対応',
-                size: 'xs',
-                color: '#999999',
-                align: 'center'
-              },
-              {
-                type: 'text',
-                text: 'ボタンをタップするとStripe決済ページに直接移動します',
-                size: 'xs',
-                color: '#999999',
-                align: 'center'
-              }
-            ]
+      // 立即发送两张图片让用户选择，点击直接跳转Stripe
+      await this.client.replyMessage(event.replyToken, [
+        {
+          type: 'image',
+          originalContentUrl: 'https://line-photo-revival-bot.vercel.app/plan-trial-card.svg',
+          previewImageUrl: 'https://line-photo-revival-bot.vercel.app/plan-trial-card.svg',
+          action: {
+            type: 'uri',
+            uri: `https://line-photo-revival-bot.vercel.app/api/payment/create-direct-checkout?plan=trial&userId=${user.line_user_id}`
+          }
+        },
+        {
+          type: 'image', 
+          originalContentUrl: 'https://line-photo-revival-bot.vercel.app/plan-standard-card.svg',
+          previewImageUrl: 'https://line-photo-revival-bot.vercel.app/plan-standard-card.svg',
+          action: {
+            type: 'uri',
+            uri: `https://line-photo-revival-bot.vercel.app/api/payment/create-direct-checkout?plan=standard&userId=${user.line_user_id}`
           }
         }
-      };
-      
-      await this.client.replyMessage(event.replyToken, paymentMessage);
-      
-      // 记录交互
-      await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_credits_action', {
-        currentCredits: user.credits,
-        action: 'stripe_direct_checkout',
-        timestamp: new Date().toISOString()
-      });
+      ]);
       
     } catch (error) {
-      console.error('❌ Rich Menu Credits动作处理错误:', error);
+      console.error('❌ 充值处理错误:', error);
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
         text: '❌ 処理中にエラーが発生しました。少々お待ちいただいてから再度お試しください'
