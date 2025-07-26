@@ -262,6 +262,8 @@ class EventHandler {
           return await this.handleConfirmGenerate(event, user, postbackData);
         case 'demo_generate':
           return await this.handleDemoGenerate(event, user, postbackData);
+        case 'switch_to_main_menu':
+          return await this.handleSwitchToMainMenu(event, user);
         case 'COUPON':
           return await this.handleCouponAction(event, user);
         case 'CHANGE_PLAN':
@@ -788,6 +790,19 @@ class EventHandler {
       console.error('❌ 處理狀態確認失敗:', error);
       await this.lineAdapter.replyMessage(event.replyToken, 
         MessageTemplates.createTextMessage('❌ 進捗確認中にエラーが発生しました。しばらくしてから再度お試しください。')
+      );
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleSwitchToMainMenu(event, user) {
+    try {
+      await this.lineAdapter.switchToMainMenu(user.line_user_id);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ 切换到主菜单失败:', error);
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createErrorMessage('system_error')
       );
       return { success: false, error: error.message };
     }

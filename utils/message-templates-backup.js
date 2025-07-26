@@ -1,7 +1,3 @@
-// Message Templates for LINE Bot
-// Updated: 2025-01-26 20:52 - Fixed richmenuswitch format
-const richMenuIds = require('../config/richmenu-ids.json');
-
 /**
  * 消息模板工厂 - 生成LINE消息模板，与业务逻辑解耦
  * 职责：创建各种消息格式（文本、Flex Message、Carousel等）
@@ -784,6 +780,7 @@ class MessageTemplates {
    * 创建视频生成状态消息
    */
   static createVideoStatusMessages(status, options = {}) {
+    const richMenuIds = require('../config/richmenu-ids.json');
     
     const messages = {
       starting: {
@@ -803,8 +800,8 @@ class MessageTemplates {
               {
                 type: 'action',
                 action: {
-                  type: 'postback',
-                  label: 'メインメニューに戻る',
+                  type: 'richmenuswitch',
+                  richMenuId: richMenuIds.mainRichMenuId,
                   data: 'action=switch_to_main_menu'
                 }
               }
@@ -826,8 +823,8 @@ class MessageTemplates {
               {
                 type: 'action',
                 action: {
-                  type: 'postback',
-                  label: 'メインメニューに戻る',
+                  type: 'richmenuswitch',
+                  richMenuId: richMenuIds.mainRichMenuId,
                   data: 'action=switch_to_main_menu'
                 }
               }
@@ -848,8 +845,8 @@ class MessageTemplates {
             {
               type: 'action',
               action: {
-                type: 'postback',
-                label: 'メインメニューに戻る',
+                type: 'richmenuswitch',
+                richMenuId: richMenuIds.mainRichMenuId,
                 data: 'action=switch_to_main_menu'
               }
             }
