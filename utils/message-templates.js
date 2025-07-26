@@ -263,6 +263,12 @@ class MessageTemplates {
   static createPaymentOptionsCarousel() {
     const trialUrl = process.env.STRIPE_TRIAL_URL || 'https://buy.stripe.com/5kQ9AS2JJ09gfdB96ncs804';
     const standardUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/8x26oG8437BI3uTcizcs805';
+    
+    // 确保 VERCEL_URL 包含协议前缀
+    const baseUrl = process.env.VERCEL_URL 
+      ? (process.env.VERCEL_URL.startsWith('http') ? process.env.VERCEL_URL : `https://${process.env.VERCEL_URL}`)
+      : 'https://your-domain.vercel.app';
+    
     return {
       type: 'flex',
       altText: '💳 お支払いプランを選択',
@@ -273,7 +279,7 @@ class MessageTemplates {
             type: 'bubble',
             hero: {
               type: 'image',
-              url: `${process.env.VERCEL_URL || 'https://your-domain.vercel.app'}/assets/trial-plan-card.jpg`,
+              url: `${baseUrl}/assets/trial-plan-card.jpg`,
               size: 'full',
               aspectRatio: '2:1',
               aspectMode: 'cover'
@@ -324,7 +330,7 @@ class MessageTemplates {
             type: 'bubble',
             hero: {
               type: 'image',
-              url: `${process.env.VERCEL_URL || 'https://your-domain.vercel.app'}/assets/standard-plan-card.jpg`,
+              url: `${baseUrl}/assets/standard-plan-card.jpg`,
               size: 'full',
               aspectRatio: '2:1',
               aspectMode: 'cover'

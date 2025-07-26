@@ -21,23 +21,19 @@ const stripe = require('stripe')(stripeKey);
 
 async function createStripeProducts() {
   try {
-    console.log(`🚀 開始創建Stripe產品和Payment Links... (${isTestMode ? '測試模式' : '生產模式'})`);
-
-    // 根據模式調整支付方式
-    const paymentMethods = ['card']; // 基本的信用卡支付
+    console.log('🚀 開始創建Stripe產品和價格...');
     
-    if (isLiveMode) {
-      // 生產模式可以嘗試添加更多支付方式，但需要謹慎
-      // paymentMethods.push('apple_pay', 'google_pay'); // 暫時註釋掉，避免錯誤
-      console.log('💡 提示：目前只啟用信用卡支付，如需更多支付方式請在Stripe Dashboard中啟用');
-    }
+    // 确保 VERCEL_URL 包含协议前缀
+    const baseUrl = process.env.VERCEL_URL 
+      ? (process.env.VERCEL_URL.startsWith('http') ? process.env.VERCEL_URL : `https://${process.env.VERCEL_URL}`)
+      : 'https://your-domain.vercel.app';
 
     // 1. 創建Trial產品
     console.log('📦 創建Trial產品...');
     const trialProduct = await stripe.products.create({
       name: 'お試しプラン - 動画生成サービス',
       description: '月8本の動画生成が可能なお試しプラン',
-      images: [`${process.env.VERCEL_URL || 'https://your-domain.vercel.app'}/assets/trial-plan-card.jpg`],
+      images: [`${baseUrl}/assets/trial-plan-card.jpg`],
       metadata: {
         plan_type: 'trial',
         video_quota: '8'
@@ -64,7 +60,7 @@ async function createStripeProducts() {
     const standardProduct = await stripe.products.create({
       name: 'スタンダードプラン - 動画生成サービス',
       description: '月100本の動画生成が可能なスタンダードプラン',
-      images: [`${process.env.VERCEL_URL || 'https://your-domain.vercel.app'}/assets/standard-plan-card.jpg`],
+      images: [`${baseUrl}/assets/standard-plan-card.jpg`],
       metadata: {
         plan_type: 'standard',
         video_quota: '100'
