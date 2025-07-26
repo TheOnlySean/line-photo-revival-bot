@@ -2,9 +2,9 @@ const axios = require('axios');
 const lineConfig = require('../config/line-config');
 
 class VideoGenerator {
-  constructor(db, lineBot = null) {
+  constructor(db, messageCallback = null) {
     this.db = db;
-    this.lineBot = lineBot;
+    this.messageCallback = messageCallback; // 回调函数，用于发送消息
     this.kieAiConfig = lineConfig.kieAi;
   }
 
@@ -224,28 +224,22 @@ class VideoGenerator {
       );
       console.log('✅ 数据库记录已更新为完成状态');
 
-      // 发送视频给用户
-      try {
-        await this.sendVideoToUser(lineUserId, result);
-        console.log('✅ 视频发送成功');
-      } catch (sendError) {
-        console.error('❌ 视频发送失败:', sendError.message);
-        
-        if (sendError.message.includes('User not found') || 
-            sendError.message.includes('Invalid user') ||
-            sendError.response?.status === 400) {
-          console.warn('⚠️ 用户已取消关注，视频已保存到数据库');
-        }
-      }
-      
-      // 切换回主要Rich Menu
-      if (this.lineBot) {
+      // 通过回调函数发送视频完成通知
+      if (this.messageCallback) {
         try {
-          await this.lineBot.switchToMainMenu(lineUserId);
-          console.log('✅ 已切换回主要Rich Menu');
-        } catch (menuError) {
-          console.warn('⚠️ 切换菜单失败:', menuError.message);
+          await this.messageCallback('video_completed', {
+            lineUserId,
+            videoRecordId,
+            videoUrl: result.videoUrl,
+            thumbnailUrl: result.thumbnailUrl,
+            message: result.message
+          });
+          console.log('✅ 视频完成通知发送成功');
+        } catch (callbackError) {
+          console.error('❌ 视频完成通知发送失败:', callbackError.message);
         }
+      } else {
+        console.log('⚠️ 没有设置消息回调，跳过通知发送');
       }
 
     } catch (error) {
@@ -264,20 +258,20 @@ class VideoGenerator {
         ['failed', videoRecordId]
       );
 
-      // 发送失败消息给用户
-      if (this.lineBot) {
+      // 通过回调函数发送失败通知
+      if (this.messageCallback) {
         try {
-          await this.lineBot.client.pushMessage(lineUserId, {
-            type: 'text',
-            text: `❌ 申し訳ございません。動画生成に失敗しました。\n\n${errorMessage}\n\n再度お試しください。`
+          await this.messageCallback('video_failed', {
+            lineUserId,
+            videoRecordId,
+            errorMessage
           });
-
-          await this.lineBot.switchToMainMenu(lineUserId);
-          console.log('✅ 失败消息已发送，切换回主菜单');
-
-        } catch (sendError) {
-          console.error('❌ 发送失败消息出错:', sendError.message);
+          console.log('✅ 视频失败通知发送成功');
+        } catch (callbackError) {
+          console.error('❌ 视频失败通知发送失败:', callbackError.message);
         }
+      } else {
+        console.log('⚠️ 没有设置消息回调，跳过失败通知发送');
       }
 
     } catch (error) {
@@ -285,40 +279,7 @@ class VideoGenerator {
     }
   }
 
-  // 发送视频给用户
-  async sendVideoToUser(lineUserId, result) {
-    try {
-      if (!result.videoUrl) {
-        throw new Error('视频URL不存在');
-      }
 
-      const messages = [
-        {
-          type: 'text',
-          text: '🎉 **動画生成完了！**\n\nあなたの写真が美しい動画になりました：'
-        },
-        {
-          type: 'video',
-          originalContentUrl: result.videoUrl,
-          previewImageUrl: result.thumbnailUrl || result.videoUrl
-        },
-        {
-          type: 'text',
-          text: '✨ いかがでしょうか？\n\n他の写真でも試してみたい場合は、下部メニューからどうぞ！'
-        }
-      ];
-
-      if (this.lineBot) {
-        await this.lineBot.client.pushMessage(lineUserId, messages);
-      }
-
-      console.log('✅ 视频发送完成');
-
-    } catch (error) {
-      console.error('❌ 发送视频失败:', error);
-      throw error;
-    }
-  }
 
   // 检查用户的待处理任务
   async checkPendingTasks(lineUserId) {

@@ -1,101 +1,115 @@
-const { Client } = require('@line/bot-sdk');
-const lineConfig = require('../config/line-config');
-const db = require('../config/database');
-const LineBot = require('../services/line-bot');
-const MessageHandler = require('../services/message-handler');
-
-// 初始化 LINE SDK 客户端
-const client = new Client({
-  channelAccessToken: lineConfig.channelAccessToken,
-  channelSecret: lineConfig.channelSecret,
-});
-
-// 初始化业务层
-const lineBot = new LineBot(client, db);
-const messageHandler = new MessageHandler(client, db, lineBot);
-
-// Rich Menu初始化 (只初始化一次)
-let richMenuInitialized = false;
-async function ensureRichMenuInitialized() {
-  if (!richMenuInitialized) {
-    try {
-      console.log('🎨 初始化Rich Menu...');
-      await lineBot.setupRichMenu();
-      richMenuInitialized = true;
-      console.log('✅ Rich Menu初始化成功');
-    } catch (error) {
-      console.error('❌ Rich Menu初始化失败:', error.message);
-      // 不阻塞webhook处理，继续执行
-    }
-  }
-}
+const EventHandler = require('../handlers/event-handler');
+const LineAdapter = require('../adapters/line-adapter');
 
 /**
- * 通用事件分发器（从 server.js 拷贝并精简）
+ * Webhook处理器 - 使用分层架构处理LINE Webhook事件
  */
-async function handleEvent(event) {
-  try {
-    console.log('🎯 处理事件:', event.type, event);
-    if (!event || !event.type) return;
-    switch (event.type) {
-      case 'follow':
-        return messageHandler.handleFollow?.(event);
-      case 'unfollow':
-        return messageHandler.handleUnfollow?.(event);
-      case 'message':
-        return messageHandler.handleMessage?.(event);
-      case 'postback':
-        return messageHandler.handlePostback?.(event);
-      default:
-        console.log('未知事件类型:', event.type);
-    }
-  } catch (err) {
-    console.error('处理事件出错:', err);
-  }
-}
-
-/**
- * Vercel Serverless Function 入口
- */
-module.exports = async function handler(req, res) {
-  // 🔧 修复: 设置全局计时器，用于超时检测
-  global.webhookStartTime = Date.now();
-  console.log('🔔 Webhook被调用:', req.method, req.url);
-  
-  // CORS headers
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-Line-Signature');
-  
-  if (req.method === 'OPTIONS') {
-    res.status(200).end();
-    return;
-  }
-  
+module.exports = async (req, res) => {
   if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method Not Allowed' });
-    return;
+    return res.status(405).json({ error: 'Method not allowed' });
   }
-  
+
   try {
-    // 确保Rich Menu已初始化
-    await ensureRichMenuInitialized();
+    console.log('🔔 Webhook被调用:', new Date().toISOString());
+
+    // 1. 验证签名（LINE Adapter负责）
+    const lineAdapter = new LineAdapter();
+    const body = JSON.stringify(req.body);
+    const signature = req.headers['x-line-signature'];
     
-    console.log('📦 Request body:', req.body);
+    if (!lineAdapter.validateSignature(body, signature)) {
+      console.error('❌ 签名验证失败');
+      return res.status(401).json({ error: 'Invalid signature' });
+    }
+
+    // 2. 解析事件
+    const events = req.body.events;
+    if (!events || !Array.isArray(events)) {
+      console.log('⚠️ 没有事件数据');
+      return res.status(200).json({ success: true, message: 'No events' });
+    }
+
+    // 3. 初始化事件处理器
+    const eventHandler = new EventHandler();
+
+    // 4. 处理每个事件
+    const results = [];
+    for (const event of events) {
+      try {
+        console.log(`📋 处理事件类型: ${event.type}`);
+        
+        let result;
+        switch (event.type) {
+          case 'follow':
+            result = await eventHandler.handleFollow(event);
+            break;
+            
+          case 'message':
+            switch (event.message.type) {
+              case 'text':
+                result = await eventHandler.handleTextMessage(event);
+                break;
+              case 'image':
+                result = await eventHandler.handleImageMessage(event);
+                break;
+              default:
+                console.log(`⚠️ 不支持的消息类型: ${event.message.type}`);
+                result = { success: true, skipped: true };
+                break;
+            }
+            break;
+            
+          case 'postback':
+            result = await eventHandler.handlePostback(event);
+            break;
+            
+          case 'unfollow':
+            console.log('👋 用户取消关注:', event.source.userId);
+            result = { success: true, message: 'User unfollowed' };
+            break;
+            
+          default:
+            console.log(`⚠️ 不支持的事件类型: ${event.type}`);
+            result = { success: true, skipped: true };
+            break;
+        }
+        
+        results.push({
+          eventType: event.type,
+          messageType: event.message?.type,
+          userId: event.source?.userId,
+          result: result
+        });
+        
+      } catch (eventError) {
+        console.error(`❌ 处理事件失败 (${event.type}):`, eventError);
+        results.push({
+          eventType: event.type,
+          userId: event.source?.userId,
+          result: { success: false, error: eventError.message }
+        });
+      }
+    }
+
+    // 5. 返回处理结果
+    const successCount = results.filter(r => r.result.success).length;
+    const totalCount = results.length;
     
-    // LINE 平台发送的 JSON
-    const body = req.body || {};  
-    const events = body.events || [];
+    console.log(`✅ Webhook处理完成: ${successCount}/${totalCount} 成功`);
     
-    console.log(`📨 收到 ${events.length} 个事件`);
-    
-    // 并行处理所有事件
-    await Promise.all(events.map(handleEvent));
-    
-    console.log('✅ 事件处理完成');
-    res.status(200).json({ success: true, eventsProcessed: events.length });
+    res.status(200).json({
+      success: true,
+      message: `Processed ${totalCount} events, ${successCount} successful`,
+      results: process.env.NODE_ENV === 'development' ? results : undefined,
+      timestamp: new Date().toISOString()
+    });
+
   } catch (error) {
-    console.error('❌ Webhook处理错误:', error);
-    res.status(500).json({ error: 'Internal Server Error', message: error.message });
+    console.error('❌ Webhook处理失败:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
-} 
+}; 
