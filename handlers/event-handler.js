@@ -347,6 +347,28 @@ class EventHandler {
     return { success: true };
   }
 
+  async handleInputCustomPromptAction(event, user) {
+    try {
+      // 设置用户状态为等待自定义prompt输入
+      await this.userService.setUserState(user.id, 'awaiting_custom_prompt');
+      
+      // 发送引导消息，引导用户输入自定义prompt
+      const instructionMessage = MessageTemplates.createTextMessage(
+        '✏️ **カスタムプロンプト入力**\n\n動画のスタイルや雰囲気を自由に入力してください：\n\n例：\n・ゆっくりと微笑む\n・懐かしい雰囲気で\n・映画のようなドラマチックに\n\n下記にご入力ください：'
+      );
+      
+      await this.lineAdapter.replyMessage(event.replyToken, instructionMessage);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('❌ 处理自定义prompt输入失败:', error);
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createErrorMessage('general')
+      );
+      return { success: false, error: error.message };
+    }
+  }
+
   async handleConfirmGenerate(event, user, data) {
     try {
       const imageUrl = data.image_url;
