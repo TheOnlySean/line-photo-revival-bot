@@ -219,6 +219,8 @@ class MessageTemplates {
    * 创建支付选项卡片
    */
   static createPaymentOptionsCarousel() {
+    const trialUrl = process.env.STRIPE_TRIAL_URL || 'https://buy.stripe.com/test_trial';
+    const standardUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/test_standard';
     return {
       type: 'flex',
       altText: '💳 支払いプランを選択',
@@ -227,6 +229,16 @@ class MessageTemplates {
         contents: [
           {
             type: 'bubble',
+            hero: {
+              type: 'image',
+              url: 'https://placehold.co/600x400?text=Trial',
+              size: 'full',
+              aspectMode: 'cover',
+              action: {
+                type: 'uri',
+                uri: trialUrl
+              }
+            },
             body: {
               type: 'box',
               layout: 'vertical',
@@ -240,24 +252,10 @@ class MessageTemplates {
                 },
                 {
                   type: 'text',
-                  text: '¥300/月',
-                  size: 'xl',
-                  weight: 'bold',
-                  color: '#333333',
-                  margin: 'md'
-                },
-                {
-                  type: 'text',
-                  text: '月8本の動画生成',
+                  text: '¥300/月 (8 videos)',
                   size: 'sm',
-                  color: '#666666'
-                },
-                {
-                  type: 'text',
-                  text: '(通常¥600 → 限定価格)',
-                  size: 'xs',
-                  color: '#FF6B35',
-                  decoration: 'underline'
+                  color: '#666666',
+                  margin: 'md'
                 }
               ]
             },
@@ -270,9 +268,9 @@ class MessageTemplates {
                   style: 'primary',
                   color: '#FF6B9D',
                   action: {
-                    type: 'postback',
-                    label: '選択する',
-                    data: 'action=SUBSCRIBE_TRIAL'
+                    type: 'uri',
+                    label: '申し込む',
+                    uri: trialUrl
                   }
                 }
               ]
@@ -280,6 +278,16 @@ class MessageTemplates {
           },
           {
             type: 'bubble',
+            hero: {
+              type: 'image',
+              url: 'https://placehold.co/600x400?text=Standard',
+              size: 'full',
+              aspectMode: 'cover',
+              action: {
+                type: 'uri',
+                uri: standardUrl
+              }
+            },
             body: {
               type: 'box',
               layout: 'vertical',
@@ -293,24 +301,10 @@ class MessageTemplates {
                 },
                 {
                   type: 'text',
-                  text: '¥2,980/月',
-                  size: 'xl',
-                  weight: 'bold',
-                  color: '#333333',
-                  margin: 'md'
-                },
-                {
-                  type: 'text',
-                  text: '月100本の動画生成',
+                  text: '¥2,980/月 (100 videos)',
                   size: 'sm',
-                  color: '#666666'
-                },
-                {
-                  type: 'text',
-                  text: '人気プラン！',
-                  size: 'xs',
-                  color: '#42C76A',
-                  weight: 'bold'
+                  color: '#666666',
+                  margin: 'md'
                 }
               ]
             },
@@ -323,9 +317,9 @@ class MessageTemplates {
                   style: 'primary',
                   color: '#42C76A',
                   action: {
-                    type: 'postback',
-                    label: '選択する',
-                    data: 'action=SUBSCRIBE_STANDARD'
+                    type: 'uri',
+                    label: '申し込む',
+                    uri: standardUrl
                   }
                 }
               ]

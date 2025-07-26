@@ -142,6 +142,9 @@ class EventHandler {
           needsUpgrade: quotaInfo.needsUpgrade
         });
         await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
+        // 推送订阅选项卡片
+        const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+        await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
         return { success: true };
       }
 
