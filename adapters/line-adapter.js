@@ -3,6 +3,8 @@ const lineConfig = require('../config/line-config');
 // 直接從本地配置文件讀取 Rich Menu ID，避免每次呼叫 listRichMenu
 const richMenuIds = require('../config/richmenu-ids.json');
 
+// Updated: 2025-01-26 - 确保没有 Database 依赖
+
 // 全局 Line Client，可在 Vercel container 重用，減少冷啟開銷
 const globalLineClient = global._cachedLineClient || new Client({
   channelAccessToken: lineConfig.channelAccessToken
