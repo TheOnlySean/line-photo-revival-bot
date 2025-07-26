@@ -121,10 +121,9 @@ class MessageHandler {
         this.lineBot.createPhotoUploadQuickReply('📸 写真のアップロード方法を選択してください：')
       ]);
 
-      // 异步设置状态
-      setImmediate(() => {
-        this.db.setUserState(user.id, 'awaiting_photo', promptText).catch(console.error);
-      });
+      // 立即设置状态和prompt
+      await this.db.setUserState(user.id, 'awaiting_photo', promptText);
+      console.log('✅ 用户状态设置为: awaiting_photo, prompt:', promptText);
 
     } catch (error) {
       console.error('❌ 处理自定义prompt输入失败:', error);
@@ -135,6 +134,8 @@ class MessageHandler {
   // 处理图片消息
   async handleImageMessage(event, user) {
     try {
+      console.log('📸 收到图片，用户状态:', user.current_state);
+
       // 检查用户订阅配额
       const quota = await this.db.checkVideoQuota(user.id);
       if (!quota.hasQuota) {
@@ -152,18 +153,38 @@ class MessageHandler {
         return;
       }
 
-      // 显示确认卡片
-      if (user.current_state === 'awaiting_photo' && user.current_prompt) {
-        await this.showGenerationConfirmation(event, user, imageUrl, user.current_prompt);
-      } else {
-        await this.showPromptOptions(event, user, imageUrl);
+      console.log('✅ 图片上传成功:', imageUrl);
+
+      // 根据用户状态决定后续流程
+      switch (user.current_state) {
+        case 'awaiting_wave_photo':
+          await this.showGenerationConfirmation(event, user, imageUrl, '自然な手振りとほほ笑み、温かい雰囲気で');
+          break;
+        case 'awaiting_group_photo':
+          await this.showGenerationConfirmation(event, user, imageUrl, '優しく寄り添うような動き、温かい表情で');
+          break;
+        case 'awaiting_photo':
+          // 个性化流程，已有prompt
+          if (user.current_prompt) {
+            await this.showGenerationConfirmation(event, user, imageUrl, user.current_prompt);
+          } else {
+            await this.showPromptOptions(event, user, imageUrl);
+          }
+          break;
+        default:
+          // 默认情况：显示动作选择
+          await this.client.replyMessage(event.replyToken, {
+            type: 'text',
+            text: '📸 写真を受信しました！\n\n下部のメニューから動作を選択してください：\n\n👋 手振り - 自然な挨拶動画\n🤝 寄り添い - 温かい寄り添い動画\n🎨 個性化 - カスタム動画'
+          });
+          break;
       }
 
     } catch (error) {
       console.error('❌ 处理图片消息失败:', error);
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '❌ 画像処理中にエラーが発生しました。'
+        text: '❌ 画像処理中にエラーが発生しました。再度お試しください。'
       });
     }
   }
@@ -397,9 +418,9 @@ class MessageHandler {
         this.lineBot.createPhotoUploadQuickReply('📸 写真のアップロード方法を選択してください：')
       ]);
 
-      setImmediate(() => {
-        this.db.setUserState(user.id, 'awaiting_photo', 'gentle waving hand motion').catch(console.error);
-      });
+      // 立即设置正确的状态
+      await this.db.setUserState(user.id, 'awaiting_wave_photo');
+      console.log('✅ 用户状态设置为: awaiting_wave_photo');
 
     } catch (error) {
       console.error('❌ 处理挥手视频postback失败:', error);
@@ -418,9 +439,9 @@ class MessageHandler {
         this.lineBot.createPhotoUploadQuickReply('📸 写真のアップロード方法を選択してください：')
       ]);
 
-      setImmediate(() => {
-        this.db.setUserState(user.id, 'awaiting_photo', 'warm family gathering with gentle smiles').catch(console.error);
-      });
+      // 立即设置正确的状态
+      await this.db.setUserState(user.id, 'awaiting_group_photo');
+      console.log('✅ 用户状态设置为: awaiting_group_photo');
 
     } catch (error) {
       console.error('❌ 处理群组视频postback失败:', error);
