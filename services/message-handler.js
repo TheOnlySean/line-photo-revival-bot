@@ -2559,31 +2559,136 @@ class MessageHandler {
     }
   }
   
-  // 处理Rich Menu充值动作 - 发送两张图片选择
+  // 处理Rich Menu充值动作 - 发送可滑动的套餐选择
   async handleRichMenuCreditsAction(event, user) {
     try {
-      console.log('💎 充值按钮被点击');
+      console.log('💎 充值按钮被点击 - 创建滑动套餐选择');
       
-      // 立即发送两张图片让用户选择，点击直接跳转Stripe
+      // 创建可左右滑动的套餐选择 Carousel
+      const paymentCarousel = {
+        type: 'flex',
+        altText: '💳 料金プラン選択 - 左右にスワイプ',
+        contents: {
+          type: 'carousel',
+          contents: [
+            // Trial Plan Card
+            {
+              type: 'bubble',
+              hero: {
+                type: 'image',
+                url: 'https://picsum.photos/400/300?random=1', // 临时占位图
+                size: 'full',
+                aspectRatio: '4:3',
+                aspectMode: 'cover'
+              },
+              body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '🎯 トライアルプラン',
+                    weight: 'bold',
+                    size: 'xl',
+                    color: '#FF6B6B'
+                  },
+                  {
+                    type: 'text',
+                    text: '¥300/月 (50%OFF)',
+                    size: 'lg',
+                    color: '#333333',
+                    margin: 'md'
+                  },
+                  {
+                    type: 'text',
+                    text: '月間8本の動画生成',
+                    size: 'sm',
+                    color: '#666666',
+                    margin: 'sm'
+                  }
+                ]
+              },
+              footer: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  {
+                    type: 'button',
+                    action: {
+                      type: 'uri',
+                      label: '🚀 このプランを選択',
+                      uri: `https://line-photo-revival-bot.vercel.app/api/payment/create-direct-checkout?plan=trial&userId=${user.line_user_id}`
+                    },
+                    style: 'primary',
+                    color: '#FF6B6B'
+                  }
+                ]
+              }
+            },
+            // Standard Plan Card  
+            {
+              type: 'bubble',
+              hero: {
+                type: 'image',
+                url: 'https://picsum.photos/400/300?random=2', // 临时占位图
+                size: 'full',
+                aspectRatio: '4:3',
+                aspectMode: 'cover'
+              },
+              body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '⭐ スタンダードプラン',
+                    weight: 'bold',
+                    size: 'xl',
+                    color: '#667EEA'
+                  },
+                  {
+                    type: 'text',
+                    text: '¥2,980/月',
+                    size: 'lg',
+                    color: '#333333',
+                    margin: 'md'
+                  },
+                  {
+                    type: 'text',
+                    text: '月間100本の動画生成',
+                    size: 'sm',
+                    color: '#666666',
+                    margin: 'sm'
+                  }
+                ]
+              },
+              footer: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  {
+                    type: 'button',
+                    action: {
+                      type: 'uri',
+                      label: '🚀 このプランを選択',
+                      uri: `https://line-photo-revival-bot.vercel.app/api/payment/create-direct-checkout?plan=standard&userId=${user.line_user_id}`
+                    },
+                    style: 'primary',
+                    color: '#667EEA'
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      };
+
       await this.client.replyMessage(event.replyToken, [
         {
-          type: 'image',
-          originalContentUrl: 'https://line-photo-revival-bot.vercel.app/plan-trial-card.svg',
-          previewImageUrl: 'https://line-photo-revival-bot.vercel.app/plan-trial-card.svg',
-          action: {
-            type: 'uri',
-            uri: `https://line-photo-revival-bot.vercel.app/api/payment/create-direct-checkout?plan=trial&userId=${user.line_user_id}`
-          }
+          type: 'text',
+          text: '💳 料金プランをお選びください\n👈👉 左右にスワイプして選択できます'
         },
-        {
-          type: 'image', 
-          originalContentUrl: 'https://line-photo-revival-bot.vercel.app/plan-standard-card.svg',
-          previewImageUrl: 'https://line-photo-revival-bot.vercel.app/plan-standard-card.svg',
-          action: {
-            type: 'uri',
-            uri: `https://line-photo-revival-bot.vercel.app/api/payment/create-direct-checkout?plan=standard&userId=${user.line_user_id}`
-          }
-        }
+        paymentCarousel
       ]);
       
     } catch (error) {
