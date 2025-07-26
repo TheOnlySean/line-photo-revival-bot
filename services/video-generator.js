@@ -64,13 +64,17 @@ class VideoGenerator {
       const apiUrl = `${this.kieAiConfig.baseUrl}${this.kieAiConfig.generateEndpoint}`;
       
       const requestData = {
-        image_url: imageUrl,
         prompt: prompt,
         duration: 5,              // 修复：只能是5或8，使用5秒
         model: 'runway-gen3',
         quality: '720p',          // 修复：添加必需的quality参数
         aspect_ratio: '1:1'       // 添加宽高比参数
       };
+      
+      // 只有當 imageUrl 不為 null 時才添加 image_url 參數
+      if (imageUrl !== null) {
+        requestData.image_url = imageUrl;
+      }
 
       const response = await axios.post(apiUrl, requestData, {
         headers: {

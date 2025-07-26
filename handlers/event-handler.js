@@ -394,7 +394,9 @@ class EventHandler {
           action: {
             type: 'postback',
             label: '✏️ 自分で入力する',
-            data: 'action=INPUT_CUSTOM_PROMPT'
+            data: 'action=INPUT_CUSTOM_PROMPT',
+            inputOption: 'openKeyboard',
+            fillInText: ''
           }
         }
       ]
@@ -429,12 +431,12 @@ class EventHandler {
 
   async handleInputCustomPromptAction(event, user) {
     try {
-      // 设置用户状态为等待自定义prompt输入
+      // 設置用戶狀態為等待自定義prompt輸入
       await this.userService.setUserState(user.id, 'awaiting_custom_prompt');
       
-      // 发送引导消息，引导用户输入自定义prompt
+      // 發送簡潔的引導消息
       const instructionMessage = MessageTemplates.createTextMessage(
-        '✏️ **カスタムプロンプト入力**\n\n動画のスタイルや雰囲気を自由に入力してください：\n\n例：\n・ゆっくりと微笑む\n・懐かしい雰囲気で\n・映画のようなドラマチックに\n\n下記にご入力ください：'
+        '✏️ 動画のスタイルや雰囲気を入力してください：'
       );
       
       await this.lineAdapter.replyMessage(event.replyToken, instructionMessage);
@@ -460,11 +462,12 @@ class EventHandler {
         imageUrl = cached.imageUrl;
       } catch (_) {}
 
-      if (!prompt || !imageUrl) {
+      // 檢查必要參數：prompt必須存在，imageUrl可以為null
+      if (!prompt) {
         await this.lineAdapter.replyMessage(event.replyToken, 
           MessageTemplates.createErrorMessage('video_generation')
         );
-        return { success: false, error: 'Missing generation data' };
+        return { success: false, error: 'Missing prompt' };
       }
 
       // 验证参数
