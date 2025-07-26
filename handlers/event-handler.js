@@ -192,6 +192,42 @@ class EventHandler {
   }
 
   /**
+   * 处理非图片文件消息
+   */
+  async handleNonImageFile(event) {
+    try {
+      const fileType = event.message.type;
+      let fileTypeText = '';
+      
+      switch (fileType) {
+        case 'video':
+          fileTypeText = '動画ファイル';
+          break;
+        case 'audio':
+          fileTypeText = '音声ファイル';
+          break;
+        case 'file':
+          fileTypeText = 'ファイル';
+          break;
+        default:
+          fileTypeText = 'ファイル';
+      }
+      
+      const message = MessageTemplates.createTextMessage(
+        `📋 ${fileTypeText}を受信しました。\n\n` +
+        `⚠️ 動画生成には画像ファイル（JPG、PNG等）が必要です。\n\n` +
+        `📸 画像をアップロードしてください。`
+      );
+      
+      await this.lineAdapter.replyMessage(event.replyToken, message);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ 处理非图片文件失败:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
    * 处理Postback事件
    */
   async handlePostback(event) {
@@ -438,11 +474,11 @@ class EventHandler {
         return { success: false, error: validation.errors.join(', ') };
       }
 
-      // 开始视频生成
+      // 立即回覆開始生成並切換到processing menu
       const startMessage = MessageTemplates.createVideoStatusMessages('starting');
       await this.lineAdapter.replyMessage(event.replyToken, startMessage);
       
-      // 切换到处理中菜单
+      // 立即切換到處理中菜單，不管用戶當前狀態
       await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
 
       // 创建和启动视频任务

@@ -52,6 +52,12 @@ module.exports = async (req, res) => {
               case 'image':
                 result = await eventHandler.handleImageMessage(event);
                 break;
+              case 'video':
+              case 'audio':
+              case 'file':
+                // 處理非圖片文件，提醒用戶上傳圖片
+                result = await eventHandler.handleNonImageFile(event);
+                break;
               default:
                 console.log(`⚠️ 不支持的消息类型: ${event.message.type}`);
                 result = { success: true, skipped: true };
