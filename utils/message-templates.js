@@ -780,6 +780,8 @@ class MessageTemplates {
    * 创建视频生成状态消息
    */
   static createVideoStatusMessages(status, options = {}) {
+    const richMenuIds = require('../config/richmenu-ids.json');
+    
     const messages = {
       starting: {
         type: 'text',
@@ -792,7 +794,19 @@ class MessageTemplates {
       completed: [
         {
           type: 'text',
-          text: '🎉 **動画生成完了！**\n\nいかがでしょうか？\n\n他の写真でも試してみたい場合は、下部メニューからどうぞ！'
+          text: '🎉 **動画生成完了！**\n\nいかがでしょうか？\n\n他の写真でも試してみたい場合は、下部メニューからどうぞ！',
+          quickReply: {
+            items: [
+              {
+                type: 'action',
+                action: {
+                  type: 'richmenuswitch',
+                  richMenuId: richMenuIds.mainRichMenuId,
+                  data: 'action=switch_to_main_menu'
+                }
+              }
+            ]
+          }
         },
         {
           type: 'video',
@@ -803,7 +817,19 @@ class MessageTemplates {
       demo_completed: [
         {
           type: 'text',
-          text: '🎉 **テスト動画生成完了！**\n\nいかがでしょうか？\n\n実際の写真で試してみたい場合は、下部メニューからご利用ください！'
+          text: '🎉 **テスト動画生成完了！**\n\nいかがでしょうか？\n\n実際の写真で試してみたい場合は、下部メニューからご利用ください！',
+          quickReply: {
+            items: [
+              {
+                type: 'action',
+                action: {
+                  type: 'richmenuswitch',
+                  richMenuId: richMenuIds.mainRichMenuId,
+                  data: 'action=switch_to_main_menu'
+                }
+              }
+            ]
+          }
         },
         {
           type: 'video',
@@ -813,7 +839,19 @@ class MessageTemplates {
       ],
       failed: {
         type: 'text',
-        text: '❌ 申し訳ございません。動画の生成に失敗しました。\n\n再度お試しいただくか、しばらく時間を置いてからお試しください。'
+        text: '❌ 申し訳ございません。動画の生成に失敗しました。\n\n再度お試しいただくか、しばらく時間を置いてからお試しください。',
+        quickReply: {
+          items: [
+            {
+              type: 'action',
+              action: {
+                type: 'richmenuswitch',
+                richMenuId: richMenuIds.mainRichMenuId,
+                data: 'action=switch_to_main_menu'
+              }
+            }
+          ]
+        }
       }
     };
 
