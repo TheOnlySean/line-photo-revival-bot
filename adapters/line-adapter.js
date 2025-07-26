@@ -75,8 +75,20 @@ class LineAdapter {
    */
   async uploadImage(messageId) {
     try {
-      const imageUploader = require('../services/image-uploader');
-      return await imageUploader.uploadImage(messageId, this.client);
+      const ImageUploader = require('../services/image-uploader');
+      const uploader = new ImageUploader();
+
+      // 下載圖片內容
+      const stream = await this.client.getMessageContent(messageId);
+
+      const chunks = [];
+      for await (const chunk of stream) {
+        chunks.push(chunk);
+      }
+      const buffer = Buffer.concat(chunks);
+
+      // 上傳到Vercel Blob並獲取URL
+      return await uploader.uploadImage(buffer);
     } catch (error) {
       console.error('❌ 图片上传失败:', error);
       throw error;
