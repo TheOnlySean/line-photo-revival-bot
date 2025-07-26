@@ -228,6 +228,11 @@ class EventHandler {
           return await this.handleDemoGenerate(event, user, postbackData);
         case 'COUPON':
           return await this.handleCouponAction(event, user);
+        case 'CHANGE_PLAN':
+          // 處理計劃更改請求，顯示訂閱選項
+          const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+          await this.lineAdapter.replyMessage(event.replyToken, planCarousel);
+          return { success: true };
         case 'WEBSITE':
           return await this.handleWebsiteAction(event, user);
         case 'SHARE':
@@ -486,8 +491,9 @@ class EventHandler {
   }
 
   async handleCouponAction(event, user) {
-    const couponCard = MessageTemplates.createCouponCard();
-    await this.lineAdapter.replyMessage(event.replyToken, couponCard);
+    // 直接顯示訂閱計劃選項，就像配額不足時一樣
+    const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+    await this.lineAdapter.replyMessage(event.replyToken, planCarousel);
     return { success: true };
   }
 
