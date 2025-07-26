@@ -154,7 +154,7 @@ class MessageTemplates {
    * 创建配额不足消息卡片
    */
   static createInsufficientQuotaCard(quotaInfo) {
-    const { remaining, total, planType, needsUpgrade } = quotaInfo;
+    const { remaining, total, planType, needsUpgrade, resetDate } = quotaInfo;
     
     return {
       type: 'flex',
@@ -187,7 +187,9 @@ class MessageTemplates {
               type: 'text',
               text: needsUpgrade 
                 ? '✨ スタンダードプランにアップグレードして、月100本の動画を生成できます！'
-                : '📅 来月の初めに配額がリセットされます。',
+                : resetDate 
+                  ? `📅 配額リセット日: ${resetDate}`
+                  : '📅 訂閱後30日ごとに配額がリセットされます。',
               size: 'sm',
               color: '#333333',
               wrap: true,

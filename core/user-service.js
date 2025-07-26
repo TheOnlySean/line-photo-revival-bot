@@ -89,11 +89,57 @@ class UserService {
   }
 
   /**
-   * 获取用户订阅信息
+   * 获取用户订阅信息（包含自动配额重置检查）
    */
   async getUserSubscription(userId) {
     try {
-      return await this.db.getUserSubscription(userId);
+      const subscription = await this.db.getUserSubscription(userId);
+      
+      // 如果沒有訂閱，直接返回
+      if (!subscription) {
+        return null;
+      }
+
+      // 檢查是否需要重置配額（保險機制）
+      const now = new Date();
+      const periodEnd = new Date(subscription.current_period_end);
+      
+      if (subscription.status === 'active' && now > periodEnd) {
+        console.log(`🔄 檢測到用戶 ${userId} 配額週期已過期，執行自動重置...`);
+        
+        try {
+          // 計算新的週期
+          const newPeriodStart = periodEnd;
+          const newPeriodEnd = new Date(periodEnd);
+          newPeriodEnd.setDate(newPeriodEnd.getDate() + 30);
+
+          // 重置配額並更新週期
+          await this.db.query(`
+            UPDATE subscriptions 
+            SET 
+              videos_used_this_month = 0,
+              current_period_start = $1,
+              current_period_end = $2,
+              last_quota_reset_at = NOW(),
+              updated_at = NOW()
+            WHERE user_id = $3 AND status = 'active'
+          `, [newPeriodStart, newPeriodEnd, userId]);
+
+          console.log(`✅ 用戶 ${userId} 配額自動重置完成`);
+          console.log(`   計劃: ${subscription.plan_type}`);
+          console.log(`   舊週期: ${subscription.current_period_start} ~ ${subscription.current_period_end}`);
+          console.log(`   新週期: ${newPeriodStart.toISOString()} ~ ${newPeriodEnd.toISOString()}`);
+
+          // 重新獲取更新後的訂閱信息
+          return await this.db.getUserSubscription(userId);
+        } catch (resetError) {
+          console.error(`❌ 自動重置用戶 ${userId} 配額失敗:`, resetError);
+          // 即使重置失敗，也返回原始訂閱信息
+          return subscription;
+        }
+      }
+
+      return subscription;
     } catch (error) {
       console.error('❌ 获取用户订阅失败:', error);
       throw error;
@@ -189,6 +235,14 @@ class UserService {
   async handleInsufficientQuota(userId) {
     try {
       const subscriptionStatus = await this.checkSubscriptionStatus(userId);
+      const subscription = await this.getUserSubscription(userId);
+      
+      // 格式化重置日期為日文格式
+      let resetDate = null;
+      if (subscription && subscription.current_period_end) {
+        const endDate = new Date(subscription.current_period_end);
+        resetDate = `${endDate.getFullYear()}年${endDate.getMonth() + 1}月${endDate.getDate()}日`;
+      }
       
       return {
         hasSubscription: subscriptionStatus.hasSubscription,
@@ -196,6 +250,7 @@ class UserService {
         planType: subscriptionStatus.planType,
         quota: subscriptionStatus.quota,
         needsUpgrade: subscriptionStatus.planType === 'trial',
+        resetDate: resetDate,
         recommendedAction: subscriptionStatus.hasSubscription 
           ? (subscriptionStatus.planType === 'trial' ? 'upgrade' : 'wait_next_month')
           : 'subscribe'
@@ -206,6 +261,7 @@ class UserService {
         hasSubscription: false,
         isActive: false,
         needsUpgrade: true,
+        resetDate: null,
         recommendedAction: 'subscribe'
       };
     }

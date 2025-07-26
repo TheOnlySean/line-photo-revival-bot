@@ -139,7 +139,8 @@ class EventHandler {
           remaining: quota.remaining,
           total: quota.total,
           planType: quotaInfo.planType,
-          needsUpgrade: quotaInfo.needsUpgrade
+          needsUpgrade: quotaInfo.needsUpgrade,
+          resetDate: quotaInfo.resetDate
         });
         await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
         // 推送订阅选项卡片

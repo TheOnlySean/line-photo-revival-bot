@@ -6,6 +6,9 @@
     "api/cron/check-tasks.js": {
       "maxDuration": 60
     },
+    "api/cron/reset-quota.js": {
+      "maxDuration": 60
+    },
     "api/payment/create-checkout-session.js": {
       "maxDuration": 30
     },
@@ -23,6 +26,10 @@
     {
       "path": "/api/cron/check-tasks",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/reset-quota",
+      "schedule": "5 0 * * *"
     }
   ],
   "rewrites": [
