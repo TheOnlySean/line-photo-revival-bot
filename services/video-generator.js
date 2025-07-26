@@ -258,11 +258,28 @@ class VideoGenerator {
     try {
       console.log('❌ 处理视频生成失败:', errorMessage);
 
+      // 获取视频记录以恢复用户配额
+      const videoRecord = await this.db.query(
+        'SELECT user_id FROM videos WHERE id = $1',
+        [videoRecordId]
+      );
+
       // 更新数据库状态为失败
       await this.db.query(
-        'UPDATE videos SET status = $1 WHERE id = $2',
-        ['failed', videoRecordId]
+        'UPDATE videos SET status = $1, error_message = $2 WHERE id = $3',
+        ['failed', errorMessage, videoRecordId]
       );
+
+      // 恢复用户配额
+      if (videoRecord.rows.length > 0) {
+        const userId = videoRecord.rows[0].user_id;
+        try {
+          await this.db.restoreVideoQuota(userId);
+          console.log(`✅ 已恢复用户 ${userId} 的视频配额`);
+        } catch (quotaError) {
+          console.error('❌ 恢复配额失败:', quotaError.message);
+        }
+      }
 
       // 通过回调函数发送失败通知
       if (this.messageCallback) {
@@ -270,7 +287,8 @@ class VideoGenerator {
           await this.messageCallback('video_failed', {
             lineUserId,
             videoRecordId,
-            errorMessage
+            errorMessage,
+            quotaRestored: true // 标记配额已恢复
           });
           console.log('✅ 视频失败通知发送成功');
         } catch (callbackError) {

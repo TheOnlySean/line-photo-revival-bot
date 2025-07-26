@@ -224,6 +224,25 @@ class Database {
     }
   }
 
+  // 恢复视频配额（用于生成失败时）
+  async restoreVideoQuota(userId) {
+    try {
+      const result = await this.query(
+        `UPDATE subscriptions 
+         SET videos_used_this_month = GREATEST(videos_used_this_month - 1, 0),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = $1 AND status = 'active'
+         RETURNING *`,
+        [userId]
+      );
+      console.log(`✅ 已恢复用户 ${userId} 的视频配额`);
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ 恢复视频配额失败:', error);
+      throw error;
+    }
+  }
+
   // === 視頻記錄方法 ===
 
   // 創建視頻記錄

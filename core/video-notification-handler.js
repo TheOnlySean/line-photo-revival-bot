@@ -63,10 +63,28 @@ class VideoNotificationHandler {
    */
   async handleVideoFailed(data) {
     try {
-      const { lineUserId, errorMessage } = data;
+      const { lineUserId, errorMessage, quotaRestored } = data;
 
-      // 发送失败消息
-      const failedMessage = MessageTemplates.createErrorMessage('video_generation');
+      // 创建包含配额信息的失败消息
+      let failedText = '❌ 申し訳ございません。動画生成に失敗しました。\n\n';
+      
+      // 添加具体错误信息（如果有的话）
+      if (errorMessage && errorMessage !== '视频生成失败' && errorMessage !== '系统错误，请稍后再试') {
+        failedText += `詳細: ${errorMessage}\n\n`;
+      }
+      
+      // 重要：添加配额未扣除的提示
+      if (quotaRestored) {
+        failedText += '✅ ご安心ください。今回の生成で利用枠は消費されておりません。\n\n';
+      }
+      
+      failedText += '🔄 しばらくしてから再度お試しいただくか、別の写真でお試しください。';
+
+      const failedMessage = {
+        type: 'text',
+        text: failedText
+      };
+
       await this.lineAdapter.pushMessage(lineUserId, failedMessage);
 
       // 切换回主菜单
