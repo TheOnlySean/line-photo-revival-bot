@@ -1,4 +1,4 @@
-const Database = require('../../config/database');
+const db = require('../../config/database');
 const VideoGenerator = require('../../services/video-generator');
 
 module.exports = async (req, res) => {
@@ -8,9 +8,6 @@ module.exports = async (req, res) => {
 
   try {
     console.log('🧪 开始视频生成诊断测试...');
-    
-    const db = new Database();
-    await db.connect();
     
     const videoGenerator = new VideoGenerator(db);
     
@@ -72,11 +69,9 @@ module.exports = async (req, res) => {
         success: false,
         error: 'API调用异常: ' + apiError.message
       };
-    }
-    
-    await db.disconnect();
-    
-    res.status(200).json({
+         }
+     
+     res.status(200).json({
       success: true,
       message: '视频生成系统诊断完成',
       diagnostics
