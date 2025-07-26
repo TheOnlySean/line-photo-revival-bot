@@ -198,12 +198,12 @@ class EventHandler {
       console.log('📊 收到Postback:', postbackData);
 
       // 获取用户信息
-      const user = await this.userService.getUserWithState(userId);
+      let user = await this.userService.getUserWithState(userId);
       if (!user) {
-        await this.lineAdapter.replyMessage(event.replyToken, 
-          MessageTemplates.createErrorMessage('system')
-        );
-        return { success: false, error: 'User not found' };
+        // 自动创建用户（可能是重新加好友或数据库缺失）
+        const profile = await this.lineAdapter.getUserProfile(userId).catch(() => ({ displayName: 'User' }));
+        await this.userService.ensureUserExists(userId, profile.displayName);
+        user = await this.userService.getUserWithState(userId);
       }
 
       // 根据action类型处理
