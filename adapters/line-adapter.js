@@ -15,8 +15,8 @@ class LineAdapter {
     this.mainRichMenuId = null;
     this.processingRichMenuId = null;
     
-    // 初始化Rich Menu ID
-    this.initializeRichMenuIds();
+    // Rich Menu ID初始化标志
+    this.richMenuInitialized = false;
   }
 
   /**
@@ -88,15 +88,25 @@ class LineAdapter {
    */
   async initializeRichMenuIds() {
     try {
+      if (this.richMenuInitialized) {
+        return; // 已经初始化过了
+      }
+
+      console.log('🎨 初始化Rich Menu IDs...');
       const richMenus = await this.client.getRichMenuList();
       
       for (const menu of richMenus) {
         if (menu.name === "写真復活 Main Menu (6 Buttons)") {
           this.mainRichMenuId = menu.richMenuId;
+          console.log('✅ 主菜单ID:', this.mainRichMenuId);
         } else if (menu.name === "写真復活 Processing Menu") {
           this.processingRichMenuId = menu.richMenuId;
+          console.log('✅ 处理菜单ID:', this.processingRichMenuId);
         }
       }
+      
+      this.richMenuInitialized = true;
+      console.log('✅ Rich Menu初始化完成');
     } catch (error) {
       console.error('❌ 初始化Rich Menu ID失败:', error);
     }
@@ -104,15 +114,17 @@ class LineAdapter {
 
   async switchToMainMenu(userId) {
     try {
-      if (!this.mainRichMenuId) {
-        await this.initializeRichMenuIds();
-      }
+      // 确保Rich Menu ID已初始化
+      await this.initializeRichMenuIds();
       
       if (this.mainRichMenuId) {
         await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
+        console.log('✅ 切换到主菜单成功:', userId);
         return true;
+      } else {
+        console.error('❌ 主菜单ID未找到');
+        return false;
       }
-      return false;
     } catch (error) {
       console.error('❌ 切换到主菜单失败:', error);
       return false;
@@ -121,15 +133,17 @@ class LineAdapter {
 
   async switchToProcessingMenu(userId) {
     try {
-      if (!this.processingRichMenuId) {
-        await this.initializeRichMenuIds();
-      }
+      // 确保Rich Menu ID已初始化
+      await this.initializeRichMenuIds();
       
       if (this.processingRichMenuId) {
         await this.client.linkRichMenuToUser(userId, this.processingRichMenuId);
+        console.log('✅ 切换到处理菜单成功:', userId);
         return true;
+      } else {
+        console.error('❌ 处理菜单ID未找到');
+        return false;
       }
-      return false;
     } catch (error) {
       console.error('❌ 切换到处理中菜单失败:', error);
       return false;
@@ -138,15 +152,17 @@ class LineAdapter {
 
   async ensureUserHasRichMenu(userId) {
     try {
-      if (!this.mainRichMenuId) {
-        await this.initializeRichMenuIds();
-      }
+      // 确保Rich Menu ID已初始化
+      await this.initializeRichMenuIds();
       
       if (this.mainRichMenuId) {
         await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
+        console.log('✅ 用户Rich Menu设置成功:', userId);
         return true;
+      } else {
+        console.error('❌ 主菜单ID未找到');
+        return false;
       }
-      return false;
     } catch (error) {
       console.error('❌ 设置用户Rich Menu失败:', error);
       return false;
