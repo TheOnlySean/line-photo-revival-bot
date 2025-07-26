@@ -92,6 +92,17 @@ module.exports = async (req, res) => {
             }]
           });
           
+          // 切換回主菜單
+          try {
+            const richMenuIds = require('../../config/richmenu-ids.json');
+            await lineClient.linkRichMenuToUser({
+              userId: lineUserId,
+              richMenuId: richMenuIds.mainRichMenuId
+            });
+          } catch (menuError) {
+            console.error('❌ 切換主菜單失敗:', menuError);
+          }
+          
           console.log('✅ 自動發送視頻失敗通知成功');
         } catch (error) {
           console.error('❌ 自動發送視頻失敗通知失敗:', error);
