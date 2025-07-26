@@ -38,6 +38,18 @@
     {
       "source": "/payment/(.*)",
       "destination": "/public/payment/$1"
+    },
+    {
+      "source": "/plan-trial-card.svg",
+      "destination": "/public/plan-trial-card.svg"
+    },
+    {
+      "source": "/plan-standard-card.svg",
+      "destination": "/public/plan-standard-card.svg"
+    },
+    {
+      "source": "/logo-placeholder.svg",
+      "destination": "/public/logo-placeholder.svg"
     }
   ]
 } 
