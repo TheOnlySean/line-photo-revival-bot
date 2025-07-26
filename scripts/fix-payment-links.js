@@ -13,13 +13,13 @@ async function fixPaymentLinks() {
     // 產品和價格 ID（從之前的輸出中獲取）
     const products = [
       {
-        name: 'Trial Plan',
+        name: 'お試しプラン',
         productId: 'prod_SkfDCaLeS34QgG',
         priceId: 'price_1Rp9sqAQgzM2CFPd7KThc9oK',
         amount: 300
       },
       {
-        name: 'Standard Plan', 
+        name: 'スタンダードプラン', 
         productId: 'prod_SkfD5ppNLcIRha',
         priceId: 'price_1Rp9srAQgzM2CFPdtYGi6GcR',
         amount: 2980
@@ -82,8 +82,8 @@ async function fixPaymentLinks() {
     console.log('🔧 請更新 Vercel 環境變數:');
     console.log('============================================');
     
-    const trialLink = newPaymentLinks.find(l => l.name === 'Trial Plan');
-    const standardLink = newPaymentLinks.find(l => l.name === 'Standard Plan');
+    const trialLink = newPaymentLinks.find(l => l.name === 'お試しプラン');
+    const standardLink = newPaymentLinks.find(l => l.name === 'スタンダードプラン');
     
     if (trialLink) {
       console.log(`STRIPE_TRIAL_URL=${trialLink.url}`);
