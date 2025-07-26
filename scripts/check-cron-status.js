@@ -41,7 +41,7 @@ async function checkCronStatus() {
   } catch (error) {
     console.error('❌ 檢查失敗:', error);
   } finally {
-    await db.end();
+    process.exit(0);
   }
 }
 

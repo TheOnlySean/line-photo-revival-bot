@@ -711,6 +711,7 @@ class EventHandler {
       );
       
       // 檢查該用戶的待處理視頻任務
+      const lineAdapter = this.lineAdapter; // 保存this引用
       const videoGenerator = new (require('../services/video-generator'))(
         require('../config/database'),
         async (eventType, data) => {
@@ -722,22 +723,32 @@ class EventHandler {
               previewImageUrl: thumbnailUrl || videoUrl
             };
             
-            await this.lineAdapter.pushMessage(lineUserId, [
+            await lineAdapter.pushMessage(lineUserId, [
               { type: 'text', text: '✅ 動画生成が完了しました！' },
               message
             ]);
             
             // 切換回主菜單
-            await this.lineAdapter.switchToMainMenu(lineUserId);
+            try {
+              const switchResult = await lineAdapter.switchToMainMenu(lineUserId);
+              console.log('📋 視頻完成後菜單切換結果:', switchResult);
+            } catch (menuError) {
+              console.error('❌ 視頻完成後菜單切換失敗:', menuError);
+            }
           } else if (eventType === 'video_failed') {
             const { lineUserId, errorMessage } = data;
-            await this.lineAdapter.pushMessage(lineUserId, [{
+            await lineAdapter.pushMessage(lineUserId, [{
               type: 'text',
               text: `❌ 動画生成に失敗しました：${errorMessage || '再度お試しください'}`
             }]);
             
             // 切換回主菜單
-            await this.lineAdapter.switchToMainMenu(lineUserId);
+            try {
+              const switchResult = await lineAdapter.switchToMainMenu(lineUserId);
+              console.log('📋 視頻失敗後菜單切換結果:', switchResult);
+            } catch (menuError) {
+              console.error('❌ 視頻失敗後菜單切換失敗:', menuError);
+            }
           }
         }
       );
