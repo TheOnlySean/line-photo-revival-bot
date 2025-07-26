@@ -221,8 +221,8 @@ class MessageTemplates {
    * 创建支付选项卡片
    */
   static createPaymentOptionsCarousel() {
-    const trialUrl = process.env.STRIPE_TRIAL_URL || 'https://buy.stripe.com/test_trial';
-    const standardUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/test_standard';
+    const trialUrl = process.env.STRIPE_TRIAL_URL || 'https://buy.stripe.com/5kQ9AS2JJ09gfdB96ncs804';
+    const standardUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/8x26oG8437BI3uTcizcs805';
     return {
       type: 'flex',
       altText: '💳 支払いプランを選択',
