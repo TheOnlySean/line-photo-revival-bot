@@ -23,21 +23,16 @@ async function createStripeProducts() {
   try {
     console.log('🚀 開始創建Stripe產品和價格...');
     
-    // 确保 VERCEL_URL 包含协议前缀，并处理 undefined 情况
-    let baseUrl = 'https://your-domain.vercel.app'; // 默认值
-    
-    if (process.env.VERCEL_URL && process.env.VERCEL_URL !== 'undefined') {
-      baseUrl = process.env.VERCEL_URL.startsWith('http') 
-        ? process.env.VERCEL_URL 
-        : `https://${process.env.VERCEL_URL}`;
-    }
+    // 使用 Vercel Blob Storage 中的图片 URL（与 demo 图片相同的存储方式）
+    const trialImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/trial-plan-card-ExEKLoZtWADP4E6Hg1EKHWRozh6JWe.jpg';
+    const standardImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/standard-plan-card-rI0weVQnOXT7UBgR7dPagRFgoMofjo.jpg';
 
     // 1. 創建Trial產品
     console.log('📦 創建Trial產品...');
     const trialProduct = await stripe.products.create({
       name: 'お試しプラン - 動画生成サービス',
       description: '月8本の動画生成が可能なお試しプラン',
-      images: [`${baseUrl}/assets/trial-plan-card.jpg`],
+      images: [trialImageUrl],
       metadata: {
         plan_type: 'trial',
         video_quota: '8'
@@ -64,7 +59,7 @@ async function createStripeProducts() {
     const standardProduct = await stripe.products.create({
       name: 'スタンダードプラン - 動画生成サービス',
       description: '月100本の動画生成が可能なスタンダードプラン',
-      images: [`${baseUrl}/assets/standard-plan-card.jpg`],
+      images: [standardImageUrl],
       metadata: {
         plan_type: 'standard',
         video_quota: '100'

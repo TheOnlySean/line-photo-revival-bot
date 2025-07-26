@@ -264,14 +264,9 @@ class MessageTemplates {
     const trialUrl = process.env.STRIPE_TRIAL_URL || 'https://buy.stripe.com/5kQ9AS2JJ09gfdB96ncs804';
     const standardUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/8x26oG8437BI3uTcizcs805';
     
-    // 确保 VERCEL_URL 包含协议前缀，并处理 undefined 情况
-    let baseUrl = 'https://your-domain.vercel.app'; // 默认值
-    
-    if (process.env.VERCEL_URL && process.env.VERCEL_URL !== 'undefined') {
-      baseUrl = process.env.VERCEL_URL.startsWith('http') 
-        ? process.env.VERCEL_URL 
-        : `https://${process.env.VERCEL_URL}`;
-    }
+    // 使用 Vercel Blob Storage 中的图片 URL（与 demo 图片相同的存储方式）
+    const trialImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/trial-plan-card-ExEKLoZtWADP4E6Hg1EKHWRozh6JWe.jpg';
+    const standardImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/standard-plan-card-rI0weVQnOXT7UBgR7dPagRFgoMofjo.jpg';
     
     return {
       type: 'flex',
@@ -283,7 +278,7 @@ class MessageTemplates {
             type: 'bubble',
             hero: {
               type: 'image',
-              url: `${baseUrl}/assets/trial-plan-card.jpg`,
+              url: trialImageUrl,
               size: 'full',
               aspectRatio: '2:1',
               aspectMode: 'cover'
@@ -334,7 +329,7 @@ class MessageTemplates {
             type: 'bubble',
             hero: {
               type: 'image',
-              url: `${baseUrl}/assets/standard-plan-card.jpg`,
+              url: standardImageUrl,
               size: 'full',
               aspectRatio: '2:1',
               aspectMode: 'cover'
