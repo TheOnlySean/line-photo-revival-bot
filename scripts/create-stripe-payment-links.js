@@ -37,7 +37,7 @@ async function createStripeProducts() {
     const trialProduct = await stripe.products.create({
       name: 'お試しプラン - 動画生成サービス',
       description: '月8本の動画生成が可能なお試しプラン',
-      images: ['https://placehold.co/600x400/FF6B9D/FFFFFF?text=お試しプラン'],
+      images: [`${process.env.VERCEL_URL || 'https://your-domain.vercel.app'}/assets/trial-plan-card.jpg`],
       metadata: {
         plan_type: 'trial',
         video_quota: '8'
@@ -64,7 +64,7 @@ async function createStripeProducts() {
     const standardProduct = await stripe.products.create({
       name: 'スタンダードプラン - 動画生成サービス',
       description: '月100本の動画生成が可能なスタンダードプラン',
-      images: ['https://placehold.co/600x400/42C76A/FFFFFF?text=スタンダードプラン'],
+      images: [`${process.env.VERCEL_URL || 'https://your-domain.vercel.app'}/assets/standard-plan-card.jpg`],
       metadata: {
         plan_type: 'standard',
         video_quota: '100'

@@ -41,7 +41,10 @@
       "source": "/demo-files/(.*)",
       "destination": "/demo-files/$1"
     },
-
+    {
+      "source": "/assets/(.*)",
+      "destination": "/assets/$1"
+    },
     {
       "source": "/payment/(.*)",
       "destination": "/public/payment/$1"

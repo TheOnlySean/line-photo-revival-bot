@@ -279,7 +279,7 @@ class MessageTemplates {
             type: 'bubble',
             hero: {
               type: 'image',
-              url: 'https://via.placeholder.com/400x200/FF6B9D/FFFFFF?text=お試しプラン',
+              url: `${process.env.VERCEL_URL || 'https://your-domain.vercel.app'}/assets/trial-plan-card.jpg`,
               size: 'full',
               aspectRatio: '2:1',
               aspectMode: 'cover'
@@ -330,7 +330,7 @@ class MessageTemplates {
             type: 'bubble',
             hero: {
               type: 'image',
-              url: 'https://via.placeholder.com/400x200/42C76A/FFFFFF?text=スタンダードプラン',
+              url: `${process.env.VERCEL_URL || 'https://your-domain.vercel.app'}/assets/standard-plan-card.jpg`,
               size: 'full',
               aspectRatio: '2:1',
               aspectMode: 'cover'
