@@ -2,6 +2,7 @@ const line = require('@line/bot-sdk');
 const lineConfig = require('../../config/line-config');
 const db = require('../../config/database');
 const VideoGenerator = require('../../services/video-generator');
+const LineAdapter = require('../../adapters/line-adapter');
 
 // 移除 LINE SDK 依賴，使用 VideoGenerator 直接檢查任務
 
@@ -46,6 +47,9 @@ module.exports = async (req, res) => {
       channelAccessToken: lineConfig.channelAccessToken
     });
     
+    // 創建 LineAdapter 實例用於 Rich Menu 管理
+    const lineAdapter = new LineAdapter();
+    
     // 創建消息回調函數
     const messageCallback = async (eventType, data) => {
       if (eventType === 'video_completed') {
@@ -66,10 +70,9 @@ module.exports = async (req, res) => {
             ]
           });
           
-          // 切換回主菜單
+          // 切換回主菜單 (使用 LineAdapter)
           try {
-            const richMenuIds = require('../../config/richmenu-ids.json');
-            await lineClient.linkRichMenuToUser(lineUserId, richMenuIds.mainRichMenuId);
+            await lineAdapter.switchToMainMenu(lineUserId);
           } catch (menuError) {
             console.error('❌ 切換主菜單失敗:', menuError);
           }
@@ -89,10 +92,9 @@ module.exports = async (req, res) => {
             }]
           });
           
-          // 切換回主菜單
+          // 切換回主菜單 (使用 LineAdapter)
           try {
-            const richMenuIds = require('../../config/richmenu-ids.json');
-            await lineClient.linkRichMenuToUser(lineUserId, richMenuIds.mainRichMenuId);
+            await lineAdapter.switchToMainMenu(lineUserId);
           } catch (menuError) {
             console.error('❌ 切換主菜單失敗:', menuError);
           }
@@ -216,4 +218,4 @@ module.exports = async (req, res) => {
       msg: '任务检查过程中发生错误'
     });
   }
-}; 
+};
