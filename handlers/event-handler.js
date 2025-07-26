@@ -360,6 +360,19 @@ class EventHandler {
   // ===== 动作处理方法 =====
 
   async handleWaveVideoAction(event, user) {
+    // 检查用户订阅状态
+    const quota = await this.videoService.checkVideoQuota(user.id);
+    if (!quota.hasQuota) {
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createTextMessage('🙇‍♀️ 申し訳ございません。動画生成サービスをご利用いただくには、まずプランにご加入いただく必要がございます。\n\n下記からお好みのプランをお選びください。')
+      );
+      
+      // 推送订阅选项卡片
+      const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+      await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+      return { success: true };
+    }
+
     const messages = MessageTemplates.createActionSelectionMessages('wave');
     const photoUploadReply = this.lineAdapter.createPhotoUploadQuickReply();
     
@@ -370,6 +383,19 @@ class EventHandler {
   }
 
   async handleGroupVideoAction(event, user) {
+    // 检查用户订阅状态
+    const quota = await this.videoService.checkVideoQuota(user.id);
+    if (!quota.hasQuota) {
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createTextMessage('🙇‍♀️ 申し訳ございません。動画生成サービスをご利用いただくには、まずプランにご加入いただく必要がございます。\n\n下記からお好みのプランをお選びください。')
+      );
+      
+      // 推送订阅选项卡片
+      const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+      await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+      return { success: true };
+    }
+
     const messages = MessageTemplates.createActionSelectionMessages('group');
     const photoUploadReply = this.lineAdapter.createPhotoUploadQuickReply();
     
@@ -380,6 +406,19 @@ class EventHandler {
   }
 
   async handlePersonalizeAction(event, user) {
+    // 检查用户订阅状态
+    const quota = await this.videoService.checkVideoQuota(user.id);
+    if (!quota.hasQuota) {
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createTextMessage('🙇‍♀️ 申し訳ございません。動画生成サービスをご利用いただくには、まずプランにご加入いただく必要がございます。\n\n下記からお好みのプランをお選びください。')
+      );
+      
+      // 推送订阅选项卡片
+      const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+      await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+      return { success: true };
+    }
+
     const messages = MessageTemplates.createActionSelectionMessages('personalize');
     
     // 添加Quick Reply选项
@@ -422,6 +461,19 @@ class EventHandler {
   }
 
   async handleRandomPromptAction(event, user) {
+    // 检查用户订阅状态
+    const quota = await this.videoService.checkVideoQuota(user.id);
+    if (!quota.hasQuota) {
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createTextMessage('🙇‍♀️ 申し訳ございません。動画生成サービスをご利用いただくには、まずプランにご加入いただく必要がございます。\n\n下記からお好みのプランをお選びください。')
+      );
+      
+      // 推送订阅选项卡片
+      const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+      await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+      return { success: true };
+    }
+
     const randomPrompt = this.videoService.generateRandomPrompt();
     const confirmMessage = MessageTemplates.createTextMessage(`✨ ランダムプロンプト：\n"${randomPrompt}"`);
     const photoUploadReply = this.lineAdapter.createPhotoUploadQuickReply();
@@ -434,6 +486,19 @@ class EventHandler {
 
   async handleInputCustomPromptAction(event, user) {
     try {
+      // 检查用户订阅状态
+      const quota = await this.videoService.checkVideoQuota(user.id);
+      if (!quota.hasQuota) {
+        await this.lineAdapter.replyMessage(event.replyToken, 
+          MessageTemplates.createTextMessage('🙇‍♀️ 申し訳ございません。動画生成サービスをご利用いただくには、まずプランにご加入いただく必要がございます。\n\n下記からお好みのプランをお選びください。')
+        );
+        
+        // 推送订阅选项卡片
+        const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+        await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+        return { success: true };
+      }
+
       // 設置用戶狀態為等待自定義prompt輸入
       await this.userService.setUserState(user.id, 'awaiting_custom_prompt');
       
