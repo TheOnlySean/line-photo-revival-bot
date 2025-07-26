@@ -801,8 +801,7 @@ class MessageTemplates {
                 type: 'action',
                 action: {
                   type: 'richmenuswitch',
-                  richMenuId: richMenuIds.mainRichMenuId,
-                  data: 'action=switch_to_main_menu'
+                  richMenuId: richMenuIds.mainRichMenuId
                 }
               }
             ]
@@ -824,8 +823,7 @@ class MessageTemplates {
                 type: 'action',
                 action: {
                   type: 'richmenuswitch',
-                  richMenuId: richMenuIds.mainRichMenuId,
-                  data: 'action=switch_to_main_menu'
+                  richMenuId: richMenuIds.mainRichMenuId
                 }
               }
             ]
@@ -846,8 +844,7 @@ class MessageTemplates {
               type: 'action',
               action: {
                 type: 'richmenuswitch',
-                richMenuId: richMenuIds.mainRichMenuId,
-                data: 'action=switch_to_main_menu'
+                richMenuId: richMenuIds.mainRichMenuId
               }
             }
           ]
