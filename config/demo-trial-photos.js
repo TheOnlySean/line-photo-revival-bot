@@ -2,8 +2,8 @@
 const trialPhotos = [
   {
     id: 'trial_1',
-    title: '女性手振り微笑み',
-    description: '若い女性の自然な手振りの温かいシーン',
+    title: 'おばあちゃんの親切な微笑み',
+    description: '温かい笑顔で迎えてくれるおばあちゃんのシーン',
     image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/1-avVzCLIlMDcxjLFpS5NLqwyUlt3sBm.png',
     demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/1-kTLJV1Tr2PlM0DHtR4lNc8QoVp7Zdv.mp4',
     type: 'wave',
@@ -11,8 +11,8 @@ const trialPhotos = [
   },
   {
     id: 'trial_2', 
-    title: '男性友好挨拶',
-    description: 'プロフェッショナルな男性の親しみやすい挨拶動作',
+    title: '子犬の可愛らしい様子',
+    description: '愛らしい子犬の自然な表情と動作',
     image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/2-lwqPaIWZj0imE9WuqhFsbH8t6TpgZW.png',
     demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/2-YqQn4tn1AMrHbOPFJEKsrmxGlKmRxa.mp4', 
     type: 'wave',
@@ -20,8 +20,8 @@ const trialPhotos = [
   },
   {
     id: 'trial_3',
-    title: 'カップル温かい触れ合い',
-    description: '温かいカップルの寄り添いシーン', 
+    title: 'お互いに寄り添い微笑み手を振る',
+    description: '温かく寄り添いながら手を振る心温まるシーン', 
     image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/3-LwaXeLMhrX0tRybxr9K6c4i5CgAKR9.png',
     demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/3-uDfuUyB0qisch3KEBCUVytFthsSd15.mp4',
     type: 'group',

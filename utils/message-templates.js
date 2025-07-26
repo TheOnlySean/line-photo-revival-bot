@@ -25,6 +25,7 @@ class MessageTemplates {
         type: 'carousel',
         contents: trialPhotos.map(photo => ({
           type: 'bubble',
+          size: 'micro',
           hero: {
             type: 'image',
             url: photo.image_url,
@@ -42,13 +43,6 @@ class MessageTemplates {
                 weight: 'bold',
                 size: 'md',
                 color: '#333333'
-              },
-              {
-                type: 'text',
-                text: '⏱️ 生成時間: 約15秒',
-                size: 'xs',
-                color: '#999999',
-                margin: 'md'
               }
             ]
           },
@@ -789,7 +783,7 @@ class MessageTemplates {
       },
       processing: {
         type: 'text',
-        text: '🎬 テスト動画を生成中...\n\n⏱️ 約15秒でお送りします！'
+        text: '🎬 テスト動画を生成中...\n\n⏱️ 約1分でお送りします！'
       },
       completed: [
         {
