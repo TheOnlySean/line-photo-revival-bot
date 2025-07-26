@@ -10,7 +10,7 @@ class MessageTemplates {
   static createWelcomeMessage() {
     return {
       type: 'text',
-      text: '🎉 **写真復活へようこそ！**\n\n✨ AIが古い写真を美しい動画に変換します\n\n🎁 新規ユーザー様には無料体験をご用意しております'
+      text: '🎉 写真復活へようこそ！\n\n✨ AIが古い写真を美しい動画に変換します\n\n🎁 新規ユーザー様には無料体験をご用意しております'
     };
   }
 
@@ -794,7 +794,7 @@ class MessageTemplates {
       completed: [
         {
           type: 'text',
-          text: '🎉 **動画生成完了！**\n\nいかがでしょうか？\n\n他の写真でも試してみたい場合は、下部メニューからどうぞ！',
+          text: '🎉 動画生成完了！\n\nいかがでしょうか？\n\n他の写真でも試してみたい場合は、下部メニューからどうぞ！',
           quickReply: {
             items: [
               {
@@ -817,7 +817,7 @@ class MessageTemplates {
       demo_completed: [
         {
           type: 'text',
-          text: '🎉 **テスト動画生成完了！**\n\nいかがでしょうか？\n\n実際の写真で試してみたい場合は、下部メニューからご利用ください！',
+          text: '🎉 テスト動画生成完了！\n\nいかがでしょうか？\n\n実際の写真で試してみたい場合は、下部メニューからご利用ください！',
           quickReply: {
             items: [
               {
