@@ -128,6 +128,70 @@ module.exports = async (req, res) => {
       }
     }
 
+    // === 简化的恢复机制 ===
+    // 检查是否有长时间无任务但可能卡在 processing menu 的用户
+    try {
+      console.log('🔍 检查可能卡住的用户...');
+      
+      // 查找最近15分钟内没有任务但可能需要恢复的用户
+      // 这里我们查找最近有过任务但现在没有进行中任务的用户
+      const stuckUsersQuery = `
+        SELECT DISTINCT u.line_user_id, u.id as user_id, 
+               MAX(v.created_at) as last_task_time,
+               COUNT(CASE WHEN v.status IN ('processing', 'pending') THEN 1 END) as active_tasks
+        FROM users u
+        LEFT JOIN videos v ON u.id = v.user_id
+        WHERE v.created_at > NOW() - INTERVAL '30 minutes'
+        GROUP BY u.line_user_id, u.id
+        HAVING COUNT(CASE WHEN v.status IN ('processing', 'pending') THEN 1 END) = 0
+           AND MAX(v.created_at) < NOW() - INTERVAL '10 minutes'
+        LIMIT 10
+      `;
+      
+      const stuckUsers = await db.query(stuckUsersQuery);
+      
+      if (stuckUsers.rows.length > 0) {
+        console.log(`🚨 发现 ${stuckUsers.rows.length} 个可能卡住的用户`);
+        
+        // 创建 LINE 客户端用于恢复操作
+        const lineClient = new line.messagingApi.MessagingApiClient({
+          channelAccessToken: lineConfig.channelAccessToken
+        });
+        
+        for (const stuckUser of stuckUsers.rows) {
+          try {
+            const { line_user_id, last_task_time } = stuckUser;
+            const minutesAgo = Math.round((Date.now() - new Date(last_task_time).getTime()) / 60000);
+            
+            console.log(`🔄 恢复用户 ${line_user_id} (最后任务: ${minutesAgo}分钟前)`);
+            
+            // 切换回主菜单
+            const richMenuIds = require('../../config/richmenu-ids.json');
+            await lineClient.linkRichMenuToUser(line_user_id, richMenuIds.mainRichMenuId);
+            
+            // 发送友好的恢复消息
+            await lineClient.pushMessage({
+              to: line_user_id,
+              messages: [{
+                type: 'text',
+                text: '🔄 システムが正常に復旧しました。\n\n📱 メインメニューに戻りました。新しい動画生成を開始できます。'
+              }]
+            });
+            
+            console.log(`✅ 用户 ${line_user_id} 已恢复到主菜单`);
+            
+          } catch (recoveryError) {
+            console.error(`❌ 恢复用户失败 ${stuckUser.line_user_id}:`, recoveryError.message);
+          }
+        }
+      } else {
+        console.log('✅ 没有发现卡住的用户');
+      }
+      
+    } catch (recoveryError) {
+      console.error('❌ 恢复机制执行失败:', recoveryError.message);
+    }
+
     const duration = Date.now() - startTime;
     
     console.log(`🏁 Cron任务完成: 处理${processedUsers}个用户, 成功${successCount}, 失败${errorCount}, 耗时${duration}ms`);
