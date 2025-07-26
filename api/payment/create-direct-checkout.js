@@ -18,7 +18,7 @@ export default async function handler(req, res) {
     // 創建簡化的 Stripe Checkout Session
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
-      payment_method_types: ['card', 'konbini'],
+      payment_method_types: ['card'], // 暫時移除konbini，需要在Stripe Dashboard中啟用
       line_items: [
         {
           price_data: {

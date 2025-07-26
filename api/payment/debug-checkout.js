@@ -30,7 +30,7 @@ export default async function handler(req, res) {
       
       const session = await stripe.checkout.sessions.create({
         mode: 'subscription',
-        payment_method_types: ['card', 'konbini'],
+        payment_method_types: ['card'], // 暫時移除konbini
         line_items: [
           {
             price_data: {
