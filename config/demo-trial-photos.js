@@ -2,66 +2,66 @@
 const trialPhotos = [
   {
     id: 'trial_1',
-    title: '女性挥手微笑',
-    description: '年轻女性自然挥手的温暖场景',
+    title: '女性手振り微笑み',
+    description: '若い女性の自然な手振りの温かいシーン',
     image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/1-avVzCLIlMDcxjLFpS5NLqwyUlt3sBm.png',
     demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/1-kTLJV1Tr2PlM0DHtR4lNc8QoVp7Zdv.mp4',
     type: 'wave',
-    credits_demo: 0 // 免费试用
+    credits_demo: 0 // 免費試用
   },
   {
     id: 'trial_2', 
-    title: '男性友好问候',
-    description: '专业男性的亲切问候动作',
+    title: '男性友好挨拶',
+    description: 'プロフェッショナルな男性の親しみやすい挨拶動作',
     image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/2-lwqPaIWZj0imE9WuqhFsbH8t6TpgZW.png',
     demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/2-YqQn4tn1AMrHbOPFJEKsrmxGlKmRxa.mp4', 
     type: 'wave',
-    credits_demo: 0 // 免费试用
+    credits_demo: 0 // 免費試用
   },
   {
     id: 'trial_3',
-    title: '情侣温馨互动',
-    description: '温馨的情侣寄り添い场景', 
+    title: 'カップル温かい触れ合い',
+    description: '温かいカップルの寄り添いシーン', 
     image_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/3-LwaXeLMhrX0tRybxr9K6c4i5CgAKR9.png',
     demo_video_url: 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/demo-files/trial/3-uDfuUyB0qisch3KEBCUVytFthsSd15.mp4',
     type: 'group',
-    credits_demo: 0 // 免费试用
+    credits_demo: 0 // 免費試用
   }
 ];
 
 // 为每个试用照片生成详细描述
 const trialPhotoDetails = {
     trial_1: {
-    title: '👋 女性挥手微笑',
-    subtitle: '自然友好的问候场景', 
-    features: ['✨ 温暖微笑', '👋 自然挥手', '🎬 高质量AI生成'],
-    generation_time: '约20秒',
+    title: '👋 女性手振り微笑み',
+    subtitle: '自然で友好的な挨拶シーン', 
+    features: ['✨ 温かい微笑み', '👋 自然な手振り', '🎬 高品質AI生成'],
+    generation_time: '約20秒',
     demo_type: 'wave_hello'
   },
   trial_2: {
-    title: '🤵 男性友好问候',
-    subtitle: '专业亲切的问候动作',
-    features: ['😊 亲切表情', '👋 友好手势', '🎬 专业效果'],
-    generation_time: '约20秒',
+    title: '🤵 男性友好挨拶',
+    subtitle: 'プロフェッショナルで親しみやすい挨拶動作',
+    features: ['😊 親しみやすい表情', '👋 友好的な手振り', '🎬 プロフェッショナルな効果'],
+    generation_time: '約20秒',
     demo_type: 'wave_hello'
   },
   trial_3: {
-    title: '💕 情侣温馨互动',
-    subtitle: '浪漫的寄り添い场景',
-    features: ['💕 温馨氛围', '🤗 亲密互动', '🎬 感人效果'], 
-    generation_time: '约20秒',
+    title: '💕 カップル温かい触れ合い',
+    subtitle: 'ロマンチックな寄り添いシーン',
+    features: ['💕 温かい雰囲気', '🤗 親密な触れ合い', '🎬 感動的な効果'], 
+    generation_time: '約20秒',
     demo_type: 'group_support'
   }
 };
 
-// 试用流程配置
+// 試用フロー設定
 const trialFlowConfig = {
-  welcome_delay: 2000, // welcome message后等待2秒
-  generation_simulation_time: 20000, // 模拟生成20秒（用户要求加快速度）
+  welcome_delay: 2000, // ウェルカムメッセージ後2秒待機
+  generation_simulation_time: 20000, // 生成を20秒シミュレート（ユーザーの要求で高速化）
   processing_updates: [
-    { time: 5000, message: '🎬 AI正在分析您选择的照片...' },
-    { time: 10000, message: '🎨 正在生成动态效果...' }, 
-    { time: 15000, message: '✨ 最终优化中，即将完成...' }
+    { time: 5000, message: '🎬 AIが選択された写真を分析中...' },
+    { time: 10000, message: '🎨 動的効果を生成中...' }, 
+    { time: 15000, message: '✨ 最終最適化中、まもなく完成...' }
   ]
 };
 

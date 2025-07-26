@@ -271,7 +271,7 @@ class MessageTemplates {
     const standardUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/8x26oG8437BI3uTcizcs805';
     return {
       type: 'flex',
-      altText: '💳 支払いプランを選択',
+      altText: '💳 お支払いプランを選択',
       contents: {
         type: 'carousel',
         contents: [
@@ -279,7 +279,7 @@ class MessageTemplates {
             type: 'bubble',
             hero: {
               type: 'image',
-              url: 'https://via.placeholder.com/400x200/FF6B9D/FFFFFF?text=Trial+Plan',
+              url: 'https://via.placeholder.com/400x200/FF6B9D/FFFFFF?text=お試しプラン',
               size: 'full',
               aspectRatio: '2:1',
               aspectMode: 'cover'
@@ -290,7 +290,7 @@ class MessageTemplates {
               contents: [
                 {
                   type: 'text',
-                  text: 'Trial Plan',
+                  text: 'お試しプラン',
                   weight: 'bold',
                   size: 'xl'
                 },
@@ -319,7 +319,7 @@ class MessageTemplates {
                   color: '#FF6B9D',
                   action: {
                     type: 'uri',
-                    label: '申し込む',
+                    label: 'お申し込み',
                     uri: trialUrl
                   }
                 }
@@ -330,7 +330,7 @@ class MessageTemplates {
             type: 'bubble',
             hero: {
               type: 'image',
-              url: 'https://via.placeholder.com/400x200/42C76A/FFFFFF?text=Standard+Plan',
+              url: 'https://via.placeholder.com/400x200/42C76A/FFFFFF?text=スタンダードプラン',
               size: 'full',
               aspectRatio: '2:1',
               aspectMode: 'cover'
@@ -341,7 +341,7 @@ class MessageTemplates {
               contents: [
                 {
                   type: 'text',
-                  text: 'Standard Plan',
+                  text: 'スタンダードプラン',
                   weight: 'bold',
                   size: 'xl'
                 },
@@ -370,7 +370,7 @@ class MessageTemplates {
                   color: '#42C76A',
                   action: {
                     type: 'uri',
-                    label: '申し込む',
+                    label: 'お申し込み',
                     uri: standardUrl
                   }
                 }
@@ -386,7 +386,7 @@ class MessageTemplates {
    * 创建订阅状态显示消息
    */
   static createSubscriptionStatusMessage(subscription) {
-    const planName = subscription.plan_type === 'trial' ? 'Trial Plan' : 'Standard Plan';
+    const planName = subscription.plan_type === 'trial' ? 'お試しプラン' : 'スタンダードプラン';
     const planPrice = subscription.plan_type === 'trial' ? '¥300/月' : '¥2,980/月';
     const monthlyQuota = subscription.monthly_video_quota;
     const used = subscription.videos_used_this_month || 0;
@@ -468,7 +468,7 @@ class MessageTemplates {
     
     return {
       type: 'flex',
-      altText: '⬆️ プラン升級',
+      altText: '⬆️ プランアップグレード',
       contents: {
         type: 'bubble',
         body: {
@@ -477,7 +477,7 @@ class MessageTemplates {
           contents: [
             {
               type: 'text',
-              text: '⬆️ プラン升級',
+              text: '⬆️ プランアップグレード',
               weight: 'bold',
               size: 'lg',
               color: '#333333'
@@ -493,7 +493,7 @@ class MessageTemplates {
               contents: [
                 {
                   type: 'text',
-                  text: '現在：Trial Plan (¥300/月)',
+                  text: '現在：お試しプラン (¥300/月)',
                   size: 'md',
                   color: '#FF6B9D',
                   weight: 'bold'
@@ -511,7 +511,7 @@ class MessageTemplates {
                 },
                 {
                   type: 'text',
-                  text: 'Standard Plan にアップグレードしませんか？',
+                  text: 'スタンダードプランにアップグレードしませんか？',
                   size: 'md',
                   color: '#333333',
                   margin: 'md'
@@ -763,7 +763,7 @@ class MessageTemplates {
       personalize: [
         {
           type: 'text',
-          text: '✏️ 個性化プロンプト設定\n\n動画のスタイルや雰囲気を自由に入力してください：\n\n例：\n・ゆっくりと微笑む\n・懐かしい雰囲気で\n・映画のようなドラマチックに'
+          text: '✏️ カスタマイズプロンプト設定\n\n動画のスタイルや雰囲気を自由に入力してください：\n\n例：\n・ゆっくりと微笑む\n・懐かしい雰囲気で\n・映画のようなドラマチックに'
         }
       ]
     };
@@ -865,7 +865,7 @@ class MessageTemplates {
     const messages = {
       general: '❌ 申し訳ございません。エラーが発生しました。',
       image_upload: '❌ 画像のアップロードに失敗しました。再度お試しください。',
-      quota_check: '❌ 配額の確認に失敗しました。しばらくしてから再度お試しください。',
+      quota_check: '❌ 利用枠の確認に失敗しました。しばらくしてから再度お試しください。',
       video_generation: '❌ 動画生成処理中にエラーが発生しました。再度お試しください。',
       system: '❌ システムエラーが発生しました。管理者にお問い合わせください。'
     };
