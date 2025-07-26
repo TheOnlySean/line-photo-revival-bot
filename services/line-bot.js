@@ -11,6 +11,34 @@ class LineBot {
     // Rich Menu ID (将由脚本自动更新)
     this.mainRichMenuId = null;
     this.processingRichMenuId = null;
+    
+    // 自动初始化Rich Menu ID
+    this.initializeRichMenuIds();
+  }
+
+  // 自动获取现有Rich Menu ID
+  async initializeRichMenuIds() {
+    try {
+      const richMenus = await this.client.getRichMenuList();
+      
+      for (const menu of richMenus) {
+        if (menu.name === "写真復活 Main Menu (6 Buttons)") {
+          this.mainRichMenuId = menu.richMenuId;
+          console.log('✅ 找到主菜单ID:', this.mainRichMenuId);
+        } else if (menu.name === "写真復活 Processing Menu") {
+          this.processingRichMenuId = menu.richMenuId;
+          console.log('✅ 找到处理中菜单ID:', this.processingRichMenuId);
+        }
+      }
+      
+      if (this.mainRichMenuId && this.processingRichMenuId) {
+        console.log('🎉 Rich Menu ID初始化完成');
+      } else {
+        console.log('⚠️ 某些Rich Menu ID未找到，可能需要运行setup脚本');
+      }
+    } catch (error) {
+      console.error('❌ 初始化Rich Menu ID失败:', error.message);
+    }
   }
 
   // 设置Rich Menu（6按钮Full模式）
@@ -164,13 +192,24 @@ class LineBot {
   // 切换到生成中Rich Menu (静默模式)
   async switchToProcessingMenuSilent(userId) {
     try {
-      if (!this.processingRichMenuId || !userId) {
-        console.log('⚠️ 生成中Rich Menu未设置或用户ID缺失');
+      if (!userId) {
+        console.log('⚠️ 用户ID缺失');
+        return false;
+      }
+
+      // 如果ID为空，尝试重新初始化
+      if (!this.processingRichMenuId) {
+        console.log('🔄 Rich Menu ID为空，重新初始化...');
+        await this.initializeRichMenuIds();
+      }
+
+      if (!this.processingRichMenuId) {
+        console.log('⚠️ 生成中Rich Menu ID仍未找到');
         return false;
       }
 
       await this.client.linkRichMenuToUser(userId, this.processingRichMenuId);
-      console.log('🔄 已静默切换到生成中菜单');
+      console.log('🔄 已静默切换到生成中菜单:', this.processingRichMenuId);
       return true;
     } catch (error) {
       console.error('❌ 切换到生成中菜单失败:', error.message);
@@ -181,8 +220,19 @@ class LineBot {
   // 切换回主要Rich Menu
   async switchToMainMenu(userId) {
     try {
-      if (!userId || !this.mainRichMenuId) {
-        console.error('❌ 用户ID或主菜单ID缺失');
+      if (!userId) {
+        console.error('❌ 用户ID缺失');
+        return false;
+      }
+
+      // 如果ID为空，尝试重新初始化
+      if (!this.mainRichMenuId) {
+        console.log('🔄 主菜单ID为空，重新初始化...');
+        await this.initializeRichMenuIds();
+      }
+
+      if (!this.mainRichMenuId) {
+        console.error('❌ 主菜单ID仍未找到');
         return false;
       }
 
@@ -196,7 +246,7 @@ class LineBot {
       // 等待100ms后绑定主菜单
       await this.sleep(100);
       await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
-      console.log('✅ 已切换回主菜单');
+      console.log('✅ 已切换回主菜单:', this.mainRichMenuId);
       return true;
     } catch (error) {
       console.error('❌ 切换回主菜单失败:', error.message);
@@ -207,13 +257,19 @@ class LineBot {
   // 为新用户设置主要Rich Menu
   async ensureUserHasRichMenu(userId) {
     try {
+      // 如果ID为空，尝试重新初始化
       if (!this.mainRichMenuId) {
-        console.log('⚠️ 主要Rich Menu未设置');
+        console.log('🔄 主菜单ID为空，重新初始化...');
+        await this.initializeRichMenuIds();
+      }
+
+      if (!this.mainRichMenuId) {
+        console.log('⚠️  主要Rich Menu仍未找到');
         return false;
       }
 
       await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
-      console.log('✅ 已为新用户设置主菜单');
+      console.log('✅ 已为新用户设置主菜单:', this.mainRichMenuId);
       return true;
     } catch (error) {
       console.error('❌ 为用户设置Rich Menu失败:', error.message);

@@ -647,14 +647,15 @@ class MessageHandler {
 
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
-        text: '🎬 テスト動画を生成中...\n\n⏱️ 約10秒でお送りします！'
+        text: '🎬 テスト動画を生成中...\n\n⏱️ 約15秒でお送りします！'
       });
 
       // 切换到处理中菜单
       await this.lineBot.switchToProcessingMenuSilent(user.line_user_id);
+      console.log('✅ 已切换到处理中菜单，开始模拟生成...');
 
       // 使用 Promise 代替 setTimeout，确保在 serverless 环境中正常工作
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      await new Promise(resolve => setTimeout(resolve, 15000));
 
       try {
         // 发送真实的演示视频
