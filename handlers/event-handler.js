@@ -454,6 +454,16 @@ class EventHandler {
 
   async handleConfirmGenerate(event, user, data) {
     try {
+      // 先检查用户是否已有正在进行的任务
+      const pendingTasks = await this.videoService.db.getUserPendingTasks(user.line_user_id);
+      if (pendingTasks.length > 0) {
+        await this.lineAdapter.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '🎬 現在動画を生成中です。お待ちください...\n\n⏱️ 生成完了まで今しばらくお待ちください。複数の動画を同時に生成することはできません。'
+        });
+        return { success: false, error: 'User already has pending tasks' };
+      }
+
       // 從使用者狀態取出暫存資料
       let prompt = null;
       let imageUrl = null;
