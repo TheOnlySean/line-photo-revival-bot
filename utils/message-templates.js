@@ -264,10 +264,14 @@ class MessageTemplates {
     const trialUrl = process.env.STRIPE_TRIAL_URL || 'https://buy.stripe.com/5kQ9AS2JJ09gfdB96ncs804';
     const standardUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/8x26oG8437BI3uTcizcs805';
     
-    // 确保 VERCEL_URL 包含协议前缀
-    const baseUrl = process.env.VERCEL_URL 
-      ? (process.env.VERCEL_URL.startsWith('http') ? process.env.VERCEL_URL : `https://${process.env.VERCEL_URL}`)
-      : 'https://your-domain.vercel.app';
+    // 确保 VERCEL_URL 包含协议前缀，并处理 undefined 情况
+    let baseUrl = 'https://your-domain.vercel.app'; // 默认值
+    
+    if (process.env.VERCEL_URL && process.env.VERCEL_URL !== 'undefined') {
+      baseUrl = process.env.VERCEL_URL.startsWith('http') 
+        ? process.env.VERCEL_URL 
+        : `https://${process.env.VERCEL_URL}`;
+    }
     
     return {
       type: 'flex',

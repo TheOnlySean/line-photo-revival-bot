@@ -23,10 +23,14 @@ async function createStripeProducts() {
   try {
     console.log('🚀 開始創建Stripe產品和價格...');
     
-    // 确保 VERCEL_URL 包含协议前缀
-    const baseUrl = process.env.VERCEL_URL 
-      ? (process.env.VERCEL_URL.startsWith('http') ? process.env.VERCEL_URL : `https://${process.env.VERCEL_URL}`)
-      : 'https://your-domain.vercel.app';
+    // 确保 VERCEL_URL 包含协议前缀，并处理 undefined 情况
+    let baseUrl = 'https://your-domain.vercel.app'; // 默认值
+    
+    if (process.env.VERCEL_URL && process.env.VERCEL_URL !== 'undefined') {
+      baseUrl = process.env.VERCEL_URL.startsWith('http') 
+        ? process.env.VERCEL_URL 
+        : `https://${process.env.VERCEL_URL}`;
+    }
 
     // 1. 創建Trial產品
     console.log('📦 創建Trial產品...');

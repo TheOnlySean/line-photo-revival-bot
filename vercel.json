@@ -43,7 +43,7 @@
     },
     {
       "source": "/assets/(.*)",
-      "destination": "/assets/$1"
+      "destination": "/public/assets/$1"
     },
     {
       "source": "/payment/(.*)",
@@ -60,6 +60,17 @@
     {
       "source": "/logo-placeholder.svg",
       "destination": "/public/logo-placeholder.svg"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
+      ]
     }
   ]
 } 
