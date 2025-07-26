@@ -433,6 +433,28 @@ app.get('/action/share', async (req, res) => {
   }
 });
 
+// 新增：官网跳转路由
+app.get('/action/website', async (req, res) => {
+  try {
+    // 直接重定向到官网
+    res.redirect('https://angelsphoto.ai');
+  } catch (error) {
+    console.error('❌ Website跳转错误:', error);
+    res.status(500).send('ウェブサイトへの移動中にエラーが発生しました');
+  }
+});
+
+// 新增：分享好友路由
+app.get('/action/share-friend', async (req, res) => {
+  try {
+    const userId = req.query.userId || req.headers['x-line-userid'];
+    await handleShareFriendAction(userId, res);
+  } catch (error) {
+    console.error('❌ Share Friend动作处理错误:', error);
+    res.status(500).send('友達への共有中にエラーが発生しました');
+  }
+});
+
 // Rich Menu动作处理函数
 async function handleRichMenuAction(userId, action, res) {
   console.log('🎯 处理Rich Menu动作:', action, 'UserID:', userId);
@@ -560,6 +582,117 @@ async function handleRichMenuAction(userId, action, res) {
                 console.error('Error:', error);
                 document.getElementById('status').textContent = '⚠️ LINEに戻って操作を続けてください。';
             });
+        </script>
+    </body>
+    </html>
+  `;
+
+  res.send(html);
+}
+
+// 新增：分享好友处理函数
+async function handleShareFriendAction(userId, res) {
+  console.log('🎯 处理分享好友动作, UserID:', userId);
+  
+  // 创建分享页面
+  const html = `
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>友達にシェア</title>
+        <style>
+            body { 
+                font-family: 'Hiragino Sans', 'Hiragino Kaku Gothic ProN', sans-serif;
+                margin: 0; 
+                padding: 20px; 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                text-align: center;
+                min-height: 100vh;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+            }
+            .container { 
+                background: rgba(255,255,255,0.95); 
+                padding: 30px; 
+                border-radius: 15px; 
+                box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+                color: #333;
+                max-width: 400px;
+                width: 90%;
+            }
+            .icon { font-size: 3rem; margin-bottom: 20px; }
+            .title { font-size: 1.5rem; font-weight: bold; margin-bottom: 15px; }
+            .message { font-size: 1rem; line-height: 1.6; margin-bottom: 20px; }
+            .share-btn {
+                background: #06C755;
+                color: white;
+                padding: 15px 30px;
+                border: none;
+                border-radius: 8px;
+                font-size: 1.1rem;
+                margin: 10px;
+                cursor: pointer;
+                text-decoration: none;
+                display: inline-block;
+                width: 80%;
+            }
+            .back-btn {
+                background: #666;
+                color: white;
+                padding: 12px 24px;
+                border: none;
+                border-radius: 8px;
+                font-size: 1rem;
+                margin-top: 20px;
+                cursor: pointer;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <div class="icon">🎁</div>
+            <div class="title">友達にシェア</div>
+            <div class="message">
+                写真復活サービスを友達と一緒に楽しみませんか？<br>
+                下のボタンからLINEで簡単にシェアできます！
+            </div>
+            
+            <!-- LINE分享按钮 -->
+            <a href="javascript:void(0)" onclick="shareToLine()" class="share-btn">
+                📱 LINEで友達にシェア
+            </a>
+            
+            <button class="back-btn" onclick="window.close() || history.back()">戻る</button>
+        </div>
+        
+        <script>
+            function shareToLine() {
+                // 构建分享文本
+                const shareText = "📸✨ 写真復活サービス ✨📸\\n\\n古い写真を美しい動画に変身させる素晴らしいサービスを見つけました！\\n\\n🎬 手振り動画\\n👥 寄り添い動画\\n🎨 カスタマイズ動画\\n\\nぜひ一緒に試してみませんか？";
+                
+                // LINE分享URL - 使用LINE的URL scheme
+                const lineShareUrl = "https://line.me/R/msg/text/?" + encodeURIComponent(shareText + "\\n\\nhttps://angelsphoto.ai");
+                
+                // 尝试打开LINE分享
+                window.open(lineShareUrl, '_blank');
+                
+                // 如果是在LINE内置浏览器中，可以尝试关闭页面
+                setTimeout(() => {
+                    if (window.opener) {
+                        window.close();
+                    }
+                }, 1000);
+            }
+            
+            // 检测是否在LINE内置浏览器中
+            if (navigator.userAgent.includes('Line')) {
+                console.log('在LINE内置浏览器中');
+            }
         </script>
     </body>
     </html>

@@ -616,7 +616,7 @@ class MessageTemplates {
               action: {
                 type: 'uri',
                 label: '🌐 公式サイトへ',
-                uri: 'https://example.com/support'
+                uri: 'https://angelsphoto.ai'
               },
               style: 'primary',
               color: '#4A90E2'
@@ -631,6 +631,9 @@ class MessageTemplates {
    * 创建好友分享卡片
    */
   static createShareCard(channelId) {
+    // 构建分享文本
+    const shareText = "📸✨ 写真復活サービス ✨📸\n\n古い写真を美しい動画に変身させる素晴らしいサービスを見つけました！\n\n🎬 手振り動画\n👥 寄り添い動画\n🎨 カスタマイズ動画\n\nぜひ一緒に試してみませんか？\n\nhttps://angelsphoto.ai";
+    
     return {
       type: 'flex',
       altText: '👥 友達にシェア',
@@ -678,7 +681,7 @@ class MessageTemplates {
               action: {
                 type: 'uri',
                 label: '📱 友達に紹介する',
-                uri: `https://line.me/R/nv/recommendOA/@${channelId}`
+                uri: `https://line.me/R/msg/text/?${encodeURIComponent(shareText)}`
               },
               style: 'primary',
               color: '#8B5A96'
