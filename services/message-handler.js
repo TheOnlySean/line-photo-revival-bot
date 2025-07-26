@@ -115,17 +115,45 @@ class MessageHandler {
     try {
       console.log('✏️ 收到自定义prompt:', promptText);
 
-      // 保存prompt到用户状态
-      await this.db.setUserState(user.id, 'awaiting_photo', promptText);
+      // 立即發送確認消息
+      await this.client.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: `✅ プロンプトを設定しました：\n"${promptText}"\n\n📸 次に写真をアップロードしてください：`
+        },
+        {
+          type: 'text',
+          text: '📸 写真のアップロード方法を選択してください：',
+          quickReply: {
+            items: [
+              {
+                type: 'action',
+                action: {
+                  type: 'camera',
+                  label: '📷 カメラで撮影'
+                }
+              },
+              {
+                type: 'action',
+                action: {
+                  type: 'cameraRoll',
+                  label: '📁 アルバムから選択'
+                }
+              }
+            ]
+          }
+        }
+      ]);
 
-      // 发送确认消息和照片上传选项
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: `✅ プロンプトを設定しました：\n"${promptText}"\n\n📸 次に写真をアップロードしてください：`
+      // 異步保存prompt到用户状态
+      setImmediate(async () => {
+        try {
+          await this.db.setUserState(user.id, 'awaiting_photo', promptText);
+          console.log('✅ 自定義Prompt狀態設置成功');
+        } catch (error) {
+          console.error('❌ 設置自定義Prompt狀態失敗:', error);
+        }
       });
-
-      // 发送照片上传快速回复
-      await this.sendPhotoUploadOptions(event, user);
 
     } catch (error) {
       console.error('❌ 处理自定义prompt输入失败:', error);
@@ -190,11 +218,19 @@ class MessageHandler {
 
       console.log('✅ 图片上传成功:', imageUrl);
 
+      console.log('📊 用戶狀態:', { 
+        state: user.current_state, 
+        hasPrompt: !!user.current_prompt,
+        prompt: user.current_prompt 
+      });
+
       // 根据用户状态决定下一步
       if (user.current_state === 'awaiting_photo' && user.current_prompt) {
+        console.log('🚀 狀態和Prompt都存在，開始生成視频');
         // 用户已设置prompt，直接开始生成
         await this.startVideoGeneration(event, user, imageUrl, user.current_prompt);
       } else {
+        console.log('🎨 需要選擇Prompt，顯示選項');
         // 用户未设置prompt，显示prompt选项
         await this.showPromptOptions(event, user, imageUrl);
       }
@@ -404,11 +440,22 @@ class MessageHandler {
   // 处理个性化prompt postback
   async handlePersonalizePostback(event, user) {
     try {
-      await this.db.setUserState(user.id, 'awaiting_custom_prompt');
+      console.log('🎨 個性化按鈕被點擊');
       
+      // 立即回復并设置状态
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
         text: '✏️ **個性化プロンプト設定**\n\n動画のスタイルや雰囲気を自由に入力してください：\n\n例：\n・ゆっくりと微笑む\n・懐かしい雰囲気で\n・映画のようなドラマチックに'
+      });
+
+      // 異步設置狀態
+      setImmediate(async () => {
+        try {
+          await this.db.setUserState(user.id, 'awaiting_custom_prompt');
+          console.log('✅ 個性化狀態設置成功');
+        } catch (error) {
+          console.error('❌ 設置個性化狀態失敗:', error);
+        }
       });
 
     } catch (error) {
@@ -420,14 +467,47 @@ class MessageHandler {
   // 处理挥手视频postback
   async handleWaveVideoPostback(event, user) {
     try {
-      await this.db.setUserState(user.id, 'awaiting_photo', 'gentle waving hand motion');
-      
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '👋 **手振り動画生成**\n\n写真の人物が自然に手を振る動画を作成します。\n\n📸 写真をアップロードしてください：'
-      });
+      console.log('👋 手振り按鈕被點擊');
 
-      await this.sendPhotoUploadOptions(event, user);
+      // 立即回復用戶
+      await this.client.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: '👋 **手振り動画生成**\n\n写真の人物が自然に手を振る動画を作成します。\n\n📸 写真をアップロードしてください：'
+        },
+        {
+          type: 'text',
+          text: '📸 写真のアップロード方法を選択してください：',
+          quickReply: {
+            items: [
+              {
+                type: 'action',
+                action: {
+                  type: 'camera',
+                  label: '📷 カメラで撮影'
+                }
+              },
+              {
+                type: 'action',
+                action: {
+                  type: 'cameraRoll',
+                  label: '📁 アルバムから選択'
+                }
+              }
+            ]
+          }
+        }
+      ]);
+
+      // 異步設置狀態
+      setImmediate(async () => {
+        try {
+          await this.db.setUserState(user.id, 'awaiting_photo', 'gentle waving hand motion');
+          console.log('✅ 手振り狀態設置成功');
+        } catch (error) {
+          console.error('❌ 設置手振り狀態失敗:', error);
+        }
+      });
 
     } catch (error) {
       console.error('❌ 处理挥手视频postback失败:', error);
@@ -438,14 +518,47 @@ class MessageHandler {
   // 处理群组视频postback
   async handleGroupVideoPostback(event, user) {
     try {
-      await this.db.setUserState(user.id, 'awaiting_photo', 'warm family gathering with gentle smiles');
-      
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: '👨‍👩‍👧‍👦 **寄り添い動画生成**\n\n家族や友人との温かい瞬間を動画にします。\n\n📸 写真をアップロードしてください：'
-      });
+      console.log('👨‍👩‍👧‍👦 寄り添い按鈕被點擊');
 
-      await this.sendPhotoUploadOptions(event, user);
+      // 立即回復用戶
+      await this.client.replyMessage(event.replyToken, [
+        {
+          type: 'text',
+          text: '👨‍👩‍👧‍👦 **寄り添い動画生成**\n\n家族や友人との温かい瞬間を動画にします。\n\n📸 写真をアップロードしてください：'
+        },
+        {
+          type: 'text',
+          text: '📸 写真のアップロード方法を選択してください：',
+          quickReply: {
+            items: [
+              {
+                type: 'action',
+                action: {
+                  type: 'camera',
+                  label: '📷 カメラで撮影'
+                }
+              },
+              {
+                type: 'action',
+                action: {
+                  type: 'cameraRoll',
+                  label: '📁 アルバムから選択'
+                }
+              }
+            ]
+          }
+        }
+      ]);
+
+      // 異步設置狀態
+      setImmediate(async () => {
+        try {
+          await this.db.setUserState(user.id, 'awaiting_photo', 'warm family gathering with gentle smiles');
+          console.log('✅ 寄り添い狀態設置成功');
+        } catch (error) {
+          console.error('❌ 設置寄り添い狀態失敗:', error);
+        }
+      });
 
     } catch (error) {
       console.error('❌ 处理群组视频postback失败:', error);
