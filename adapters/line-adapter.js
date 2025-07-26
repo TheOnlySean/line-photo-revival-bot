@@ -1,5 +1,13 @@
 const { Client } = require('@line/bot-sdk');
 const lineConfig = require('../config/line-config');
+// 直接從本地配置文件讀取 Rich Menu ID，避免每次呼叫 listRichMenu
+const richMenuIds = require('../config/richmenu-ids.json');
+
+// 全局 Line Client，可在 Vercel container 重用，減少冷啟開銷
+const globalLineClient = global._cachedLineClient || new Client({
+  channelAccessToken: lineConfig.channelAccessToken
+});
+global._cachedLineClient = globalLineClient;
 
 /**
  * LINE Adapter - 封装所有与LINE Messaging API的交互
@@ -7,16 +15,15 @@ const lineConfig = require('../config/line-config');
  */
 class LineAdapter {
   constructor() {
-    this.client = new Client({
-      channelAccessToken: lineConfig.channelAccessToken
-    });
-    
-    // Rich Menu状态
-    this.mainRichMenuId = null;
-    this.processingRichMenuId = null;
-    
-    // Rich Menu ID初始化标志
-    this.richMenuInitialized = false;
+    // 使用全局 client
+    this.client = globalLineClient;
+
+    // 直接設置 Rich Menu ID
+    this.mainRichMenuId = richMenuIds.mainRichMenuId;
+    this.processingRichMenuId = richMenuIds.processingRichMenuId;
+
+    // 已初始化
+    this.richMenuInitialized = true;
   }
 
   /**
@@ -99,29 +106,10 @@ class LineAdapter {
    * Rich Menu管理
    */
   async initializeRichMenuIds() {
-    try {
-      if (this.richMenuInitialized) {
-        return; // 已经初始化过了
-      }
-
-      console.log('🎨 初始化Rich Menu IDs...');
-      const richMenus = await this.client.getRichMenuList();
-      
-      for (const menu of richMenus) {
-        if (menu.name === "写真復活 Main Menu (6 Buttons)") {
-          this.mainRichMenuId = menu.richMenuId;
-          console.log('✅ 主菜单ID:', this.mainRichMenuId);
-        } else if (menu.name === "写真復活 Processing Menu") {
-          this.processingRichMenuId = menu.richMenuId;
-          console.log('✅ 处理菜单ID:', this.processingRichMenuId);
-        }
-      }
-      
-      this.richMenuInitialized = true;
-      console.log('✅ Rich Menu初始化完成');
-    } catch (error) {
-      console.error('❌ 初始化Rich Menu ID失败:', error);
-    }
+    // 由於 ID 已經固定，這裡僅做一次日誌輸出
+    if (this.richMenuInitialized) return;
+    console.log('🎨 Rich Menu ID 已透過配置文件載入');
+    this.richMenuInitialized = true;
   }
 
   async switchToMainMenu(userId) {
