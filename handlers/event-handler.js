@@ -380,31 +380,10 @@ class EventHandler {
   async handlePersonalizeAction(event, user) {
     const messages = MessageTemplates.createActionSelectionMessages('personalize');
     
-    // 添加Quick Reply选项
-    messages[0].quickReply = {
-      items: [
-        {
-          type: 'action',
-          action: {
-            type: 'postback',
-            label: '🎲 ランダムプロンプト',
-            data: 'action=RANDOM_PROMPT'
-          }
-        },
-        {
-          type: 'action',
-          action: {
-            type: 'postback',
-            label: '✏️ 自分で入力する',
-            data: 'action=INPUT_CUSTOM_PROMPT',
-            inputOption: 'openKeyboard',
-            fillInText: ''
-          }
-        }
-      ]
-    };
-
-    await this.lineAdapter.replyMessage(event.replyToken, messages);
+    // 使用Flex Message替代Quick Reply以支持inputOption功能
+    const promptSelectionCard = MessageTemplates.createPersonalizePromptSelection();
+    
+    await this.lineAdapter.replyMessage(event.replyToken, [messages[0], promptSelectionCard]);
     await this.userService.setUserState(user.id, 'awaiting_custom_prompt_selection');
     
     return { success: true };

@@ -846,6 +846,71 @@ class MessageTemplates {
       text: text
     };
   }
+
+  static createPersonalizePromptSelection() {
+    return {
+      type: 'flex',
+      altText: '✏️ プロンプト設定方法を選択してください',
+      contents: {
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '✏️ プロンプト設定方法を選択してください',
+              weight: 'bold',
+              size: 'lg',
+              color: '#333333',
+              align: 'center'
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            },
+            {
+              type: 'text',
+              text: '動画のスタイルや雰囲気を設定する方法を選択してください：',
+              size: 'sm',
+              color: '#666666',
+              wrap: true,
+              margin: 'md'
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: {
+                type: 'postback',
+                label: '🎲 ランダムプロンプト',
+                data: 'action=RANDOM_PROMPT'
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: {
+                type: 'postback',
+                label: '✏️ 自分で入力する',
+                data: 'action=INPUT_CUSTOM_PROMPT',
+                inputOption: 'openKeyboard',
+                fillInText: ''
+              }
+            }
+          ]
+        }
+      }
+    };
+  }
 }
 
 module.exports = MessageTemplates; 
