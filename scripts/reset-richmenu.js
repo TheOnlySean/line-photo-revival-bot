@@ -18,28 +18,28 @@ const mainRichMenu = {
     // 第一行
     {
       bounds: { x: 0, y: 0, width: 833, height: 843 },
-      action: { type: "postback", data: "action=WAVE_VIDEO", displayText: "" }
+      action: { type: "postback", data: "action=WAVE_VIDEO" }
     },
     {
       bounds: { x: 833, y: 0, width: 833, height: 843 },
-      action: { type: "postback", data: "action=GROUP_VIDEO", displayText: "" }
+      action: { type: "postback", data: "action=GROUP_VIDEO" }
     },
     {
       bounds: { x: 1666, y: 0, width: 834, height: 843 },
-      action: { type: "postback", data: "action=PERSONALIZE", displayText: "" }
+      action: { type: "postback", data: "action=PERSONALIZE" }
     },
     // 第二行
     {
       bounds: { x: 0, y: 843, width: 833, height: 843 },
-      action: { type: "postback", data: "action=COUPON", displayText: "" }
+      action: { type: "postback", data: "action=COUPON" }
     },
     {
       bounds: { x: 833, y: 843, width: 833, height: 843 },
-      action: { type: "postback", data: "action=WEBSITE", displayText: "" }
+      action: { type: "postback", data: "action=WEBSITE" }
     },
     {
       bounds: { x: 1666, y: 843, width: 834, height: 843 },
-      action: { type: "postback", data: "action=SHARE", displayText: "" }
+      action: { type: "postback", data: "action=SHARE" }
     }
   ]
 };
