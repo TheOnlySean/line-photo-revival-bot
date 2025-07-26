@@ -28,10 +28,16 @@ export default async function handler(req, res) {
         'customer_balance'   // 客戶餘額（支持銀行轉帳）
       ],
       
+      // 啟用 Apple Pay 和 Google Pay（通過 card 類型自動支持）
+      payment_method_collection: 'always',
+      
       // 對日本用戶啟用更多支付方式
       payment_method_options: {
         konbini: {
           expires_after_days: 3 // 便利店支付3天內有效
+        },
+        card: {
+          request_three_d_secure: 'automatic' // 自動3D安全驗證
         }
       },
       
@@ -41,10 +47,15 @@ export default async function handler(req, res) {
             currency: plan.currency,
             product_data: {
               name: plan.nameJa,
-              description: `月間${plan.videoCount}本の動画生成が可能`,
+              description: `月間${plan.videoCount}本の動画生成 - AI写真復活サービス`,
               images: [
-                `${baseUrl}/assets/richmenu-main.png` // 使用現有的圖片作為產品圖
-              ]
+                `${baseUrl}/logo-placeholder.svg` // 使用品牌Logo作為產品圖
+              ],
+              metadata: {
+                features: plan.videoCount === 8 ? 
+                  'AI写真復活機能,高品質動画出力,モバイル対応,サポート対応' :
+                  'AI写真復活機能,高品質動画出力,モバイル対応,カスタムプロンプト,優先処理,優先サポート'
+              }
             },
             recurring: {
               interval: plan.interval
@@ -76,10 +87,12 @@ export default async function handler(req, res) {
       
       // 設置訂閱選項
       subscription_data: {
+        description: `写真復活 - ${plan.nameJa}`,
         metadata: {
           userId: userId || 'anonymous',
           planType: planType,
-          videoCount: plan.videoCount.toString()
+          videoCount: plan.videoCount.toString(),
+          service: '写真復活 AI動画生成サービス'
         }
       },
       
@@ -87,7 +100,36 @@ export default async function handler(req, res) {
       locale: 'ja', // 日語界面
       
       // 允許促銷代碼
-      allow_promotion_codes: true
+      allow_promotion_codes: true,
+      
+      // 客戶信息收集
+      customer_update: {
+        address: 'auto',
+        name: 'auto'
+      },
+      
+      // 發票設置
+      invoice_creation: {
+        enabled: true,
+        invoice_data: {
+          description: `写真復活 ${plan.nameJa} - 月間${plan.videoCount}本の動画生成`,
+          metadata: {
+            service: '写真復活サービス',
+            plan: plan.nameJa
+          },
+          footer: 'ご利用いただき、ありがとうございます。'
+        }
+      },
+      
+      // 支付方法配置
+      payment_method_configuration: undefined, // 使用默認配置
+      
+      // 品牌和自定義
+      custom_text: {
+        submit: {
+          message: '安全な決済でお支払いを完了'
+        }
+      }
     });
 
     // 記錄支付會話創建
