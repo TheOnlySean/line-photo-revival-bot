@@ -902,10 +902,7 @@ class MessageTemplates {
                 type: 'postback',
                 label: '✏️ 自分で入力する',
                 data: 'action=INPUT_CUSTOM_PROMPT',
-                inputOption: {
-                  type: 'openKeyboard',
-                  label: '✏️ プロンプトを入力してください'
-                }
+                inputOption: 'openKeyboard'
               }
             }
           ]
