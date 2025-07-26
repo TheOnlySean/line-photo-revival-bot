@@ -76,19 +76,12 @@ class MessageTemplates {
   /**
    * 创建视频生成确认卡片
    */
-  static createGenerationConfirmCard(imageUrl, prompt) {
+  static createGenerationConfirmCard(imageUrl, prompt, quotaInfo = null) {
     return {
       type: 'flex',
       altText: '🎬 動画生成確認',
       contents: {
         type: 'bubble',
-        hero: {
-          type: 'image',
-          url: imageUrl,
-          size: 'full',
-          aspectRatio: '1:1',
-          aspectMode: 'cover'
-        },
         body: {
           type: 'box',
           layout: 'vertical',
@@ -104,10 +97,36 @@ class MessageTemplates {
               type: 'separator',
               margin: 'md'
             },
-            {
+            // 配額信息
+            ...(quotaInfo ? [{
               type: 'box',
               layout: 'vertical',
               margin: 'md',
+              contents: [
+                {
+                  type: 'text',
+                  text: '📊 今月の残り動画数:',
+                  size: 'sm',
+                  color: '#666666',
+                  weight: 'bold'
+                },
+                {
+                  type: 'text',
+                  text: `${quotaInfo.remaining}/${quotaInfo.total} 本`,
+                  size: 'md',
+                  color: quotaInfo.remaining > 5 ? '#42C76A' : '#FF6B6B',
+                  weight: 'bold',
+                  margin: 'xs'
+                }
+              ]
+            }, {
+              type: 'separator',
+              margin: 'md'
+            }] : []),
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: quotaInfo ? 'sm' : 'md',
               contents: [
                 {
                   type: 'text',
@@ -233,13 +252,10 @@ class MessageTemplates {
             type: 'bubble',
             hero: {
               type: 'image',
-              url: 'https://placehold.co/600x400?text=Trial',
+              url: 'https://via.placeholder.com/400x200/FF6B9D/FFFFFF?text=Trial+Plan',
               size: 'full',
-              aspectMode: 'cover',
-              action: {
-                type: 'uri',
-                uri: trialUrl
-              }
+              aspectRatio: '2:1',
+              aspectMode: 'cover'
             },
             body: {
               type: 'box',
@@ -247,17 +263,22 @@ class MessageTemplates {
               contents: [
                 {
                   type: 'text',
-                  text: '🎯 Trial Plan',
+                  text: 'Trial Plan',
                   weight: 'bold',
-                  size: 'lg',
-                  color: '#FF6B9D'
+                  size: 'xl'
                 },
                 {
                   type: 'text',
-                  text: '¥300/月 (8 videos)',
+                  text: '¥300/月',
+                  size: 'lg',
+                  color: '#FF6B9D',
+                  weight: 'bold'
+                },
+                {
+                  type: 'text',
+                  text: '8本の動画生成',
                   size: 'sm',
-                  color: '#666666',
-                  margin: 'md'
+                  color: '#666666'
                 }
               ]
             },
@@ -282,13 +303,10 @@ class MessageTemplates {
             type: 'bubble',
             hero: {
               type: 'image',
-              url: 'https://placehold.co/600x400?text=Standard',
+              url: 'https://via.placeholder.com/400x200/42C76A/FFFFFF?text=Standard+Plan',
               size: 'full',
-              aspectMode: 'cover',
-              action: {
-                type: 'uri',
-                uri: standardUrl
-              }
+              aspectRatio: '2:1',
+              aspectMode: 'cover'
             },
             body: {
               type: 'box',
@@ -296,17 +314,22 @@ class MessageTemplates {
               contents: [
                 {
                   type: 'text',
-                  text: '⭐ Standard Plan',
+                  text: 'Standard Plan',
                   weight: 'bold',
-                  size: 'lg',
-                  color: '#42C76A'
+                  size: 'xl'
                 },
                 {
                   type: 'text',
-                  text: '¥2,980/月 (100 videos)',
+                  text: '¥2,980/月',
+                  size: 'lg',
+                  color: '#42C76A',
+                  weight: 'bold'
+                },
+                {
+                  type: 'text',
+                  text: '100本の動画生成',
                   size: 'sm',
-                  color: '#666666',
-                  margin: 'md'
+                  color: '#666666'
                 }
               ]
             },
@@ -328,6 +351,181 @@ class MessageTemplates {
             }
           }
         ]
+      }
+    };
+  }
+
+  /**
+   * 创建订阅状态显示消息
+   */
+  static createSubscriptionStatusMessage(subscription) {
+    const planName = subscription.plan_type === 'trial' ? 'Trial Plan' : 'Standard Plan';
+    const planPrice = subscription.plan_type === 'trial' ? '¥300/月' : '¥2,980/月';
+    const monthlyQuota = subscription.monthly_video_quota;
+    const used = subscription.videos_used_this_month || 0;
+    const remaining = monthlyQuota - used;
+    
+    return {
+      type: 'flex',
+      altText: '📋 サブスクリプション状態',
+      contents: {
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '📋 現在のプラン',
+              weight: 'bold',
+              size: 'lg',
+              color: '#333333'
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
+              contents: [
+                {
+                  type: 'text',
+                  text: planName,
+                  size: 'xl',
+                  weight: 'bold',
+                  color: subscription.plan_type === 'trial' ? '#FF6B9D' : '#42C76A'
+                },
+                {
+                  type: 'text',
+                  text: planPrice,
+                  size: 'md',
+                  color: '#666666',
+                  margin: 'xs'
+                },
+                {
+                  type: 'separator',
+                  margin: 'md'
+                },
+                {
+                  type: 'text',
+                  text: '📊 今月の利用状況:',
+                  size: 'sm',
+                  color: '#666666',
+                  weight: 'bold',
+                  margin: 'md'
+                },
+                {
+                  type: 'text',
+                  text: `残り ${remaining}/${monthlyQuota} 本`,
+                  size: 'lg',
+                  color: remaining > 5 ? '#42C76A' : '#FF6B6B',
+                  weight: 'bold',
+                  margin: 'xs'
+                }
+              ]
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * 创建升级提示卡片（Trial -> Standard）
+   */
+  static createUpgradePromptCard(subscription) {
+    const used = subscription.videos_used_this_month || 0;
+    const remaining = subscription.monthly_video_quota - used;
+    
+    return {
+      type: 'flex',
+      altText: '⬆️ プラン升級',
+      contents: {
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '⬆️ プラン升級',
+              weight: 'bold',
+              size: 'lg',
+              color: '#333333'
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              margin: 'md',
+              contents: [
+                {
+                  type: 'text',
+                  text: '現在：Trial Plan (¥300/月)',
+                  size: 'md',
+                  color: '#FF6B9D',
+                  weight: 'bold'
+                },
+                {
+                  type: 'text',
+                  text: `残り ${remaining}/8 本`,
+                  size: 'sm',
+                  color: '#666666',
+                  margin: 'xs'
+                },
+                {
+                  type: 'separator',
+                  margin: 'md'
+                },
+                {
+                  type: 'text',
+                  text: 'Standard Plan にアップグレードしませんか？',
+                  size: 'md',
+                  color: '#333333',
+                  margin: 'md'
+                },
+                {
+                  type: 'text',
+                  text: '• ¥2,980/月\n• 100本の動画生成\n• より多くの機能',
+                  size: 'sm',
+                  color: '#666666',
+                  margin: 'sm'
+                }
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#42C76A',
+              action: {
+                type: 'postback',
+                label: '⬆️ Standard にアップグレード',
+                data: 'action=UPGRADE_TO_STANDARD'
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              action: {
+                type: 'postback',
+                label: 'キャンセル',
+                data: 'action=CANCEL_UPGRADE'
+              }
+            }
+          ]
+        }
       }
     };
   }

@@ -233,6 +233,10 @@ class EventHandler {
           const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
           await this.lineAdapter.replyMessage(event.replyToken, planCarousel);
           return { success: true };
+        case 'UPGRADE_TO_STANDARD':
+          return await this.handleUpgradeToStandard(event, user);
+        case 'CANCEL_UPGRADE':
+          return await this.handleCancelUpgrade(event, user);
         case 'WEBSITE':
           return await this.handleWebsiteAction(event, user);
         case 'SHARE':
@@ -277,7 +281,10 @@ class EventHandler {
    */
   async showGenerationConfirmation(event, user, imageUrl, prompt) {
     try {
-      const confirmationCard = MessageTemplates.createGenerationConfirmCard(imageUrl, prompt);
+      // 獲取用戶配額信息
+      const quota = await this.videoService.checkVideoQuota(user.id);
+      
+      const confirmationCard = MessageTemplates.createGenerationConfirmCard(imageUrl, prompt, quota);
       await this.lineAdapter.replyMessage(event.replyToken, confirmationCard);
       // 將圖片與prompt暫存於用戶狀態，供確認按鈕後讀取
       await this.userService.setUserState(
@@ -510,10 +517,35 @@ class EventHandler {
   }
 
   async handleCouponAction(event, user) {
-    // 直接顯示訂閱計劃選項，就像配額不足時一樣
-    const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
-    await this.lineAdapter.replyMessage(event.replyToken, planCarousel);
-    return { success: true };
+    try {
+      // 檢查用戶訂閱狀態
+      const subscription = await this.userService.getUserSubscription(user.id);
+      
+      if (!subscription) {
+        // 沒有訂閱，顯示訂閱計劃選項
+        const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+        await this.lineAdapter.replyMessage(event.replyToken, planCarousel);
+      } else {
+        // 已有訂閱，顯示當前狀態
+        if (subscription.plan_type === 'standard') {
+          // Standard 用戶，僅顯示狀態
+          const statusMessage = MessageTemplates.createSubscriptionStatusMessage(subscription);
+          await this.lineAdapter.replyMessage(event.replyToken, statusMessage);
+        } else if (subscription.plan_type === 'trial') {
+          // Trial 用戶，詢問是否升級
+          const upgradeCard = MessageTemplates.createUpgradePromptCard(subscription);
+          await this.lineAdapter.replyMessage(event.replyToken, upgradeCard);
+        }
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('❌ 處理優惠券動作失敗:', error);
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createErrorMessage('system_error')
+      );
+      return { success: false, error: error.message };
+    }
   }
 
   async handleWebsiteAction(event, user) {
@@ -523,9 +555,77 @@ class EventHandler {
   }
 
   async handleShareAction(event, user) {
-    const shareCard = MessageTemplates.createShareCard(this.lineAdapter.channelId || 'your-channel-id');
+    const shareCard = MessageTemplates.createShareCard();
     await this.lineAdapter.replyMessage(event.replyToken, shareCard);
     return { success: true };
+  }
+
+  async handleUpgradeToStandard(event, user) {
+    try {
+      // 顯示 Standard Plan 訂閱選項
+      const standardUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/8x26oG8437BI3uTcizcs805';
+      
+      const upgradeMessage = {
+        type: 'flex',
+        altText: '⬆️ Standard Plan 升級',
+        contents: {
+          type: 'bubble',
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: '⬆️ Standard Plan',
+                weight: 'bold',
+                size: 'xl',
+                color: '#42C76A'
+              },
+              {
+                type: 'text',
+                text: '¥2,980/月で100本の動画生成',
+                size: 'md',
+                color: '#666666',
+                margin: 'md'
+              }
+            ]
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                color: '#42C76A',
+                action: {
+                  type: 'uri',
+                  label: '今すぐアップグレード',
+                  uri: standardUrl
+                }
+              }
+            ]
+          }
+        }
+      };
+      
+      await this.lineAdapter.replyMessage(event.replyToken, upgradeMessage);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ 處理升級失敗:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleCancelUpgrade(event, user) {
+    try {
+      const cancelMessage = MessageTemplates.createTextMessage('✅ アップグレードをキャンセルしました。\n\n現在のTrial Planを引き続きご利用ください。');
+      await this.lineAdapter.replyMessage(event.replyToken, cancelMessage);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ 處理取消升級失敗:', error);
+      return { success: false, error: error.message };
+    }
   }
 }
 
