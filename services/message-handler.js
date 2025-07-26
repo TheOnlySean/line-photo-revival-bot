@@ -113,9 +113,7 @@ class MessageHandler {
   // 处理自定义prompt输入
   async handleCustomPromptInput(event, user, promptText) {
     try {
-      console.log('✏️ 收到自定义prompt:', promptText);
-
-      // 立即發送確認消息
+      // 立即發送確認消息，無等待
       await this.client.replyMessage(event.replyToken, [
         {
           type: 'text',
@@ -145,14 +143,11 @@ class MessageHandler {
         }
       ]);
 
-      // 異步保存prompt到用户状态
-      setImmediate(async () => {
-        try {
-          await this.db.setUserState(user.id, 'awaiting_photo', promptText);
-          console.log('✅ 自定義Prompt狀態設置成功');
-        } catch (error) {
+      // 完全異步保存狀態
+      setImmediate(() => {
+        this.db.setUserState(user.id, 'awaiting_photo', promptText).catch(error => {
           console.error('❌ 設置自定義Prompt狀態失敗:', error);
-        }
+        });
       });
 
     } catch (error) {
@@ -224,11 +219,11 @@ class MessageHandler {
         prompt: user.current_prompt 
       });
 
-      // 根据用户状态决定下一步
+      // 根据用户状态决定下一步 - 顯示確認卡片而不是直接生成
       if (user.current_state === 'awaiting_photo' && user.current_prompt) {
-        console.log('🚀 狀態和Prompt都存在，開始生成視频');
-        // 用户已设置prompt，直接开始生成
-        await this.startVideoGeneration(event, user, imageUrl, user.current_prompt);
+        console.log('📋 顯示生成確認卡片');
+        // 显示确认卡片，让用户最终确认
+        await this.showGenerationConfirmation(event, user, imageUrl, user.current_prompt);
       } else {
         console.log('🎨 需要選擇Prompt，顯示選項');
         // 用户未设置prompt，显示prompt选项
@@ -423,6 +418,10 @@ class MessageHandler {
           await this.handleRichMenuCreditsAction(event, await getUser());
           break;
 
+        case 'confirm_generate':
+          await this.handleConfirmGenerate(event, await getUser(), data);
+          break;
+
         default:
           console.log('⚠️ 未知的postback action:', data.action);
           break;
@@ -440,22 +439,17 @@ class MessageHandler {
   // 处理个性化prompt postback
   async handlePersonalizePostback(event, user) {
     try {
-      console.log('🎨 個性化按鈕被點擊');
-      
-      // 立即回復并设置状态
+      // 立即回復，無需等待任何操作
       await this.client.replyMessage(event.replyToken, {
         type: 'text',
         text: '✏️ **個性化プロンプト設定**\n\n動画のスタイルや雰囲気を自由に入力してください：\n\n例：\n・ゆっくりと微笑む\n・懐かしい雰囲気で\n・映画のようなドラマチックに'
       });
 
-      // 異步設置狀態
-      setImmediate(async () => {
-        try {
-          await this.db.setUserState(user.id, 'awaiting_custom_prompt');
-          console.log('✅ 個性化狀態設置成功');
-        } catch (error) {
+      // 異步設置狀態，完全不阻塞響應
+      setImmediate(() => {
+        this.db.setUserState(user.id, 'awaiting_custom_prompt').catch(error => {
           console.error('❌ 設置個性化狀態失敗:', error);
-        }
+        });
       });
 
     } catch (error) {
@@ -467,9 +461,7 @@ class MessageHandler {
   // 处理挥手视频postback
   async handleWaveVideoPostback(event, user) {
     try {
-      console.log('👋 手振り按鈕被點擊');
-
-      // 立即回復用戶
+      // 立即回復用戶，無等待
       await this.client.replyMessage(event.replyToken, [
         {
           type: 'text',
@@ -499,14 +491,11 @@ class MessageHandler {
         }
       ]);
 
-      // 異步設置狀態
-      setImmediate(async () => {
-        try {
-          await this.db.setUserState(user.id, 'awaiting_photo', 'gentle waving hand motion');
-          console.log('✅ 手振り狀態設置成功');
-        } catch (error) {
+      // 完全異步設置狀態
+      setImmediate(() => {
+        this.db.setUserState(user.id, 'awaiting_photo', 'gentle waving hand motion').catch(error => {
           console.error('❌ 設置手振り狀態失敗:', error);
-        }
+        });
       });
 
     } catch (error) {
@@ -518,9 +507,7 @@ class MessageHandler {
   // 处理群组视频postback
   async handleGroupVideoPostback(event, user) {
     try {
-      console.log('👨‍👩‍👧‍👦 寄り添い按鈕被點擊');
-
-      // 立即回復用戶
+      // 立即回復用戶，無等待
       await this.client.replyMessage(event.replyToken, [
         {
           type: 'text',
@@ -550,19 +537,38 @@ class MessageHandler {
         }
       ]);
 
-      // 異步設置狀態
-      setImmediate(async () => {
-        try {
-          await this.db.setUserState(user.id, 'awaiting_photo', 'warm family gathering with gentle smiles');
-          console.log('✅ 寄り添い狀態設置成功');
-        } catch (error) {
+      // 完全異步設置狀態
+      setImmediate(() => {
+        this.db.setUserState(user.id, 'awaiting_photo', 'warm family gathering with gentle smiles').catch(error => {
           console.error('❌ 設置寄り添い狀態失敗:', error);
-        }
+        });
       });
 
     } catch (error) {
       console.error('❌ 处理群组视频postback失败:', error);
       throw error;
+    }
+  }
+
+  // 处理確認生成
+  async handleConfirmGenerate(event, user, data) {
+    try {
+      console.log('🎬 確認生成按鈕被點擊:', data);
+
+      const imageUrl = decodeURIComponent(data.image_url);
+      const prompt = decodeURIComponent(data.prompt);
+
+      console.log('🎬 開始視頻生成:', { imageUrl, prompt });
+
+      // 直接開始視頻生成
+      await this.startVideoGeneration(event, user, imageUrl, prompt);
+
+    } catch (error) {
+      console.error('❌ 处理确认生成失败:', error);
+      await this.client.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ 生成処理中にエラーが発生しました。再度お試しください。'
+      });
     }
   }
 
@@ -757,6 +763,162 @@ class MessageHandler {
 
     } catch (error) {
       console.error('❌ 处理自定义prompt输入失败:', error);
+      throw error;
+    }
+  }
+
+  // 显示生成確認卡片
+  async showGenerationConfirmation(event, user, imageUrl, prompt) {
+    try {
+      console.log('📋 創建確認卡片:', { imageUrl, prompt });
+
+      // 根據prompt判斷動作類型
+      let actionType = 'custom';
+      let actionInfo = {
+        title: 'パーソナライズ動画生成',
+        description: prompt,
+        icon: '🎨'
+      };
+
+      if (prompt.includes('gentle waving hand motion')) {
+        actionType = 'wave';
+        actionInfo = {
+          title: '手振り動画生成',
+          description: '自然な手振り動画',
+          icon: '👋'
+        };
+      } else if (prompt.includes('warm family gathering')) {
+        actionType = 'group';
+        actionInfo = {
+          title: '寄り添い動画生成', 
+          description: '温かい雰囲気の寄り添い動画',
+          icon: '🤝'
+        };
+      }
+
+      const confirmationCard = {
+        type: 'flex',
+        altText: `${actionInfo.title}確認`,
+        contents: {
+          type: 'bubble',
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            backgroundColor: '#FFFFFF',
+            cornerRadius: 'lg',
+            paddingAll: 'xl',
+            contents: [
+              {
+                type: 'text',
+                text: '📸 写真を受信しました！',
+                weight: 'bold',
+                size: 'lg',
+                color: '#333333',
+                wrap: true,
+                margin: 'none'
+              },
+              {
+                type: 'text',
+                text: '以下の内容で動画を生成しますか？',
+                size: 'md',
+                color: '#666666',
+                wrap: true,
+                margin: 'sm'
+              },
+              {
+                type: 'separator',
+                margin: 'lg'
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                margin: 'lg',
+                spacing: 'md',
+                contents: [
+                  {
+                    type: 'box',
+                    layout: 'baseline',
+                    spacing: 'sm',
+                    contents: [
+                      {
+                        type: 'text',
+                        text: '動画タイプ:',
+                        color: '#aaaaaa',
+                        size: 'sm',
+                        flex: 0,
+                        wrap: true
+                      },
+                      {
+                        type: 'text',
+                        text: `${actionInfo.icon} ${actionInfo.title}`,
+                        wrap: true,
+                        color: '#333333',
+                        size: 'sm',
+                        weight: 'bold',
+                        flex: 0,
+                        margin: 'sm'
+                      }
+                    ]
+                  },
+                  {
+                    type: 'box',
+                    layout: 'baseline',
+                    spacing: 'sm',
+                    contents: [
+                      {
+                        type: 'text',
+                        text: 'スタイル:',
+                        color: '#aaaaaa',
+                        size: 'sm',
+                        flex: 0
+                      },
+                      {
+                        type: 'text',
+                        text: actionInfo.description,
+                        wrap: true,
+                        color: '#666666',
+                        size: 'sm',
+                        flex: 0,
+                        margin: 'sm'
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                color: '#42C76A',
+                height: 'sm',
+                action: {
+                  type: 'postback',
+                  label: '🎬 動画を生成する',
+                  data: `action=confirm_generate&image_url=${encodeURIComponent(imageUrl)}&prompt=${encodeURIComponent(prompt)}`
+                }
+              }
+            ]
+          }
+        }
+      };
+
+      await this.client.replyMessage(event.replyToken, confirmationCard);
+      
+      // 異步清除用戶狀態
+      setImmediate(() => {
+        this.db.setUserState(user.id, 'idle').catch(error => {
+          console.error('❌ 清除用戶狀態失敗:', error);
+        });
+      });
+
+    } catch (error) {
+      console.error('❌ 显示确认卡片失败:', error);
       throw error;
     }
   }
