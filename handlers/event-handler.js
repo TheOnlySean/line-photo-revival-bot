@@ -279,9 +279,12 @@ class EventHandler {
     try {
       const confirmationCard = MessageTemplates.createGenerationConfirmCard(imageUrl, prompt);
       await this.lineAdapter.replyMessage(event.replyToken, confirmationCard);
-      
-      // 清除用户状态
-      await this.userService.clearUserState(user.id);
+      // 將圖片與prompt暫存於用戶狀態，供確認按鈕後讀取
+      await this.userService.setUserState(
+        user.id,
+        'awaiting_confirm',
+        JSON.stringify({ prompt, imageUrl })
+      );
       
       return { success: true };
     } catch (error) {
@@ -403,8 +406,21 @@ class EventHandler {
 
   async handleConfirmGenerate(event, user, data) {
     try {
-      const imageUrl = data.image_url;
-      const prompt = data.prompt;
+      // 從使用者狀態取出暫存資料
+      let prompt = null;
+      let imageUrl = null;
+      try {
+        const cached = JSON.parse(user.current_prompt || '{}');
+        prompt = cached.prompt;
+        imageUrl = cached.imageUrl;
+      } catch (_) {}
+
+      if (!prompt || !imageUrl) {
+        await this.lineAdapter.replyMessage(event.replyToken, 
+          MessageTemplates.createErrorMessage('video_generation')
+        );
+        return { success: false, error: 'Missing generation data' };
+      }
 
       // 验证参数
       const validation = this.videoService.validateVideoParams(imageUrl, prompt);
@@ -443,6 +459,9 @@ class EventHandler {
       await this.userService.logUserInteraction(user.line_user_id, user.id, 'video_generation_started', {
         imageUrl, prompt, videoRecordId: taskResult.videoRecordId
       });
+
+      // 清除用户状态
+      await this.userService.clearUserState(user.id);
 
       return { success: true };
     } catch (error) {

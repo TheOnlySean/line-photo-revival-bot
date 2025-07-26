@@ -141,7 +141,7 @@ class MessageTemplates {
               action: {
                 type: 'postback',
                 label: '🎬 動画を生成する',
-                data: `action=confirm_generate&image_url=${encodeURIComponent(imageUrl)}&prompt=${encodeURIComponent(prompt)}`
+                data: 'action=confirm_generate'
               }
             }
           ]
