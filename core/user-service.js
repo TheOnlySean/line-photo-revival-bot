@@ -24,7 +24,7 @@ class UserService {
    */
   async getUserWithState(lineUserId) {
     try {
-      return await this.db.getUserByLineId(lineUserId);
+      return await this.db.getUser(lineUserId);
     } catch (error) {
       console.error('❌ 获取用户状态失败:', error);
       throw error;
