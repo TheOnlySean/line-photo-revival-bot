@@ -69,10 +69,7 @@ module.exports = async (req, res) => {
           // 切換回主菜單
           try {
             const richMenuIds = require('../../config/richmenu-ids.json');
-            await lineClient.linkRichMenuToUser({
-              userId: lineUserId,
-              richMenuId: richMenuIds.mainRichMenuId
-            });
+            await lineClient.linkRichMenuToUser(lineUserId, richMenuIds.mainRichMenuId);
           } catch (menuError) {
             console.error('❌ 切換主菜單失敗:', menuError);
           }
@@ -95,10 +92,7 @@ module.exports = async (req, res) => {
           // 切換回主菜單
           try {
             const richMenuIds = require('../../config/richmenu-ids.json');
-            await lineClient.linkRichMenuToUser({
-              userId: lineUserId,
-              richMenuId: richMenuIds.mainRichMenuId
-            });
+            await lineClient.linkRichMenuToUser(lineUserId, richMenuIds.mainRichMenuId);
           } catch (menuError) {
             console.error('❌ 切換主菜單失敗:', menuError);
           }
