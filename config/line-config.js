@@ -19,9 +19,9 @@ const lineConfig = {
   kieAi: {
     apiKey: process.env.KIE_AI_API_KEY || '77b10ad6945bf20dc236bad15de1e6b3',
     baseUrl: 'https://api.kie.ai',
-    // 修正API端点路径
-    generateEndpoint: '/runway/generate',
-    detailEndpoint: '/runway/record-detail',
+    // 正确的API端点路径
+    generateEndpoint: '/api/v1/runway/generate',
+    detailEndpoint: '/api/v1/runway/record-detail',
     // Runway API支持的参数
     defaultParams: {
       aspectRatio: '1:1', // 方形视频，适合社交媒体

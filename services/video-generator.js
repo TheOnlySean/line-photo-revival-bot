@@ -67,7 +67,9 @@ class VideoGenerator {
         image_url: imageUrl,
         prompt: prompt,
         duration: 10,
-        model: 'runway-gen3'
+        model: 'runway-gen3',
+        quality: '720p',          // 修复：添加必需的quality参数
+        aspect_ratio: '1:1'       // 添加宽高比参数
       };
 
       const response = await axios.post(apiUrl, requestData, {
