@@ -66,7 +66,7 @@ class VideoGenerator {
       const requestData = {
         image_url: imageUrl,
         prompt: prompt,
-        duration: 10,
+        duration: 5,              // 修复：只能是5或8，使用5秒
         model: 'runway-gen3',
         quality: '720p',          // 修复：添加必需的quality参数
         aspect_ratio: '1:1'       // 添加宽高比参数
