@@ -396,9 +396,7 @@ class EventHandler {
           action: {
             type: 'postback',
             label: '✏️ 自分で入力する',
-            data: 'action=INPUT_CUSTOM_PROMPT',
-            inputOption: 'openKeyboard',
-            fillInText: ''
+            data: 'action=INPUT_CUSTOM_PROMPT'
           }
         }
       ]
