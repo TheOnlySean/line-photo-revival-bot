@@ -14,6 +14,9 @@
     },
     "api/payment/session-details.js": {
       "maxDuration": 30
+    },
+    "api/payment/create-direct-checkout.js": {
+      "maxDuration": 30
     }
   },
   "crons": [

@@ -2559,27 +2559,124 @@ class MessageHandler {
     }
   }
   
-  // 处理Rich Menu充值动作
+  // 处理Rich Menu充值动作 - 直接跳轉Stripe
   async handleRichMenuCreditsAction(event, user) {
     try {
-      console.log('💎 Rich Menu: 充值动作被点击');
+      console.log('💎 Rich Menu: 充值动作被点击 - 創建Stripe Pricing Table鏈接');
       
-      // 生成支付頁面 URL，包含用戶 ID
-      const baseUrl = process.env.VERCEL_URL 
-        ? `https://${process.env.VERCEL_URL}` 
-        : 'https://line-photo-revival-bot.vercel.app';
-      const paymentUrl = `${baseUrl}/payment.html?userId=${user.line_user_id}`;
+      // 創建 Stripe Pricing Table URL（用戶可以選擇多個計劃）
+      const stripeBaseUrl = 'https://buy.stripe.com';
       
-      // 直接發送帶有支付頁面鏈接的簡潔消息
-      await this.client.replyMessage(event.replyToken, {
-        type: 'text',
-        text: `💎 料金プランページを開いています...\n\n現在のポイント: ${user.credits}ポイント\n\n下記のリンクから料金プランをお選びください：\n${paymentUrl}`
-      });
+      // 發送包含兩個訂閱選項的消息
+      const paymentMessage = {
+        type: 'flex',
+        altText: '料金プラン選択 - 写真復活',
+        contents: {
+          type: 'bubble',
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: '💎 料金プラン選択',
+                weight: 'bold',
+                size: 'xl',
+                color: '#333333',
+                align: 'center'
+              },
+              {
+                type: 'text',
+                text: `現在のポイント: ${user.credits}ポイント`,
+                size: 'sm',
+                color: '#666666',
+                align: 'center',
+                margin: 'md'
+              },
+              {
+                type: 'separator',
+                margin: 'lg'
+              },
+              {
+                type: 'box',
+                layout: 'vertical',
+                margin: 'lg',
+                spacing: 'md',
+                contents: [
+                  {
+                    type: 'button',
+                    style: 'primary',
+                    action: {
+                      type: 'uri',
+                      label: '🎁 トライアルプラン - ¥300/月',
+                      uri: `https://line-photo-revival-bot.vercel.app/api/payment/create-direct-checkout?plan=trial&userId=${user.line_user_id}`
+                    },
+                    color: '#ff6b6b',
+                    height: 'md'
+                  },
+                  {
+                    type: 'text',
+                    text: '月間8本の動画生成（50%OFF！）',
+                    size: 'xs',
+                    color: '#999999',
+                    align: 'center'
+                  },
+                  {
+                    type: 'separator',
+                    margin: 'md'
+                  },
+                  {
+                    type: 'button',
+                    style: 'primary',
+                    action: {
+                      type: 'uri',
+                      label: '⭐ スタンダードプラン - ¥2,980/月',
+                      uri: `https://line-photo-revival-bot.vercel.app/api/payment/create-direct-checkout?plan=standard&userId=${user.line_user_id}`
+                    },
+                    color: '#667eea',
+                    height: 'md'
+                  },
+                  {
+                    type: 'text',
+                    text: '月間100本の動画生成（人気プラン）',
+                    size: 'xs',
+                    color: '#999999',
+                    align: 'center'
+                  }
+                ]
+              }
+            ]
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'text',
+                text: '💳 Apple Pay・クレジットカード・コンビニ払い対応',
+                size: 'xs',
+                color: '#999999',
+                align: 'center'
+              },
+              {
+                type: 'text',
+                text: 'Stripeの安全な決済ページに移動します',
+                size: 'xs',
+                color: '#999999',
+                align: 'center'
+              }
+            ]
+          }
+        }
+      };
+      
+      await this.client.replyMessage(event.replyToken, paymentMessage);
       
       // 记录交互
       await this.db.logInteraction(event.source.userId, user.id, 'rich_menu_credits_action', {
         currentCredits: user.credits,
-        paymentUrl: paymentUrl,
+        action: 'stripe_direct_checkout',
         timestamp: new Date().toISOString()
       });
       
