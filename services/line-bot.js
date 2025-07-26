@@ -1742,7 +1742,7 @@ class LineBot {
   async uploadRichMenuImage(richMenuId, imageType) {
     try {
       // 确定图片文件路径
-      const imageFileName = imageType === 'main' ? 'richmenu-main.png' : 'richmenu-processing.png';
+      const imageFileName = imageType === 'main' ? 'richmenu-main-test.png' : 'richmenu-processing-test.png';
       const imagePath = path.join(__dirname, '..', 'assets', imageFileName);
       
       console.log('📤 尝试上传图片:', imagePath);
@@ -1858,8 +1858,8 @@ class LineBot {
     const path = require('path');
     
     const images = [
-      { name: 'main', path: path.join(__dirname, '../assets/richmenu-main.png'), maxSize: 1024 * 1024 },
-      { name: 'processing', path: path.join(__dirname, '../assets/richmenu-processing.png'), maxSize: 1024 * 1024 }
+      { name: 'main', path: path.join(__dirname, '../assets/richmenu-main-test.png'), maxSize: 1024 * 1024 },
+      { name: 'processing', path: path.join(__dirname, '../assets/richmenu-processing-test.png'), maxSize: 1024 * 1024 }
     ];
     
     for (const image of images) {
@@ -2116,8 +2116,8 @@ class LineBot {
   // 检查必需的图片文件
   checkRequiredImages() {
     const requiredImages = [
-      { type: 'main', file: 'richmenu-main.png' },
-      { type: 'processing', file: 'richmenu-processing.png' }
+      { type: 'main', file: 'richmenu-main-test.png' },
+      { type: 'processing', file: 'richmenu-processing-test.png' }
     ];
     
     const results = [];
