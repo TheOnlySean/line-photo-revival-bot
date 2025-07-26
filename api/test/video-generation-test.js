@@ -1,15 +1,14 @@
 const db = require('../../config/database');
 const VideoGenerator = require('../../services/video-generator');
+const lineConfig = require('../../config/line-config');
 
 module.exports = async (req, res) => {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  try {
+    try {
     console.log('🧪 开始视频生成诊断测试...');
-    
-    const videoGenerator = new VideoGenerator(db);
     
     // 测试数据
     const testData = {
@@ -20,7 +19,7 @@ module.exports = async (req, res) => {
     console.log('📋 测试数据:', testData);
     
     // 1. 测试KIE.ai配置
-    const kieConfig = videoGenerator.kieAiConfig;
+    const kieConfig = lineConfig.kieAi;
     const diagnostics = {
       timestamp: new Date().toISOString(),
       kieAi: {
@@ -45,31 +44,50 @@ module.exports = async (req, res) => {
       };
     }
     
-    // 3. 模拟API调用测试
+    // 3. 测试VideoGenerator类创建
     try {
-      console.log('🔗 测试KIE.ai API调用...');
-      
-      const apiTestResult = await videoGenerator.callRunwayApi(
-        testData.testImageUrl, 
-        testData.testPrompt
-      );
-      
-      diagnostics.apiTest = {
-        success: apiTestResult.success,
-        hasTaskId: !!apiTestResult.taskId,
-        hasVideoUrl: !!apiTestResult.videoUrl,
-        error: apiTestResult.error || null,
-        message: apiTestResult.message || null
+      const videoGenerator = new VideoGenerator(db);
+      diagnostics.videoGenerator = {
+        created: true,
+        hasKieConfig: !!videoGenerator.kieAiConfig
       };
       
-      console.log('📊 API测试结果:', diagnostics.apiTest);
+      // 4. 模拟API调用测试
+      try {
+        console.log('🔗 测试KIE.ai API调用...');
+        
+        const apiTestResult = await videoGenerator.callRunwayApi(
+          testData.testImageUrl, 
+          testData.testPrompt
+        );
+        
+        diagnostics.apiTest = {
+          success: apiTestResult.success,
+          hasTaskId: !!apiTestResult.taskId,
+          hasVideoUrl: !!apiTestResult.videoUrl,
+          error: apiTestResult.error || null,
+          message: apiTestResult.message || null
+        };
+        
+        console.log('📊 API测试结果:', diagnostics.apiTest);
+        
+      } catch (apiError) {
+        diagnostics.apiTest = {
+          success: false,
+          error: 'API调用异常: ' + apiError.message
+        };
+      }
       
-    } catch (apiError) {
+    } catch (vgError) {
+      diagnostics.videoGenerator = {
+        created: false,
+        error: vgError.message
+      };
       diagnostics.apiTest = {
         success: false,
-        error: 'API调用异常: ' + apiError.message
+        error: 'VideoGenerator创建失败，无法测试API'
       };
-         }
+    }
      
      res.status(200).json({
       success: true,
