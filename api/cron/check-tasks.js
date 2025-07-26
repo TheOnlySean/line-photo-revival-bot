@@ -41,8 +41,65 @@ module.exports = async (req, res) => {
       return;
     }
 
-    // 初始化 VideoGenerator（不需要消息回調）
-    const videoGenerator = new VideoGenerator(db, null);
+    // 創建LINE客戶端用於發送消息
+    const lineClient = new line.messagingApi.MessagingApiClient({
+      channelAccessToken: lineConfig.channelAccessToken
+    });
+    
+    // 創建消息回調函數
+    const messageCallback = async (eventType, data) => {
+      if (eventType === 'video_completed') {
+        const { lineUserId, videoUrl, thumbnailUrl } = data;
+        try {
+          // 發送視頻完成消息
+          const message = {
+            type: 'video',
+            originalContentUrl: videoUrl,
+            previewImageUrl: thumbnailUrl || videoUrl
+          };
+          
+          await lineClient.pushMessage({
+            to: lineUserId,
+            messages: [
+              { type: 'text', text: '✅ 動画生成が完了しました！' },
+              message
+            ]
+          });
+          
+          // 切換回主菜單
+          try {
+            const richMenuIds = require('../../config/richmenu-ids.json');
+            await lineClient.linkRichMenuToUser({
+              userId: lineUserId,
+              richMenuId: richMenuIds.mainRichMenuId
+            });
+          } catch (menuError) {
+            console.error('❌ 切換主菜單失敗:', menuError);
+          }
+          
+          console.log('✅ 自動發送視頻完成通知成功');
+        } catch (error) {
+          console.error('❌ 自動發送視頻完成通知失敗:', error);
+        }
+      } else if (eventType === 'video_failed') {
+        const { lineUserId, errorMessage } = data;
+        try {
+          await lineClient.pushMessage({
+            to: lineUserId,
+            messages: [{
+              type: 'text',
+              text: `❌ 動画生成に失敗しました：${errorMessage || '再度お試しください'}`
+            }]
+          });
+          
+          console.log('✅ 自動發送視頻失敗通知成功');
+        } catch (error) {
+          console.error('❌ 自動發送視頻失敗通知失敗:', error);
+        }
+      }
+    };
+    
+    const videoGenerator = new VideoGenerator(db, messageCallback);
 
     let processedUsers = 0;
     let successCount = 0;
