@@ -351,34 +351,40 @@ class MessageHandler {
       const userId = event.source.userId;
       const data = this.parsePostbackData(event.postback.data);
       
-      console.log(`📫 收到postback: ${JSON.stringify(data)} 来自用户: ${userId}`);
+      console.log(`📫 Postback: ${data.action} - ${userId}`);
 
-      // 确保用户存在
-      const user = await this.db.ensureUserExists(userId);
+      // 優化：延後用戶創建到實際需要時
+      let user = null;
+      const getUser = async () => {
+        if (!user) {
+          user = await this.db.ensureUserExists(userId);
+        }
+        return user;
+      };
       
       switch (data.action) {
         case 'INPUT_CUSTOM_PROMPT':
-          await this.handleInputCustomPromptPostback(event, user, data);
+          await this.handleInputCustomPromptPostback(event, await getUser(), data);
           break;
           
         case 'RANDOM_PROMPT':
-          await this.handleRandomPromptPostback(event, user, data);
+          await this.handleRandomPromptPostback(event, await getUser(), data);
           break;
 
         case 'PERSONALIZE':
-          await this.handlePersonalizePostback(event, user);
+          await this.handlePersonalizePostback(event, await getUser());
           break;
 
         case 'WAVE_VIDEO':
-          await this.handleWaveVideoPostback(event, user);
+          await this.handleWaveVideoPostback(event, await getUser());
           break;
 
         case 'GROUP_VIDEO':
-          await this.handleGroupVideoPostback(event, user);
+          await this.handleGroupVideoPostback(event, await getUser());
           break;
 
         case 'CREDITS':
-          await this.handleRichMenuCreditsAction(event, user);
+          await this.handleRichMenuCreditsAction(event, await getUser());
           break;
 
         default:
@@ -664,8 +670,14 @@ class MessageHandler {
     }
   }
 
-  // 解析postback数据
+  // 簡化的postback數據解析
   parsePostbackData(data) {
+    // 如果是簡單的action=VALUE格式，直接解析
+    if (data.startsWith('action=') && !data.includes('&')) {
+      return { action: data.substring(7) };
+    }
+    
+    // 否則使用URLSearchParams解析
     try {
       const params = new URLSearchParams(data);
       const result = {};
@@ -674,8 +686,7 @@ class MessageHandler {
       }
       return result;
     } catch (error) {
-      console.error('❌ 解析postback数据失败:', error);
-      return { action: data }; // 回退到简单格式
+      return { action: data };
     }
   }
 

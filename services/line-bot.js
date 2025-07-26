@@ -52,7 +52,7 @@ class LineBot {
             action: {
               type: "postback",
               label: "手振り動画生成",
-              data: "action=wave&mode=video_generation"
+              data: "action=WAVE_VIDEO"
             }
           },
           // 第一行：中 (833-1666)  
@@ -66,7 +66,7 @@ class LineBot {
             action: {
               type: "postback",
               label: "寄り添い動画生成",
-              data: "action=group&mode=video_generation"
+              data: "action=GROUP_VIDEO"
             }
           },
           // 第一行：右 (1666-2500)
@@ -80,7 +80,7 @@ class LineBot {
             action: {
               type: "postback",
               label: "パーソナライズ動画生成",
-              data: "action=custom&mode=video_generation"
+              data: "action=PERSONALIZE"
             }
           },
           // 第二行：左 (0-833)
@@ -94,7 +94,7 @@ class LineBot {
             action: {
               type: "postback",
               label: "ポイント購入",
-              data: "action=credits&mode=purchase"
+              data: "action=CREDITS"
             }
           },
           // 第二行：中 (833-1666)
@@ -1978,9 +1978,9 @@ class LineBot {
       await this.client.setDefaultRichMenu(mainRichMenuId);
       console.log('✅ 主菜单已设为默认');
       
-      // 第2步：等待Rich Menu稳定
-      console.log('⏳ 步骤2: 等待Rich Menu稳定...');
-      await this.sleep(5000); // 等待5秒让LINE服务器稳定处理
+      // 第2步：快速等待
+      console.log('⏳ 步骤2: 快速等待...');
+      await this.sleep(1000); // 減少等待時間到1秒
       
       // 第3步：验证Rich Menu仍然存在
       console.log('🔍 步骤3: 验证Rich Menu状态...');
@@ -1997,23 +1997,18 @@ class LineBot {
       this.mainRichMenuId = mainRichMenuId;
       this.processingRichMenuId = processingRichMenuId;
       
-      // 第5步：上传图片（现在Rich Menu应该是稳定的）
+      // 第5步：簡化圖片上傳
       console.log('📤 步骤5: 上传Rich Menu图片...');
       
-      const uploadResults = await Promise.allSettled([
-        this.uploadRichMenuImageWithRetry(mainRichMenuId, 'main'),
-        this.uploadRichMenuImageWithRetry(processingRichMenuId, 'processing')
-      ]);
-      
-      // 检查上传结果
-      uploadResults.forEach((result, index) => {
-        const type = index === 0 ? 'main' : 'processing';
-        if (result.status === 'fulfilled') {
-          console.log(`✅ ${type}图片上传成功`);
-        } else {
-          console.log(`⚠️ ${type}图片上传失败，但菜单仍可用:`, result.reason?.message);
-        }
-      });
+      try {
+        await Promise.all([
+          this.uploadRichMenuImage(mainRichMenuId, 'main'),
+          this.uploadRichMenuImage(processingRichMenuId, 'processing')
+        ]);
+        console.log('✅ 圖片上傳成功');
+      } catch (uploadError) {
+        console.log('⚠️ 圖片上傳失敗，但菜單仍可用:', uploadError.message);
+      }
       
       console.log('🎉 原子化Rich Menu设置完成');
       
