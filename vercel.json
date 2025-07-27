@@ -18,6 +18,9 @@
     "api/payment-success.js": {
       "maxDuration": 15
     },
+    "api/success.js": {
+      "maxDuration": 10
+    },
     "api/payment/webhook.js": {
       "maxDuration": 30
     },
