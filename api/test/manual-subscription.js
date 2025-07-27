@@ -1,8 +1,7 @@
-const Database = require('../../config/database');
 const LineAdapter = require('../../adapters/line-adapter');
 const MessageTemplates = require('../../utils/message-templates');
 
-const db = new Database();
+const db = require('../../config/database');
 const lineAdapter = new LineAdapter();
 
 /**

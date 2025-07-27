@@ -1,8 +1,7 @@
-const stripeConfig = require('../../config/stripe-config');
-const Database = require('../../config/database');
+const { stripe } = require('../../config/stripe-config');
+const LineAdapter = require('../../adapters/line-adapter');
 
-const stripe = require('stripe')(stripeConfig.secretKey);
-const db = new Database();
+const db = require('../../config/database');
 
 /**
  * 取消用户订阅
