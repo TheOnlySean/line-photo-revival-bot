@@ -616,21 +616,13 @@ class EventHandler {
       // 3. 处理demo视频
       if (selectedPhoto) {
         // 4. 创建完成消息序列
-        const processingMessage = MessageTemplates.createVideoStatusMessages('processing');
         const demoCompletedMessages = MessageTemplates.createVideoStatusMessages('demo_completed', {
           videoUrl: selectedPhoto.demo_video_url,
           thumbnailUrl: selectedPhoto.image_url
         });
         
-        // 5. 组合所有消息（processing + completed + guide）
+        // 5. 组合所有消息（completed + guide）
         const allMessages = [];
-        
-        // 添加处理中消息
-        if (Array.isArray(processingMessage)) {
-          allMessages.push(...processingMessage);
-        } else {
-          allMessages.push(processingMessage);
-        }
         
         // 添加完成消息
         if (Array.isArray(demoCompletedMessages)) {
