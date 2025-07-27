@@ -148,7 +148,35 @@ class LineAdapter {
   }
 
   /**
-   * Quick Reply模板
+   * Quick Reply模板 - 仅照片上传（用于揮手和寄り添い）
+   */
+  createPhotoOnlyQuickReply(text = '📸 写真のアップロード方法を選択してください：') {
+    return {
+      type: 'text',
+      text: text,
+      quickReply: {
+        items: [
+          {
+            type: 'action',
+            action: {
+              type: 'camera',
+              label: '📷 撮影'
+            }
+          },
+          {
+            type: 'action',
+            action: {
+              type: 'cameraRoll',
+              label: '🖼️ アルバム'
+            }
+          }
+        ]
+      }
+    };
+  }
+
+  /**
+   * Quick Reply模板 - 包含"写真なし"选项（用于个性化）
    */
   createPhotoUploadQuickReply(text = '📸 写真のアップロード方法を選択してください：') {
     return {

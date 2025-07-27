@@ -13,6 +13,29 @@ class EventHandler {
     this.lineAdapter = new LineAdapter();
     this.videoService = new VideoService(db);
     this.userService = new UserService(db);
+    
+    // 添加用户操作防抖记录
+    this.userLastActionTime = new Map();
+    
+    // 定期清理超过1小时没有操作的用户记录（防止内存泄漏）
+    setInterval(() => {
+      const oneHourAgo = Date.now() - (60 * 60 * 1000);
+      const toDelete = [];
+      
+      for (const [userId, lastTime] of this.userLastActionTime.entries()) {
+        if (lastTime < oneHourAgo) {
+          toDelete.push(userId);
+        }
+      }
+      
+      toDelete.forEach(userId => {
+        this.userLastActionTime.delete(userId);
+      });
+      
+      if (toDelete.length > 0) {
+        console.log(`🧹 清理了 ${toDelete.length} 个用户的防抖记录`);
+      }
+    }, 30 * 60 * 1000); // 每30分钟清理一次
   }
 
   /**
@@ -398,7 +421,7 @@ class EventHandler {
     }
 
     const messages = MessageTemplates.createActionSelectionMessages('wave');
-    const photoUploadReply = this.lineAdapter.createPhotoUploadQuickReply();
+    const photoUploadReply = this.lineAdapter.createPhotoOnlyQuickReply();
     
     await this.lineAdapter.replyMessage(event.replyToken, [...messages, photoUploadReply]);
     await this.userService.setUserState(user.id, 'awaiting_wave_photo');
@@ -421,7 +444,7 @@ class EventHandler {
     }
 
     const messages = MessageTemplates.createActionSelectionMessages('group');
-    const photoUploadReply = this.lineAdapter.createPhotoUploadQuickReply();
+    const photoUploadReply = this.lineAdapter.createPhotoOnlyQuickReply();
     
     await this.lineAdapter.replyMessage(event.replyToken, [...messages, photoUploadReply]);
     await this.userService.setUserState(user.id, 'awaiting_group_photo');
@@ -1272,6 +1295,21 @@ class EventHandler {
   async handleCheckVideoStatus(event, user) {
     try {
       console.log('🔍 开始检查视频状态:', { userId: user.line_user_id });
+      
+      // 0. 防抖机制：防止用户快速重复点击CHECK_STATUS
+      const userId = user.line_user_id;
+      const currentTime = Date.now();
+      const lastActionTime = this.userLastActionTime.get(userId) || 0;
+      const timeSinceLastAction = currentTime - lastActionTime;
+      
+      // 如果距离上次点击少于5秒，直接忽略（不消耗replyToken）
+      if (timeSinceLastAction < 5000) {
+        console.log(`⚡ 用户 ${userId} 点击过于频繁，忽略请求 (间隔: ${timeSinceLastAction}ms)`);
+        return { success: true, message: 'Request ignored due to debounce' };
+      }
+      
+      // 更新最后操作时间
+      this.userLastActionTime.set(userId, currentTime);
       
       // 1. 先清理超过2小时的过期任务
       try {
