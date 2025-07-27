@@ -599,14 +599,18 @@ class EventHandler {
     try {
       const photoId = data.photo_id;
       
-      // 切换到处理中菜单 - 重要的UX，不能删除
+      // 1. 立即回复"开始生成"消息（免费的replyMessage）
+      const processingMessage = MessageTemplates.createVideoStatusMessages('processing');
+      await this.lineAdapter.replyMessage(event.replyToken, processingMessage);
+      
+      // 2. 切换到处理中菜单 - 重要的UX，不能删除
       await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
 
-      // 生成演示视频（现在是立即返回的）
+      // 3. 生成演示视频（包含15秒等待时间）
       const demoResult = await this.videoService.generateDemoVideo(photoId);
       
       if (demoResult.success) {
-        // 创建完成消息，包含视频和提示文本
+        // 4. 创建完成消息，包含视频和提示文本
         const demoCompletedMessages = MessageTemplates.createVideoStatusMessages('demo_completed', {
           videoUrl: demoResult.videoUrl,
           thumbnailUrl: demoResult.thumbnailUrl
@@ -629,15 +633,15 @@ class EventHandler {
         console.log('🔍 最终completedMessages长度:', completedMessages.length);
         console.log('🔍 最终消息结构:', JSON.stringify(completedMessages, null, 2));
 
-        // 使用免费的replyMessage发送完成消息
-        await this.lineAdapter.replyMessage(event.replyToken, completedMessages);
+        // 5. 发送完成消息（这里必须用pushMessage，因为replyToken已经用过了）
+        await this.lineAdapter.pushMessage(user.line_user_id, completedMessages);
       } else {
         // 发送错误消息
         const errorMessage = MessageTemplates.createErrorMessage('video_generation');
-        await this.lineAdapter.replyMessage(event.replyToken, errorMessage);
+        await this.lineAdapter.pushMessage(user.line_user_id, errorMessage);
       }
       
-      // 切换回主菜单 - 重要的UX，不能删除
+      // 6. 切换回主菜单 - 重要的UX，不能删除
       await this.lineAdapter.switchToMainMenu(user.line_user_id);
       
       return { success: true };
