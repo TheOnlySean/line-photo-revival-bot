@@ -815,27 +815,69 @@ class EventHandler {
     try {
       console.log(`🛒 用户 ${user.id} 选择了 ${planType} 计划`);
       
-      // 调用API创建Checkout Session
-      const axios = require('axios');
-      const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+      // 直接创建Checkout Session，避免内部API调用
+      const { stripe } = require('../config/stripe-config');
       
-      const response = await axios.post(`${baseUrl}/api/create-checkout-session`, {
-        userId: user.id,
-        planType: planType
-      });
+      // 根据计划类型设置价格ID和配额
+      let priceId, monthlyQuota, planName;
       
-      if (response.data.success) {
-        const { url, planName, monthlyQuota } = response.data;
-        
-        // 发送支付链接消息
-        const checkoutMessage = MessageTemplates.createTextMessage(
-          `💳 ${planName}のお支払いページをご用意いたしました。\n\n📊 月間利用枠: ${monthlyQuota}本\n\n下記のリンクからお支払いください：\n${url}`
-        );
-        
-        await this.lineAdapter.replyMessage(event.replyToken, checkoutMessage);
+      if (planType === 'trial') {
+        priceId = process.env.STRIPE_TRIAL_PRICE_ID;
+        monthlyQuota = 8;
+        planName = 'お試しプラン';
+      } else if (planType === 'standard') {
+        priceId = process.env.STRIPE_STANDARD_PRICE_ID;
+        monthlyQuota = 100;
+        planName = 'スタンダードプラン';
       } else {
-        throw new Error(response.data.error || 'Failed to create checkout session');
+        throw new Error('Invalid planType. Must be "trial" or "standard"');
       }
+
+      if (!priceId) {
+        throw new Error(`Missing price ID for ${planType} plan`);
+      }
+
+      console.log(`👤 为用户创建Checkout Session: ID=${user.id}, LINE=${user.line_user_id}, Plan=${planType}`);
+
+      // 创建Checkout Session
+      const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://line-photo-revival-bot.vercel.app';
+      
+      const session = await stripe.checkout.sessions.create({
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price: priceId,
+            quantity: 1,
+          },
+        ],
+        mode: 'subscription',
+        success_url: `${baseUrl}/subscription/success?session_id={CHECKOUT_SESSION_ID}&plan=${planType}`,
+        cancel_url: `${baseUrl}/subscription/cancel?plan=${planType}`,
+        metadata: {
+          userId: user.id.toString(),
+          lineUserId: user.line_user_id,
+          planType: planType,
+          monthlyQuota: monthlyQuota.toString(),
+          planName: planName
+        },
+        subscription_data: {
+          metadata: {
+            userId: user.id.toString(),
+            lineUserId: user.line_user_id,
+            planType: planType,
+            monthlyQuota: monthlyQuota.toString()
+          }
+        }
+      });
+
+      console.log('✅ Checkout Session创建成功:', session.id);
+      
+      // 发送支付链接消息
+      const checkoutMessage = MessageTemplates.createTextMessage(
+        `💳 ${planName}のお支払いページをご用意いたしました。\n\n📊 月間利用枠: ${monthlyQuota}本\n\n下記のリンクからお支払いください：\n${session.url}`
+      );
+      
+      await this.lineAdapter.replyMessage(event.replyToken, checkoutMessage);
       
       return { success: true };
     } catch (error) {

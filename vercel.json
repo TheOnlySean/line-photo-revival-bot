@@ -9,9 +9,6 @@
     "api/cron/reset-quota.js": {
       "maxDuration": 60
     },
-    "api/payment/create-checkout-session.js": {
-      "maxDuration": 30
-    },
     "api/payment/webhook.js": {
       "maxDuration": 30
     },
