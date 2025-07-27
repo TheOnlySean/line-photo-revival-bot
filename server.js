@@ -325,6 +325,9 @@ app.get('/api/stats', async (req, res) => {
 // 取消订阅API端点
 app.post('/api/cancel-subscription', require('./api/payment/cancel-subscription'));
 
+// 订阅支付成功页面
+app.get('/subscription/success', require('./api/payment/subscription-success'));
+
 // 错误处理中间件
 app.use((error, req, res, next) => {
   console.error('❌ 全局错误处理器:', error);

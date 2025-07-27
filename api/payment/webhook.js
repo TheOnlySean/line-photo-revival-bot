@@ -249,11 +249,19 @@ async function handleSubscriptionCancelled(subscription) {
 // 發送訂閱歡迎通知
 async function sendSubscriptionWelcomeNotification(lineUserId, planType, quota) {
   try {
-    // TODO: 實現 LINE 通知邏輯
     console.log('📤 發送歡迎通知:', { lineUserId, planType, quota });
     
-    // 這裡可以調用 LINE Bot API 發送歡迎消息
-    // 例如：歡迎加入 XX 計劃！您每月可以生成 XX 個視頻。
+    const LineAdapter = require('../../adapters/line-adapter');
+    const MessageTemplates = require('../../utils/message-templates');
+    const lineAdapter = new LineAdapter();
+    
+    const planName = planType === 'trial' ? 'お試しプラン' : 'スタンダードプラン';
+    const welcomeMessage = MessageTemplates.createTextMessage(
+      `🎉 ありがとうございます！\n\n${planName}のお申し込みが完了いたしました。\n\n📊 月間利用枠: ${quota}本\n\n早速、写真から動画を生成してお楽しみください！`
+    );
+    
+    await lineAdapter.pushMessage(lineUserId, welcomeMessage);
+    console.log('✅ 歡迎通知發送成功');
     
   } catch (error) {
     console.error('❌ 發送歡迎通知失敗:', error);
@@ -265,8 +273,16 @@ async function sendQuotaResetNotification(lineUserId, quota) {
   try {
     console.log('📤 發送配額重置通知:', { lineUserId, quota });
     
-    // TODO: 實現 LINE 通知邏輯
-    // 例如：您的月度視頻配額已重置！本月可生成 XX 個視頻。
+    const LineAdapter = require('../../adapters/line-adapter');
+    const MessageTemplates = require('../../utils/message-templates');
+    const lineAdapter = new LineAdapter();
+    
+    const resetMessage = MessageTemplates.createTextMessage(
+      `🔄 月間利用枠がリセットされました！\n\n📊 今月の利用枠: ${quota}本\n\n新しい月が始まりました。引き続き動画生成をお楽しみください！`
+    );
+    
+    await lineAdapter.pushMessage(lineUserId, resetMessage);
+    console.log('✅ 配額重置通知発送成功');
     
   } catch (error) {
     console.error('❌ 發送配額重置通知失敗:', error);
@@ -278,8 +294,20 @@ async function sendSubscriptionIssueNotification(lineUserId, status) {
   try {
     console.log('📤 發送訂閱問題通知:', { lineUserId, status });
     
-    // TODO: 實現 LINE 通知邏輯
-    // 例如：您的訂閱付款遇到問題，請檢查付款方式。
+    const LineAdapter = require('../../adapters/line-adapter');
+    const MessageTemplates = require('../../utils/message-templates');
+    const lineAdapter = new LineAdapter();
+    
+    let message = '';
+    if (status === 'past_due') {
+      message = '⚠️ お支払いに関するお知らせ\n\nサブスクリプションのお支払いが確認できておりません。\n\nサービスを継続してご利用いただくため、お支払い方法をご確認ください。';
+    } else if (status === 'canceled') {
+      message = '❌ サブスクリプション停止のお知らせ\n\nお支払いの問題により、サブスクリプションが停止されました。\n\nサービスを再開するには、新しいプランにお申し込みください。';
+    }
+    
+    const issueMessage = MessageTemplates.createTextMessage(message);
+    await lineAdapter.pushMessage(lineUserId, issueMessage);
+    console.log('✅ 訂閱問題通知發送成功');
     
   } catch (error) {
     console.error('❌ 發送訂閱問題通知失敗:', error);
@@ -291,8 +319,16 @@ async function sendSubscriptionCancelledNotification(lineUserId) {
   try {
     console.log('📤 發送訂閱取消通知:', lineUserId);
     
-    // TODO: 實現 LINE 通知邏輯
-    // 例如：您的訂閱已取消。感謝您的使用！
+    const LineAdapter = require('../../adapters/line-adapter');
+    const MessageTemplates = require('../../utils/message-templates');
+    const lineAdapter = new LineAdapter();
+    
+    const cancelMessage = MessageTemplates.createTextMessage(
+      '✅ サブスクリプション解約完了\n\nサブスクリプションを解約いたしました。\n\nご利用いただき、ありがとうございました。\n\nまたのご利用をお待ちしております。'
+    );
+    
+    await lineAdapter.pushMessage(lineUserId, cancelMessage);
+    console.log('✅ 訂閱取消通知發送成功');
     
   } catch (error) {
     console.error('❌ 發送訂閱取消通知失敗:', error);

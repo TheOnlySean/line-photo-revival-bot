@@ -96,6 +96,8 @@ async function createStripeProducts() {
 
     // 5. 創建Trial Payment Link
     console.log('🔗 創建Trial Payment Link...');
+    const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://line-photo-revival-bot.vercel.app';
+    
     const trialPaymentLink = await stripe.paymentLinks.create({
       line_items: [
         {
@@ -108,7 +110,7 @@ async function createStripeProducts() {
       after_completion: {
         type: 'redirect',
         redirect: {
-          url: `${process.env.FRONTEND_URL || 'https://your-domain.com'}/subscription/success?plan=trial`
+          url: `${baseUrl}/subscription/success?plan=trial`
         }
       },
       metadata: {
@@ -132,7 +134,7 @@ async function createStripeProducts() {
       after_completion: {
         type: 'redirect',
         redirect: {
-          url: `${process.env.FRONTEND_URL || 'https://your-domain.com'}/subscription/success?plan=standard`
+          url: `${baseUrl}/subscription/success?plan=standard`
         }
       },
       metadata: {
