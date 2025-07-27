@@ -45,12 +45,8 @@ class EventHandler {
       const { trialPhotos } = require('../config/demo-trial-photos');
       const carouselMessage = MessageTemplates.createDemoVideoCarousel(trialPhotos);
 
-      try {
-        await this.lineAdapter.replyMessage(event.replyToken, [welcomeMessage, introMessage, carouselMessage]);
-        console.log('✅ 欢迎+提示+演示视频 一并发送成功');
-      } catch (replyError) {
-        console.error('❌ 发送欢迎&演示视频失败:', replyError);
-      }
+      await this.lineAdapter.replyMessage(event.replyToken, [welcomeMessage, introMessage, carouselMessage]);
+      console.log('✅ 欢迎+提示+演示视频 一并发送成功');
 
       return { success: true };
     } catch (error) {
