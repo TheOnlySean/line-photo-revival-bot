@@ -72,26 +72,7 @@ class EventHandler {
     }
   }
 
-      // 发送欢迎消息
-      const welcomeMessage = MessageTemplates.createWelcomeMessage();
-      await this.lineAdapter.replyMessage(event.replyToken, welcomeMessage);
-
-      // 确保用户有Rich Menu
-      await this.lineAdapter.ensureUserHasRichMenu(userId);
-      console.log('🔍 Rich Menu设置完成');
-
-      // 暂时禁用演示视频发送，避免LINE API速率限制
-      console.log('⚠️ 演示视频发送暂时禁用，避免429速率限制');
-      console.log('💡 用户可以通过Rich Menu访问所有功能');
-
-      return { success: true };
-    } catch (error) {
-      console.error('❌ 处理用户关注失败:', error);
-      return { success: false, error: error.message };
-    }
-  }
-
-    /**
+  /**
    * 处理文本消息
    */
   async handleTextMessage(event) {
