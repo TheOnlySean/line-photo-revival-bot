@@ -3,37 +3,11 @@ const lineConfig = require('../config/line-config');
 // 直接從本地配置文件讀取 Rich Menu ID，避免每次呼叫 listRichMenu
 const richMenuIds = require('../config/richmenu-ids.json');
 
-// Updated: 2025-01-26 - 确保没有 Database 依赖
-
 // 全局 Line Client，可在 Vercel container 重用，減少冷啟開銷
 const globalLineClient = global._cachedLineClient || new Client({
   channelAccessToken: lineConfig.channelAccessToken
 });
 global._cachedLineClient = globalLineClient;
-
-// ---- 全局推送队列：确保 <= 60 req/min ----
-// 简单延迟控制，适合serverless环境
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// 记录上次API调用时间，确保间隔
-if (!global._lastApiCall) {
-  global._lastApiCall = 0;
-}
-
-async function rateLimitedApiCall(apiCall) {
-  const now = Date.now();
-  const timeSinceLastCall = now - global._lastApiCall;
-  const minInterval = 5000; // 5秒间隔，≈12 req/min，极保守
-  
-  if (timeSinceLastCall < minInterval) {
-    const waitTime = minInterval - timeSinceLastCall;
-    console.log(`⏳ 极保守间隔控制，等待 ${waitTime}ms (${waitTime/1000}s)`);
-    await sleep(waitTime);
-  }
-  
-  global._lastApiCall = Date.now();
-  return await apiCall();
-}
 
 /**
  * LINE Adapter - 封装所有与LINE Messaging API的交互
@@ -94,17 +68,15 @@ class LineAdapter {
    * 发送推送消息
    */
   async pushMessage(userId, messages) {
-    return await rateLimitedApiCall(async () => {
-      try {
-        const messageArray = Array.isArray(messages) ? messages : [messages];
-        const res = await this.client.pushMessage(userId, messageArray);
-        console.log('✅ pushMessage success:', { userId });
-        return res;
-      } catch (error) {
-        console.error('❌ pushMessage failed:', error);
-        throw error;
-      }
-    });
+    try {
+      const messageArray = Array.isArray(messages) ? messages : [messages];
+      const res = await this.client.pushMessage(userId, messageArray);
+      console.log('✅ pushMessage success:', { userId });
+      return res;
+    } catch (error) {
+      console.error('❌ pushMessage failed:', error);
+      throw error;
+    }
   }
 
   /**
@@ -143,42 +115,36 @@ class LineAdapter {
   }
 
   async switchToMainMenu(userId) {
-    return await rateLimitedApiCall(async () => {
-      try {
-        await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
-        console.log('✅ 切换到主菜单成功:', userId);
-        return true;
-      } catch (error) {
-        console.error('❌ 切换到主菜单失败:', error);
-        throw error;
-      }
-    });
+    try {
+      await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
+      console.log('✅ 切换到主菜单成功:', userId);
+      return true;
+    } catch (error) {
+      console.error('❌ 切换到主菜单失败:', error);
+      throw error;
+    }
   }
 
   async switchToProcessingMenu(userId) {
-    return await rateLimitedApiCall(async () => {
-      try {
-        await this.client.linkRichMenuToUser(userId, this.processingRichMenuId);
-        console.log('✅ 切换到处理菜单成功:', userId);
-        return true;
-      } catch (error) {
-        console.error('❌ 切换到处理菜单失败:', error);
-        throw error;
-      }
-    });
+    try {
+      await this.client.linkRichMenuToUser(userId, this.processingRichMenuId);
+      console.log('✅ 切换到处理菜单成功:', userId);
+      return true;
+    } catch (error) {
+      console.error('❌ 切换到处理菜单失败:', error);
+      throw error;
+    }
   }
 
   async ensureUserHasRichMenu(userId) {
-    return await rateLimitedApiCall(async () => {
-      try {
-        await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
-        console.log('✅ 用户Rich Menu设置成功:', userId);
-        return true;
-      } catch (error) {
-        console.error('❌ 设置用户Rich Menu失败:', error);
-        throw error;
-      }
-    });
+    try {
+      await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
+      console.log('✅ 用户Rich Menu设置成功:', userId);
+      return true;
+    } catch (error) {
+      console.error('❌ 设置用户Rich Menu失败:', error);
+      throw error;
+    }
   }
 
   /**

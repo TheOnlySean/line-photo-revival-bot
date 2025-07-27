@@ -599,29 +599,28 @@ class EventHandler {
     try {
       const photoId = data.photo_id;
       
-      // 完全使用免费的replyMessage实现，避免任何pushMessage调用
-      // reply token有效期20分钟，我们等待15秒后回复完全没问题
-      
-      // 1. 切换到处理中菜单（让用户看到处理状态）
+      // 1. 切换到处理中菜单并立即给用户提示消息
       await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
+      
+      // 2. 立即发送"开始生成"提示消息（使用pushMessage，因为replyToken要保留给最终结果）
+      const processingMessage = MessageTemplates.createVideoStatusMessages('processing');
+      await this.lineAdapter.pushMessage(user.line_user_id, processingMessage);
 
-      // 2. 等待15秒（模拟生成过程）
-      console.log('⏳ 开始等待15秒模拟视频生成...');
+      // 3. 等待15秒（模拟生成过程）
       await new Promise(resolve => setTimeout(resolve, 15000));
-      console.log('✅ 15秒等待完成，准备发送视频');
 
-      // 3. 获取demo视频信息
+      // 4. 获取demo视频信息
       const { trialPhotos } = require('../config/demo-trial-photos');
       const selectedPhoto = trialPhotos.find(photo => photo.id === photoId);
       
       if (selectedPhoto) {
-        // 4. 创建完成消息，包含视频和提示文本
+        // 5. 创建完成消息
         const demoCompletedMessages = MessageTemplates.createVideoStatusMessages('demo_completed', {
           videoUrl: selectedPhoto.demo_video_url,
           thumbnailUrl: selectedPhoto.image_url
         });
         
-        // 确保正确展开数组
+        // 6. 添加完成提示文本
         const completedMessages = Array.isArray(demoCompletedMessages) 
           ? [...demoCompletedMessages, {
               type: 'text',
@@ -631,24 +630,24 @@ class EventHandler {
               type: 'text', 
               text: '✅ 動画生成が完了しました！\n\nご自身の写真で動画を生成したい場合は、下のメニューからお選びください。'
             }];
-            
-        console.log('🔍 准备用replyMessage发送完成消息，消息数量:', completedMessages.length);
 
-        // 5. 使用免费的replyMessage发送完成消息（reply token仍然有效）
+        // 7. 使用replyMessage发送完成消息
         await this.lineAdapter.replyMessage(event.replyToken, completedMessages);
       } else {
-        console.error('❌ 找不到指定的demo照片:', photoId);
+        // 处理错误情况
         const errorMessage = MessageTemplates.createErrorMessage('video_generation');
         await this.lineAdapter.replyMessage(event.replyToken, errorMessage);
       }
       
-      // 6. 切换回主菜单 - 重要的UX，不能删除
+      // 8. 切换回主菜单
       await this.lineAdapter.switchToMainMenu(user.line_user_id);
       
       return { success: true };
     } catch (error) {
       console.error('❌ 处理演示生成失败:', error);
-      return { success: false, error: error.message };
+      const errorMessage = MessageTemplates.createErrorMessage('video_generation');
+      await this.lineAdapter.replyMessage(event.replyToken, errorMessage);
+      throw error;
     }
   }
 
