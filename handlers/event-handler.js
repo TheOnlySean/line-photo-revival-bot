@@ -165,9 +165,15 @@ class EventHandler {
           needsUpgrade: quotaInfo.needsUpgrade,
           resetDate: quotaInfo.resetDate
         });
-        // 同时发送配额消息和订阅卡片
-        const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
-        await this.lineAdapter.replyMessage(event.replyToken, [quotaMessage, planCarousel]);
+        // 根据用户类型发送不同的消息
+        if (quotaInfo.planType === 'trial') {
+          // Trial用户已经是subscriber，只需要升级提示
+          await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
+        } else {
+          // 无订阅用户需要订阅选项卡片
+          const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
+          await this.lineAdapter.replyMessage(event.replyToken, [quotaMessage, planCarousel]);
+        }
         return { success: true };
       }
 
@@ -416,12 +422,18 @@ class EventHandler {
         resetDate: quotaInfo.resetDate
       });
       
-      // 如果是trial用户，同时发送配额消息和升级卡片
-      if (!quotaInfo.hasSubscription || quotaInfo.planType === 'trial') {
+      // Trial用户：只发送升级消息（内含升级按钮）
+      // Standard用户：发送配额重置消息  
+      // 无订阅用户：发送订阅选项卡片
+      if (quotaInfo.planType === 'trial') {
+        // Trial用户已经是subscriber，只需要升级提示，不需要订阅选项卡片
+        await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
+      } else if (!quotaInfo.hasSubscription) {
+        // 无订阅用户才需要订阅选项卡片
         const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
         await this.lineAdapter.replyMessage(event.replyToken, [quotaMessage, planCarousel]);
       } else {
-        // Standard用户只发送配额消息
+        // Standard用户只发送配额重置消息
         await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
       }
       
@@ -450,12 +462,18 @@ class EventHandler {
         resetDate: quotaInfo.resetDate
       });
       
-      // 如果是trial用户，同时发送配额消息和升级卡片
-      if (!quotaInfo.hasSubscription || quotaInfo.planType === 'trial') {
+      // Trial用户：只发送升级消息（内含升级按钮）
+      // Standard用户：发送配额重置消息  
+      // 无订阅用户：发送订阅选项卡片
+      if (quotaInfo.planType === 'trial') {
+        // Trial用户已经是subscriber，只需要升级提示，不需要订阅选项卡片
+        await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
+      } else if (!quotaInfo.hasSubscription) {
+        // 无订阅用户才需要订阅选项卡片
         const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
         await this.lineAdapter.replyMessage(event.replyToken, [quotaMessage, planCarousel]);
       } else {
-        // Standard用户只发送配额消息
+        // Standard用户只发送配额重置消息
         await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
       }
       
@@ -484,12 +502,18 @@ class EventHandler {
         resetDate: quotaInfo.resetDate
       });
       
-      // 如果是trial用户，同时发送配额消息和升级卡片
-      if (!quotaInfo.hasSubscription || quotaInfo.planType === 'trial') {
+      // Trial用户：只发送升级消息（内含升级按钮）
+      // Standard用户：发送配额重置消息  
+      // 无订阅用户：发送订阅选项卡片
+      if (quotaInfo.planType === 'trial') {
+        // Trial用户已经是subscriber，只需要升级提示，不需要订阅选项卡片
+        await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
+      } else if (!quotaInfo.hasSubscription) {
+        // 无订阅用户才需要订阅选项卡片
         const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
         await this.lineAdapter.replyMessage(event.replyToken, [quotaMessage, planCarousel]);
       } else {
-        // Standard用户只发送配额消息
+        // Standard用户只发送配额重置消息
         await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
       }
       

@@ -225,7 +225,7 @@ class MessageTemplates {
               },
               {
                 type: 'text',
-                text: `今月の動画生成配額（${total}本）をすべて消費されました。`,
+                text: `今月の動画生成配額（${total}本）をすべて使い切りました。`,
                 size: 'sm',
                 color: '#666666',
                 wrap: true,
@@ -233,7 +233,7 @@ class MessageTemplates {
               },
               {
                 type: 'text',
-                text: '🎬 さらに動画を生成したい場合は、スタンダードプランにアップグレードしてください。',
+                text: '🎬 さらに動画を生成される場合は、スタンダードプランにアップグレードをお願いいたします。',
                 size: 'sm',
                 color: '#333333',
                 wrap: true,
@@ -241,7 +241,7 @@ class MessageTemplates {
               },
               {
                 type: 'text',
-                text: '✨ スタンダードプラン特典：\n• 月間100本の動画生成\n• 優先サポート\n• 高品質動画',
+                text: '✨ スタンダードプラン特典：\n• 月間100本の動画生成\n• 優先生成処理\n• 高品質動画',
                 size: 'xs',
                 color: '#42C76A',
                 wrap: true,
