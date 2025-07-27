@@ -21,7 +21,7 @@ class EventHandler {
   async handleFollow(event) {
     try {
       const userId = event.source.userId;
-      console.log('👋 新用户添加好友:', userId);
+      console.log('👋 用户添加好友:', userId);
 
       // 获取用户profile
       const profile = await this.lineAdapter.getUserProfile(userId);
@@ -39,26 +39,11 @@ class EventHandler {
 
       // 确保用户有Rich Menu
       await this.lineAdapter.ensureUserHasRichMenu(userId);
-      console.log('🔍 Rich Menu设置完成，准备发送演示视频');
+      console.log('🔍 Rich Menu设置完成');
 
-      // 延迟发送演示视频选项，避免速率限制
-      setTimeout(async () => {
-        try {
-          console.log('🎁 开始发送演示视频选项...');
-          await this.sendDemoVideos(userId);
-        console.log('✅ 演示视频选项发送成功');
-      } catch (demoError) {
-        console.error('❌ 发送演示视频选项失败:', demoError);
-        // 发送简化版本作为备选
-        try {
-          await this.lineAdapter.pushMessage(userId, 
-            MessageTemplates.createTextMessage('🎁 無料体験をご希望の場合は、下部メニューからお気軽にお選びください！')
-          );
-          console.log('✅ 备选消息发送成功');
-        } catch (fallbackError) {
-          console.error('❌ 发送备选消息也失败:', fallbackError);
-        }
-      }, 3000); // 延迟3秒发送
+      // 暂时禁用演示视频发送，避免LINE API速率限制
+      console.log('⚠️ 演示视频发送暂时禁用，避免429速率限制');
+      console.log('💡 用户可以通过Rich Menu访问所有功能');
 
       return { success: true };
     } catch (error) {
@@ -67,7 +52,7 @@ class EventHandler {
     }
   }
 
-  /**
+    /**
    * 处理文本消息
    */
   async handleTextMessage(event) {
