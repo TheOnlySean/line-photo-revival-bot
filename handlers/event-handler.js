@@ -17,6 +17,9 @@ class EventHandler {
     // 添加用户操作防抖记录
     this.userLastActionTime = new Map();
     
+    // 添加用户生成任务开始时间记录（用于2分钟保护机制）
+    this.userTaskStartTime = new Map();
+    
     // 定期清理超过1小时没有操作的用户记录（防止内存泄漏）
     setInterval(() => {
       const oneHourAgo = Date.now() - (60 * 60 * 1000);
@@ -30,10 +33,11 @@ class EventHandler {
       
       toDelete.forEach(userId => {
         this.userLastActionTime.delete(userId);
+        this.userTaskStartTime.delete(userId); // 同时清理任务开始时间记录
       });
       
       if (toDelete.length > 0) {
-        console.log(`🧹 清理了 ${toDelete.length} 个用户的防抖记录`);
+        console.log(`🧹 清理了 ${toDelete.length} 个用户的防抖和任务时间记录`);
       }
     }, 30 * 60 * 1000); // 每30分钟清理一次
   }
@@ -410,13 +414,23 @@ class EventHandler {
     // 检查用户订阅状态
     const quota = await this.videoService.checkVideoQuota(user.id);
     if (!quota.hasQuota) {
-      await this.lineAdapter.replyMessage(event.replyToken, 
-        MessageTemplates.createTextMessage('🙇‍♀️ 申し訳ございません。動画生成サービスをご利用いただくには、まずプランにご加入いただく必要がございます。\n\n下記からお好みのプランをお選びください。')
-      );
+      // 使用差异化的配额耗尽消息
+      const quotaInfo = await this.userService.handleInsufficientQuota(user.id);
+      const quotaMessage = MessageTemplates.createQuotaExhaustedMessage({
+        remaining: quota.remaining,
+        total: quota.total,
+        planType: quota.planType || quotaInfo.planType,
+        resetDate: quotaInfo.resetDate
+      });
       
-      // 推送订阅选项卡片
-      const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
-      await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+      await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
+      
+      // 只有trial用户或无订阅用户才推送订阅卡片
+      if (!quotaInfo.hasSubscription || quotaInfo.planType === 'trial') {
+        const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
+        await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+      }
+      
       return { success: true };
     }
 
@@ -433,13 +447,23 @@ class EventHandler {
     // 检查用户订阅状态
     const quota = await this.videoService.checkVideoQuota(user.id);
     if (!quota.hasQuota) {
-      await this.lineAdapter.replyMessage(event.replyToken, 
-        MessageTemplates.createTextMessage('🙇‍♀️ 申し訳ございません。動画生成サービスをご利用いただくには、まずプランにご加入いただく必要がございます。\n\n下記からお好みのプランをお選びください。')
-      );
+      // 使用差异化的配额耗尽消息
+      const quotaInfo = await this.userService.handleInsufficientQuota(user.id);
+      const quotaMessage = MessageTemplates.createQuotaExhaustedMessage({
+        remaining: quota.remaining,
+        total: quota.total,
+        planType: quota.planType || quotaInfo.planType,
+        resetDate: quotaInfo.resetDate
+      });
       
-      // 推送订阅选项卡片
-      const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
-      await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+      await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
+      
+      // 只有trial用户或无订阅用户才推送订阅卡片
+      if (!quotaInfo.hasSubscription || quotaInfo.planType === 'trial') {
+        const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
+        await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+      }
+      
       return { success: true };
     }
 
@@ -456,13 +480,23 @@ class EventHandler {
     // 检查用户订阅状态
     const quota = await this.videoService.checkVideoQuota(user.id);
     if (!quota.hasQuota) {
-      await this.lineAdapter.replyMessage(event.replyToken, 
-        MessageTemplates.createTextMessage('🙇‍♀️ 申し訳ございません。動画生成サービスをご利用いただくには、まずプランにご加入いただく必要がございます。\n\n下記からお好みのプランをお選びください。')
-      );
+      // 使用差异化的配额耗尽消息
+      const quotaInfo = await this.userService.handleInsufficientQuota(user.id);
+      const quotaMessage = MessageTemplates.createQuotaExhaustedMessage({
+        remaining: quota.remaining,
+        total: quota.total,
+        planType: quota.planType || quotaInfo.planType,
+        resetDate: quotaInfo.resetDate
+      });
       
-      // 推送订阅选项卡片
-      const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
-      await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+      await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
+      
+      // 只有trial用户或无订阅用户才推送订阅卡片
+      if (!quotaInfo.hasSubscription || quotaInfo.planType === 'trial') {
+        const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
+        await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+      }
+      
       return { success: true };
     }
 
@@ -597,7 +631,11 @@ class EventHandler {
       console.log('🔄 切换到processing menu...');
       await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
 
-      // 2. 同步执行：处理现有任务或创建新任务（保留replyToken供后续使用）
+      // 2. 记录任务开始时间（用于2分钟保护机制）
+      this.userTaskStartTime.set(user.line_user_id, Date.now());
+      console.log('⏰ 记录任务开始时间');
+
+      // 3. 同步执行：处理现有任务或创建新任务（保留replyToken供后续使用）
       console.log('🚀 开始同步轮询流程...');
       await this.executeVideoGenerationWithPolling(event.replyToken, user, imageUrl, prompt);
 
@@ -775,12 +813,16 @@ class EventHandler {
       } else {
         // 5分钟超时
         console.log('⏰ 轮询超时');
-        await this.lineAdapter.replyMessage(replyToken, {
-          type: 'text',
-          text: '⏰ 動画生成に時間がかかっています。\n\n📱 下の処理中メニューをタップして進行状況を確認してください。'
-        });
-        // 保持在processing menu，不切换到主菜单
-      }
+                  await this.lineAdapter.replyMessage(replyToken, {
+            type: 'text',
+            text: '⏰ 動画生成に時間がかかっています。\n\n📱 下の処理中メニューをタップして進行状況を確認してください。'
+          });
+          // 保持在processing menu，不切换到主菜单
+        }
+
+      // 5. 清理任务开始时间记录（无论成功失败都清理）
+      this.userTaskStartTime.delete(user.line_user_id);
+      console.log('🧹 清理任务开始时间记录');
 
     } catch (error) {
       console.error('❌ 轮询流程系统错误:', error);
@@ -806,6 +848,9 @@ class EventHandler {
       } catch (replyError) {
         console.error('❌ 发送错误消息失败:', replyError);
       }
+      
+      // 确保在错误情况下也清理任务开始时间记录
+      this.userTaskStartTime.delete(user.line_user_id);
     }
   }
 
@@ -1311,6 +1356,27 @@ class EventHandler {
       
       // 更新最后操作时间
       this.userLastActionTime.set(userId, currentTime);
+      
+      // 🛡️ 2分钟保护机制：检查任务是否在2分钟内刚开始
+      const taskStartTime = this.userTaskStartTime.get(userId);
+      if (taskStartTime) {
+        const taskRunningTime = currentTime - taskStartTime;
+        const twoMinutes = 2 * 60 * 1000; // 2分钟
+        
+        if (taskRunningTime < twoMinutes) {
+          const remainingTime = Math.ceil((twoMinutes - taskRunningTime) / 1000);
+          console.log(`🛡️ 任务在2分钟保护期内 (已运行: ${Math.floor(taskRunningTime/1000)}s, 剩余: ${remainingTime}s)`);
+          
+          await this.lineAdapter.replyMessage(event.replyToken, {
+            type: 'text',
+            text: `🎬 動画を生成中です...\n\n⏱️ 生成には時間がかかります。あと約${remainingTime}秒お待ちください。\n\n🚫 頻繁にタップする必要はありません。`
+          });
+          
+          return { success: true, message: 'Task in 2-minute protection period' };
+        }
+        
+        console.log(`⚠️ 任务超过2分钟，允许强制检查 (已运行: ${Math.floor(taskRunningTime/1000)}s)`);
+      }
       
       // 1. 先清理超过2小时的过期任务
       try {

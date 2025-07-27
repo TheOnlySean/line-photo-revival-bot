@@ -196,70 +196,160 @@ class MessageTemplates {
   }
 
   /**
-   * 创建配额不足消息卡片
+   * 创建差异化的配额不足消息（根据用户订阅类型）
+   */
+  static createQuotaExhaustedMessage(quotaInfo) {
+    const { remaining, total, planType, resetDate } = quotaInfo;
+    
+    if (planType === 'trial') {
+      // Trial用户：提示升级到Standard Plan
+      return {
+        type: 'flex',
+        altText: '📊 配額アップグレードのご案内',
+        contents: {
+          type: 'bubble',
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: '😅 申し訳ございません',
+                weight: 'bold',
+                size: 'lg',
+                color: '#FF6B35'
+              },
+              {
+                type: 'separator',
+                margin: 'md'
+              },
+              {
+                type: 'text',
+                text: `今月の動画生成配額（${total}本）をすべて消費されました。`,
+                size: 'sm',
+                color: '#666666',
+                wrap: true,
+                margin: 'lg'
+              },
+              {
+                type: 'text',
+                text: '🎬 さらに動画を生成したい場合は、スタンダードプランにアップグレードしてください。',
+                size: 'sm',
+                color: '#333333',
+                wrap: true,
+                margin: 'md'
+              },
+              {
+                type: 'text',
+                text: '✨ スタンダードプラン特典：\n• 月間100本の動画生成\n• 優先サポート\n• 高品質動画',
+                size: 'xs',
+                color: '#42C76A',
+                wrap: true,
+                margin: 'lg'
+              }
+            ]
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                color: '#42C76A',
+                action: {
+                  type: 'postback',
+                  label: '⬆️ スタンダードプランへ',
+                  data: 'action=UPGRADE_TO_STANDARD'
+                }
+              },
+              {
+                type: 'button',
+                style: 'secondary',
+                action: {
+                  type: 'postback',
+                  label: '今はしない',
+                  data: 'action=CANCEL_UPGRADE'
+                }
+              }
+            ]
+          }
+        }
+      };
+    } else if (planType === 'standard') {
+      // Standard用户：提示配额重置时间和联系邮箱
+      return {
+        type: 'flex',
+        altText: '📊 今月の配額について',
+        contents: {
+          type: 'bubble',
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: '📊 今月の配額完了',
+                weight: 'bold',
+                size: 'lg',
+                color: '#333333'
+              },
+              {
+                type: 'separator',
+                margin: 'md'
+              },
+              {
+                type: 'text',
+                text: `今月のスタンダードプラン配額（${total}本）をすべて消費されました。`,
+                size: 'sm',
+                color: '#666666',
+                wrap: true,
+                margin: 'lg'
+              },
+              {
+                type: 'text',
+                text: resetDate 
+                  ? `📅 次回配額リセット：${resetDate}`
+                  : '📅 配額は30日ごとに自動的にリセットされます。',
+                size: 'sm',
+                color: '#42C76A',
+                wrap: true,
+                margin: 'md'
+              },
+              {
+                type: 'text',
+                text: '🏢 大量の動画生成が必要な場合は、お気軽にご相談ください：',
+                size: 'xs',
+                color: '#666666',
+                wrap: true,
+                margin: 'lg'
+              },
+              {
+                type: 'text',
+                text: '📧 angelsphoto99@gmail.com',
+                size: 'sm',
+                color: '#0066CC',
+                weight: 'bold',
+                margin: 'xs'
+              }
+            ]
+          }
+        }
+      };
+    } else {
+      // 无订阅用户：提示需要订阅
+      return {
+        type: 'text',
+        text: '🙇‍♀️ 申し訳ございません。動画生成サービスをご利用いただくには、まずプランにご加入いただく必要がございます。\n\n下記からお好みのプランをお選びください。'
+      };
+    }
+  }
+
+  /**
+   * 创建配额不足消息卡片（保持向后兼容）
    */
   static createInsufficientQuotaCard(quotaInfo) {
-    const { remaining, total, planType, needsUpgrade, resetDate } = quotaInfo;
-    
-    return {
-      type: 'flex',
-      altText: '📊 動画生成配額について',
-      contents: {
-        type: 'bubble',
-        body: {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            {
-              type: 'text',
-              text: '📊 配額不足',
-              weight: 'bold',
-              size: 'lg',
-              color: '#FF6B35'
-            },
-            {
-              type: 'text',
-              text: `今月の利用可能回数: ${remaining}/${total}`,
-              size: 'md',
-              color: '#666666',
-              margin: 'md'
-            },
-            {
-              type: 'separator',
-              margin: 'lg'
-            },
-            {
-              type: 'text',
-              text: needsUpgrade 
-                ? '✨ スタンダードプランにアップグレードして、月100本の動画を生成できます！'
-                : resetDate 
-                  ? `📅 配額リセット日: ${resetDate}`
-                  : '📅 訂閱後30日ごとに配額がリセットされます。',
-              size: 'sm',
-              color: '#333333',
-              wrap: true,
-              margin: 'lg'
-            }
-          ]
-        },
-        footer: needsUpgrade ? {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            {
-              type: 'button',
-              style: 'primary',
-              color: '#FF6B35',
-              action: {
-                type: 'postback',
-                label: '💎 アップグレード',
-                data: 'action=UPGRADE_PLAN'
-              }
-            }
-          ]
-        } : undefined
-      }
-    };
+    return this.createQuotaExhaustedMessage(quotaInfo);
   }
 
   /**
