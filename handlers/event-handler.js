@@ -607,11 +607,13 @@ class EventHandler {
       
       if (demoResult.success) {
         // 创建完成消息，包含视频和提示文本
+        const demoCompletedMessages = MessageTemplates.createVideoStatusMessages('demo_completed', {
+          videoUrl: demoResult.videoUrl,
+          thumbnailUrl: demoResult.thumbnailUrl
+        });
+        
         const completedMessages = [
-          MessageTemplates.createVideoStatusMessages('demo_completed', {
-            videoUrl: demoResult.videoUrl,
-            thumbnailUrl: demoResult.thumbnailUrl
-          }),
+          ...demoCompletedMessages, // 展开demo_completed数组
           {
             type: 'text',
             text: '✅ 動画生成が完了しました！\n\nご自身の写真で動画を生成したい場合は、下のメニューからお選びください。'

@@ -899,7 +899,6 @@ class MessageTemplates {
                 action: {
                   type: 'postback',
                   label: 'メインメニューに戻る',
-                  data: 'action=switch_to_main_menu',
                   data: 'action=switch_to_main_menu'
                 }
               }
