@@ -107,10 +107,34 @@ class VideoGenerator {
       console.error('❌ 调用Runway API失败:', error.message);
       
       if (error.response) {
-        return {
-          success: false,
-          error: `API错误: ${error.response.status} - ${error.response.data?.message || error.message}`
-        };
+        const status = error.response.status;
+        const errorData = error.response.data;
+        
+        if (status === 400) {
+          // 400错误通常是敏感内容或参数错误
+          const errorMsg = errorData?.message || errorData?.error || '内容不符合生成要求，请尝试使用其他描述或图片';
+          console.error('❌ 400错误 - 敏感内容或参数错误:', errorMsg);
+          return {
+            success: false,
+            error: errorMsg,
+            isContentError: true // 标记为内容错误
+          };
+        } else if (status === 401) {
+          return {
+            success: false,
+            error: 'API认证失败，请联系客服'
+          };
+        } else if (status === 429) {
+          return {
+            success: false,
+            error: 'API调用频率过高，请稍后再试'
+          };
+        } else {
+          return {
+            success: false,
+            error: `API错误: ${status} - ${errorData?.message || errorData?.error || error.message}`
+          };
+        }
       } else if (error.request) {
         return {
           success: false,
@@ -202,6 +226,18 @@ class VideoGenerator {
 
     } catch (error) {
       console.error('❌ 查询任务状态失败:', error.message);
+      
+      // 如果是400错误，说明任务ID无效或任务已失败
+      if (error.response && error.response.status === 400) {
+        const errorData = error.response.data;
+        const errorMsg = errorData?.message || errorData?.error || '任务查询失败，可能是内容不符合要求';
+        return {
+          state: 'failed',
+          message: errorMsg,
+          isContentError: true
+        };
+      }
+      
       throw error;
     }
   }

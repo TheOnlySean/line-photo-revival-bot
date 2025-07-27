@@ -25,7 +25,7 @@ class MessageTemplates {
         type: 'carousel',
         contents: trialPhotos.map(photo => ({
           type: 'bubble',
-          size: 'nano',
+          size: 'micro',
           hero: {
             type: 'image',
             url: photo.image_url,
@@ -41,7 +41,7 @@ class MessageTemplates {
                 type: 'text',
                 text: photo.title || 'サンプル写真',
                 weight: 'bold',
-                size: 'sm',
+                size: 'md',
                 color: '#333333',
                 wrap: true
               }
