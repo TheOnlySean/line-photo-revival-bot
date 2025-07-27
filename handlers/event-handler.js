@@ -527,7 +527,8 @@ class EventHandler {
       
       if (pendingTasks.length > 0) {
         console.log('⚠️ 用户已有pending任务，提示等待');
-        // 问题2修复：用当前replyToken提示用户等待，不切换menu
+        // 问题2修复：先切换menu给视觉反馈，再用replyToken提示等待
+        await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
         await this.lineAdapter.replyMessage(event.replyToken, {
           type: 'text',
           text: '🎬 現在動画を生成中です。お待ちください...\n\n⏱️ 生成完了まで今しばらくお待ちください。複数の動画を同時に生成することはできません。'
