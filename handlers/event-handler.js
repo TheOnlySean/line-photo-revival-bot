@@ -599,10 +599,10 @@ class EventHandler {
     try {
       const photoId = data.photo_id;
       
-      // 1. 切换到处理中菜单（用户看到菜单变化就知道开始处理了）
+      // 1. 立即切换到处理中菜单 - 给用户即时反馈
       await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
 
-      // 2. 等待15秒（模拟生成过程，用户看到processing menu知道在处理）
+      // 2. 等待15秒（模拟生成过程）
       await new Promise(resolve => setTimeout(resolve, 15000));
 
       // 3. 获取demo视频信息
@@ -610,32 +610,37 @@ class EventHandler {
       const selectedPhoto = trialPhotos.find(photo => photo.id === photoId);
       
       if (selectedPhoto) {
-        // 4. 创建完成消息
+        // 4. 创建完成消息序列
+        const processingMessage = MessageTemplates.createVideoStatusMessages('processing');
         const demoCompletedMessages = MessageTemplates.createVideoStatusMessages('demo_completed', {
           videoUrl: selectedPhoto.demo_video_url,
           thumbnailUrl: selectedPhoto.image_url
         });
         
-        // 5. 创建完整的消息序列：模拟从开始到完成的完整过程
-        const processingMessage = MessageTemplates.createVideoStatusMessages('processing');
-        const completionMessage = {
-          type: 'text',
-          text: '✅ テスト動画の生成が完了しました！'
-        };
-        const guideMessage = {
-          type: 'text',
-          text: 'いかがでしょうか？\n\nご自身の写真で動画を生成したい場合は、下のメニューからお選びください。'
-        };
+        // 5. 组合所有消息（processing + completed + guide）
+        const allMessages = [];
         
-        // 6. 组合所有消息：开始生成提示 + 完成提示 + 视频 + 指导
-        const allMessages = [
-          processingMessage,  // "🎬 テスト動画を生成中... ⏱️ 約1分でお送りします！"
-          completionMessage,  // "✅ テスト動画の生成が完了しました！"
-          ...(Array.isArray(demoCompletedMessages) ? demoCompletedMessages : [demoCompletedMessages]),
-          guideMessage
-        ];
+        // 添加处理中消息
+        if (Array.isArray(processingMessage)) {
+          allMessages.push(...processingMessage);
+        } else {
+          allMessages.push(processingMessage);
+        }
+        
+        // 添加完成消息
+        if (Array.isArray(demoCompletedMessages)) {
+          allMessages.push(...demoCompletedMessages);
+        } else {
+          allMessages.push(demoCompletedMessages);
+        }
+        
+        // 添加指导消息
+        allMessages.push({
+          type: 'text',
+          text: '✅ テスト動画の生成が完了しました！\n\nいかがでしょうか？ご自身の写真で動画を生成したい場合は、下のメニューからお選びください。'
+        });
 
-        // 7. 使用免费的replyMessage发送完整响应（完全免费！）
+        // 6. 使用replyMessage发送完整消息序列（完全免费）
         await this.lineAdapter.replyMessage(event.replyToken, allMessages);
       } else {
         // 处理错误情况
@@ -644,19 +649,20 @@ class EventHandler {
         await this.lineAdapter.replyMessage(event.replyToken, errorMessage);
       }
       
-      // 8. 切换回主菜单
+      // 7. 切换回主菜单
       await this.lineAdapter.switchToMainMenu(user.line_user_id);
       
       return { success: true };
     } catch (error) {
       console.error('❌ 处理演示生成失败:', error);
-      // 如果出错，尝试用replyMessage发送错误消息（如果replyToken还有效）
+      // 如果出错，尝试切换回主菜单并发送错误消息
       try {
+        await this.lineAdapter.switchToMainMenu(user.line_user_id);
         const errorMessage = MessageTemplates.createErrorMessage('video_generation');
         await this.lineAdapter.replyMessage(event.replyToken, errorMessage);
-      } catch (replyError) {
-        console.error('❌ Reply错误消息也失败:', replyError);
-        // 静默失败，严格遵循禁止pushMessage规则
+      } catch (recoveryError) {
+        console.error('❌ 错误恢复也失败:', recoveryError);
+        // 静默失败
       }
       throw error;
     }
