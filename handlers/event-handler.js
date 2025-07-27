@@ -616,26 +616,35 @@ class EventHandler {
           thumbnailUrl: selectedPhoto.image_url
         });
         
-        // 5. 添加完成提示文本
-        const completedMessages = Array.isArray(demoCompletedMessages) 
-          ? [...demoCompletedMessages, {
-              type: 'text',
-              text: '✅ 動画生成が完了しました！\n\nご自身の写真で動画を生成したい場合は、下のメニューからお選びください。'
-            }]
-          : [demoCompletedMessages, {
-              type: 'text', 
-              text: '✅ 動画生成が完了しました！\n\nご自身の写真で動画を生成したい場合は、下のメニューからお選びください。'
-            }];
+        // 5. 创建完整的消息序列：模拟从开始到完成的完整过程
+        const processingMessage = MessageTemplates.createVideoStatusMessages('processing');
+        const completionMessage = {
+          type: 'text',
+          text: '✅ テスト動画の生成が完了しました！'
+        };
+        const guideMessage = {
+          type: 'text',
+          text: 'いかがでしょうか？\n\nご自身の写真で動画を生成したい場合は、下のメニューからお選びください。'
+        };
+        
+        // 6. 组合所有消息：开始生成提示 + 完成提示 + 视频 + 指导
+        const allMessages = [
+          processingMessage,  // "🎬 テスト動画を生成中... ⏱️ 約1分でお送りします！"
+          completionMessage,  // "✅ テスト動画の生成が完了しました！"
+          ...(Array.isArray(demoCompletedMessages) ? demoCompletedMessages : [demoCompletedMessages]),
+          guideMessage
+        ];
 
-        // 6. 使用免费的replyMessage发送完成消息（完全免费！）
-        await this.lineAdapter.replyMessage(event.replyToken, completedMessages);
+        // 7. 使用免费的replyMessage发送完整响应（完全免费！）
+        await this.lineAdapter.replyMessage(event.replyToken, allMessages);
       } else {
         // 处理错误情况
+        console.error('❌ 找不到指定的demo照片:', photoId);
         const errorMessage = MessageTemplates.createErrorMessage('video_generation');
         await this.lineAdapter.replyMessage(event.replyToken, errorMessage);
       }
       
-      // 7. 切换回主菜单
+      // 8. 切换回主菜单
       await this.lineAdapter.switchToMainMenu(user.line_user_id);
       
       return { success: true };
@@ -647,7 +656,7 @@ class EventHandler {
         await this.lineAdapter.replyMessage(event.replyToken, errorMessage);
       } catch (replyError) {
         console.error('❌ Reply错误消息也失败:', replyError);
-        // 静默失败，不再尝试pushMessage避免429
+        // 静默失败，严格遵循禁止pushMessage规则
       }
       throw error;
     }
