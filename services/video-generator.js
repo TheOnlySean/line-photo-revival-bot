@@ -24,12 +24,13 @@ class VideoGenerator {
 
       const taskId = `task_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       
-      // 更新状态为处理中
-      await this.db.updateVideoStatus(taskId, 'processing');
+      // 先更新videos表的task_id，然后更新状态为处理中
       await this.db.query(
         'UPDATE videos SET task_id = $1, status = $2 WHERE id = $3',
         [taskId, 'processing', videoRecordId]
       );
+      // 现在可以安全地调用updateVideoStatus
+      await this.db.updateVideoStatus(taskId, 'processing');
 
       // 调用KIE.AI API
       const result = await this.callRunwayApi(imageUrl, customPrompt);

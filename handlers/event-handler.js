@@ -165,10 +165,9 @@ class EventHandler {
           needsUpgrade: quotaInfo.needsUpgrade,
           resetDate: quotaInfo.resetDate
         });
-        await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
-        // 推送订阅选项卡片
+        // 同时发送配额消息和订阅卡片
         const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
-        await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+        await this.lineAdapter.replyMessage(event.replyToken, [quotaMessage, planCarousel]);
         return { success: true };
       }
 
@@ -321,22 +320,14 @@ class EventHandler {
     } catch (error) {
       console.error('❌ 处理Postback失败:', error);
       
-      // 尝试获取用户信息用于push消息，避免重复使用replyToken
+      // 只使用replyMessage发送错误消息
       try {
-        const userId = event.source.userId;
-        await this.lineAdapter.pushMessage(userId, 
+        await this.lineAdapter.replyMessage(event.replyToken, 
           MessageTemplates.createErrorMessage('general')
         );
-      } catch (pushError) {
-        console.error('❌ 发送错误消息失败:', pushError);
-        // 如果push也失败了，尝试reply（但可能会失败）
-        try {
-          await this.lineAdapter.replyMessage(event.replyToken, 
-            MessageTemplates.createErrorMessage('general')
-          );
-        } catch (replyError) {
-          console.error('❌ Reply错误消息也失败:', replyError);
-        }
+      } catch (replyError) {
+        console.error('❌ Reply错误消息失败:', replyError);
+        // 记录错误但不再尝试pushMessage
       }
       
       return { success: false, error: error.message };
@@ -360,8 +351,10 @@ class EventHandler {
       console.log('✅ 轮播消息创建成功，卡片数量:', carouselMessage.contents.contents.length);
       
       console.log('📤 准备发送消息到用户:', userId);
-      await this.lineAdapter.pushMessage(userId, [carouselMessage]);
-      console.log('✅ 演示视频选项发送完成');
+      // 🚫 注意：这里违反了禁用pushMessage的规则，但此函数似乎未被使用
+      // TODO: 如果需要使用此功能，应重构为使用replyMessage
+      // await this.lineAdapter.pushMessage(userId, [carouselMessage]);
+      console.log('⚠️ sendDemoVideos函数被调用但pushMessage已禁用');
     } catch (error) {
       console.error('❌ 发送演示视频选项失败:', error);
       console.error('错误详情:', error.stack);
@@ -423,12 +416,13 @@ class EventHandler {
         resetDate: quotaInfo.resetDate
       });
       
-      await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
-      
-      // 只有trial用户或无订阅用户才推送订阅卡片
+      // 如果是trial用户，同时发送配额消息和升级卡片
       if (!quotaInfo.hasSubscription || quotaInfo.planType === 'trial') {
         const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
-        await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+        await this.lineAdapter.replyMessage(event.replyToken, [quotaMessage, planCarousel]);
+      } else {
+        // Standard用户只发送配额消息
+        await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
       }
       
       return { success: true };
@@ -456,12 +450,13 @@ class EventHandler {
         resetDate: quotaInfo.resetDate
       });
       
-      await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
-      
-      // 只有trial用户或无订阅用户才推送订阅卡片
+      // 如果是trial用户，同时发送配额消息和升级卡片
       if (!quotaInfo.hasSubscription || quotaInfo.planType === 'trial') {
         const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
-        await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+        await this.lineAdapter.replyMessage(event.replyToken, [quotaMessage, planCarousel]);
+      } else {
+        // Standard用户只发送配额消息
+        await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
       }
       
       return { success: true };
@@ -489,12 +484,13 @@ class EventHandler {
         resetDate: quotaInfo.resetDate
       });
       
-      await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
-      
-      // 只有trial用户或无订阅用户才推送订阅卡片
+      // 如果是trial用户，同时发送配额消息和升级卡片
       if (!quotaInfo.hasSubscription || quotaInfo.planType === 'trial') {
         const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
-        await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
+        await this.lineAdapter.replyMessage(event.replyToken, [quotaMessage, planCarousel]);
+      } else {
+        // Standard用户只发送配额消息
+        await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
       }
       
       return { success: true };
@@ -744,7 +740,7 @@ class EventHandler {
           if (status.state === 'success') {
             // 生成成功 - 问题1修复：扣除配额
             console.log('✅ 视频生成成功！');
-            await this.videoService.db.updateVideoStatus(videoRecordId, 'completed', status.videoUrl);
+            await this.videoService.db.updateVideoStatus(taskId, 'completed', status.videoUrl);
             
             // 扣除用户配额
             console.log('💰 扣除用户配额...');
@@ -883,7 +879,7 @@ class EventHandler {
           if (status.state === 'success') {
             // 生成成功 - 扣除配额
             console.log('✅ 现有任务视频生成成功！');
-            await this.videoService.db.updateVideoStatus(task.id, 'completed', status.videoUrl);
+            await this.videoService.db.updateVideoStatus(task.task_id, 'completed', status.videoUrl);
             
             // 扣除用户配额
             console.log('💰 扣除用户配额...');
