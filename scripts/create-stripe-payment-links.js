@@ -106,11 +106,11 @@ async function createStripeProducts() {
         },
       ],
       payment_method_types: paymentMethods,
-      // 支払い後のリダイレクト
+      // 支払い後のリダイレクト - 直接跳转回LINE官方账号
       after_completion: {
         type: 'redirect',
         redirect: {
-          url: `${baseUrl}/api/success?plan=trial&user_id={CHECKOUT_SESSION_ID}`
+          url: `https://line.me/R/ti/p/@055jelum`
         }
       },
       metadata: {
@@ -130,11 +130,11 @@ async function createStripeProducts() {
         },
       ],
       payment_method_types: paymentMethods,
-      // 支払い後のリダイレクト
+      // 支払い後のリダイレクト - 直接跳转回LINE官方账号
       after_completion: {
         type: 'redirect',
         redirect: {
-          url: `${baseUrl}/api/success?plan=standard&user_id={CHECKOUT_SESSION_ID}`
+          url: `https://line.me/R/ti/p/@055jelum`
         }
       },
       metadata: {

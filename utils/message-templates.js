@@ -262,9 +262,9 @@ class MessageTemplates {
    * 创建支付选项轮播卡片
    */
   static createPaymentOptionsCarousel(userId = null) {
-    // 基础Payment Links URLs
-    const trialBaseUrl = process.env.STRIPE_TRIAL_URL || 'https://buy.stripe.com/4gM28q1FF1dk8Pd96ncs80k';
-    const standardBaseUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/6oU00iesrg8e4yX6Yfcs80l';
+    // 基础Payment Links URLs - 支付完成后直接跳转回LINE
+    const trialBaseUrl = process.env.STRIPE_TRIAL_URL || 'https://buy.stripe.com/00wcN4acb6xE0iHaarcs80m';
+    const standardBaseUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/dRm4gydon1dkd5t0zRcs80n';
     
     // 如果有用户ID，添加到URL参数中
     const trialUrl = userId ? `${trialBaseUrl}?client_reference_id=${userId}` : trialBaseUrl;
