@@ -23,11 +23,11 @@ if (!global._lastApiCall) {
 async function rateLimitedApiCall(apiCall) {
   const now = Date.now();
   const timeSinceLastCall = now - global._lastApiCall;
-  const minInterval = 1200; // 1.2秒间隔，≈50 req/min
+  const minInterval = 5000; // 5秒间隔，≈12 req/min，极保守
   
   if (timeSinceLastCall < minInterval) {
     const waitTime = minInterval - timeSinceLastCall;
-    console.log(`⏳ API调用间隔控制，等待 ${waitTime}ms`);
+    console.log(`⏳ 极保守间隔控制，等待 ${waitTime}ms (${waitTime/1000}s)`);
     await sleep(waitTime);
   }
   
