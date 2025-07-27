@@ -87,20 +87,12 @@ class Database {
   // === 訂閱管理方法 ===
 
   // 創建或更新訂閱
-  async upsertSubscription(userId, subscriptionData) {
+  async upsertSubscription(userId, {
+    stripeCustomerId, stripeSubscriptionId, planType, status,
+    currentPeriodStart, currentPeriodEnd, monthlyVideoQuota, videosUsedThisMonth,
+    cancelAtPeriodEnd = false
+  }) {
     try {
-      const {
-        stripeCustomerId,
-        stripeSubscriptionId,
-        planType,
-        status = 'active',
-        currentPeriodStart,
-        currentPeriodEnd,
-        monthlyVideoQuota,
-        videosUsedThisMonth = 0
-      } = subscriptionData;
-
-      // 先檢查是否已存在訂閱
       const existing = await this.query(
         'SELECT * FROM subscriptions WHERE user_id = $1',
         [userId]
@@ -113,11 +105,12 @@ class Database {
            SET stripe_customer_id = $2, stripe_subscription_id = $3, plan_type = $4,
                status = $5, current_period_start = $6, current_period_end = $7,
                monthly_video_quota = $8, videos_used_this_month = $9,
+               cancel_at_period_end = $10,
                updated_at = CURRENT_TIMESTAMP
            WHERE user_id = $1 
            RETURNING *`,
           [userId, stripeCustomerId, stripeSubscriptionId, planType, status, 
-           currentPeriodStart, currentPeriodEnd, monthlyVideoQuota, videosUsedThisMonth]
+           currentPeriodStart, currentPeriodEnd, monthlyVideoQuota, videosUsedThisMonth, cancelAtPeriodEnd]
         );
         return result.rows[0];
       } else {
@@ -125,11 +118,11 @@ class Database {
         const result = await this.query(
           `INSERT INTO subscriptions 
            (user_id, stripe_customer_id, stripe_subscription_id, plan_type, status,
-            current_period_start, current_period_end, monthly_video_quota, videos_used_this_month)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+            current_period_start, current_period_end, monthly_video_quota, videos_used_this_month, cancel_at_period_end)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
            RETURNING *`,
           [userId, stripeCustomerId, stripeSubscriptionId, planType, status,
-           currentPeriodStart, currentPeriodEnd, monthlyVideoQuota, videosUsedThisMonth]
+           currentPeriodStart, currentPeriodEnd, monthlyVideoQuota, videosUsedThisMonth, cancelAtPeriodEnd]
         );
         return result.rows[0];
       }

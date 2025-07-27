@@ -131,7 +131,8 @@ async function handleCheckoutCompleted(session) {
       currentPeriodStart: new Date(subscription.current_period_start * 1000),
       currentPeriodEnd: new Date(subscription.current_period_end * 1000),
       monthlyVideoQuota: monthlyQuota,
-      videosUsedThisMonth: 0 // 新訂閱從0開始
+      videosUsedThisMonth: 0, // 新訂閱從0開始
+      cancelAtPeriodEnd: false // 新订阅默认不取消
     });
 
     console.log('✅ 訂閱創建成功:', {
@@ -187,7 +188,8 @@ async function handlePaymentSucceeded(invoice) {
       currentPeriodStart: new Date(subscription.current_period_start * 1000),
       currentPeriodEnd: new Date(subscription.current_period_end * 1000),
       monthlyVideoQuota: subscriptionRecord.monthly_video_quota,
-      videosUsedThisMonth: 0 // 重置為0
+      videosUsedThisMonth: 0, // 重置為0
+      cancelAtPeriodEnd: false // 续费后重置取消状态
     });
 
     console.log('✅ 月度配額重置成功:', {
@@ -222,7 +224,8 @@ async function handleSubscriptionCreated(subscription) {
         currentPeriodStart: new Date(subscription.current_period_start * 1000),
         currentPeriodEnd: new Date(subscription.current_period_end * 1000),
         monthlyVideoQuota: subscriptionRecord.monthly_video_quota,
-        videosUsedThisMonth: subscriptionRecord.videos_used_this_month || 0
+        videosUsedThisMonth: subscriptionRecord.videos_used_this_month || 0,
+        cancelAtPeriodEnd: false // 新创建订阅默认不取消
       });
 
       console.log('✅ 訂閱狀態更新成功');
@@ -237,7 +240,10 @@ async function handleSubscriptionCreated(subscription) {
 // 處理訂閱更新事件
 async function handleSubscriptionUpdated(subscription) {
   try {
-    console.log('🔄 訂閱更新:', subscription.id);
+    console.log('🔄 訂閱更新:', subscription.id, {
+      status: subscription.status,
+      cancel_at_period_end: subscription.cancel_at_period_end
+    });
 
     const subscriptionRecord = await db.getSubscriptionByStripeId(subscription.id);
 
@@ -259,6 +265,9 @@ async function handleSubscriptionUpdated(subscription) {
         console.warn('⚠️ 无法解析订阅价格ID:', e);
       }
 
+      // 检查是否设置了 cancel_at_period_end
+      const cancelAtPeriodEnd = subscription.cancel_at_period_end === true;
+      
       await db.upsertSubscription(subscriptionRecord.user_id, {
         stripeCustomerId: subscription.customer,
         stripeSubscriptionId: subscription.id,
@@ -267,13 +276,23 @@ async function handleSubscriptionUpdated(subscription) {
         currentPeriodStart: new Date(subscription.current_period_start * 1000),
         currentPeriodEnd: new Date(subscription.current_period_end * 1000),
         monthlyVideoQuota: monthlyQuota,
-        videosUsedThisMonth: subscriptionRecord.videos_used_this_month || 0
+        videosUsedThisMonth: subscriptionRecord.videos_used_this_month || 0,
+        cancelAtPeriodEnd
       });
 
-      console.log('✅ 訂閱更新處理完成');
+      console.log('✅ 訂閱更新處理完成', {
+        planType,
+        status: subscription.status,
+        cancelAtPeriodEnd
+      });
 
-      // 如果计划类型发生变化（升级或降级），通知用户
-      if (planType !== subscriptionRecord.plan_type) {
+      // 处理不同的更新情况
+      if (cancelAtPeriodEnd && !subscriptionRecord.cancel_at_period_end) {
+        // 用户刚刚取消订阅（设置了 cancel_at_period_end）
+        const periodEnd = new Date(subscription.current_period_end * 1000);
+        await sendSubscriptionCancellationScheduledNotification(subscriptionRecord.line_user_id, periodEnd);
+      } else if (planType !== subscriptionRecord.plan_type) {
+        // 计划类型发生变化（升级或降级）
         await sendSubscriptionWelcomeNotification(subscriptionRecord.line_user_id, planType, monthlyQuota);
       }
 
@@ -307,7 +326,8 @@ async function handleSubscriptionCancelled(subscription) {
         currentPeriodStart: new Date(subscription.current_period_start * 1000),
         currentPeriodEnd: new Date(subscription.current_period_end * 1000),
         monthlyVideoQuota: subscriptionRecord.monthly_video_quota, // 保持当前配额到期结束
-        videosUsedThisMonth: subscriptionRecord.videos_used_this_month || 0
+        videosUsedThisMonth: subscriptionRecord.videos_used_this_month || 0,
+        cancelAtPeriodEnd: false // 已完全取消，不再是预定状态
       });
 
       const periodEnd = new Date(subscription.current_period_end * 1000);
@@ -409,5 +429,26 @@ async function sendSubscriptionCancelledNotification(lineUserId, periodEnd) {
     
   } catch (error) {
     console.error('❌ 發送訂閱取消通知失敗:', error);
+  }
+}
+
+// 發送訂閱取消預定通知（cancel_at_period_end = true）
+async function sendSubscriptionCancellationScheduledNotification(lineUserId, periodEnd) {
+  try {
+    console.log('📤 發送訂閱取消預定通知:', { lineUserId, periodEnd });
+    
+    const LineAdapter = require('../../adapters/line-adapter');
+    const MessageTemplates = require('../../utils/message-templates');
+    const lineAdapter = new LineAdapter();
+    
+    const cancelMessage = MessageTemplates.createTextMessage(
+      `🚫 サブスクリプション解約予定\n\nサブスクリプションの解約をお受けいたしました。\n\nサービスは ${periodEnd.toLocaleDateString('ja-JP')} まで継続いたします。\n\n解約を取り消したい場合は、期日前にお知らせください。\n\nご利用いただき、ありがとうございます。`
+    );
+    
+    await lineAdapter.pushMessage(lineUserId, cancelMessage);
+    console.log('✅ 訂閱取消預定通知發送成功');
+    
+  } catch (error) {
+    console.error('❌ 發送訂閱取消預定通知失敗:', error);
   }
 } 

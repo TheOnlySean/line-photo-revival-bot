@@ -418,6 +418,7 @@ class MessageTemplates {
     const monthlyQuota = subscription.monthly_video_quota;
     const used = subscription.videos_used_this_month || 0;
     const remaining = monthlyQuota - used;
+    const isPendingCancellation = subscription.cancel_at_period_end === true;
     
     return {
       type: 'flex',
@@ -428,6 +429,30 @@ class MessageTemplates {
           type: 'box',
           layout: 'vertical',
           contents: [
+            ...(isPendingCancellation ? [{
+              type: 'box',
+              layout: 'vertical',
+              backgroundColor: '#FFF3CD',
+              cornerRadius: '8px',
+              paddingAll: 'md',
+              margin: 'md',
+              contents: [
+                {
+                  type: 'text',
+                  text: '⚠️ 解約予定',
+                  size: 'sm',
+                  weight: 'bold',
+                  color: '#856404'
+                },
+                {
+                  type: 'text',
+                  text: `${new Date(subscription.current_period_end).toLocaleDateString('ja-JP')} に終了予定`,
+                  size: 'xs',
+                  color: '#856404',
+                  margin: 'xs'
+                }
+              ]
+            }] : []),
             {
               type: 'text',
               text: '📋 現在のプラン',

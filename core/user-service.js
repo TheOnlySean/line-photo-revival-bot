@@ -165,6 +165,9 @@ class UserService {
       const currentPeriodEnd = new Date(subscription.current_period_end);
       // canceled 状态在到期前仍然有效（不续费但当前周期可用）
       const isActive = (subscription.status === 'active' || subscription.status === 'canceled') && currentPeriodEnd > now;
+      
+      // 检查是否已设置取消但未到期
+      const isPendingCancellation = subscription.cancel_at_period_end === true;
 
       const quota = await this.db.checkVideoQuota(userId);
 
@@ -173,6 +176,7 @@ class UserService {
         isActive,
         status: subscription.status,
         planType: subscription.plan_type,
+        isPendingCancellation,
         currentPeriodEnd: subscription.current_period_end,
         quota
       };
