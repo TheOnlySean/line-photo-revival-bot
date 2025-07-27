@@ -599,37 +599,34 @@ class EventHandler {
     try {
       const photoId = data.photo_id;
       
+      // 立即回复处理中消息，避免多次API调用
       const processingMessage = MessageTemplates.createVideoStatusMessages('processing');
       await this.lineAdapter.replyMessage(event.replyToken, processingMessage);
-      
-      // 切换到处理中菜单
-      await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
 
       // 生成演示视频
       const demoResult = await this.videoService.generateDemoVideo(photoId);
       
       if (demoResult.success) {
-        const completedMessages = MessageTemplates.createVideoStatusMessages('demo_completed', {
-          videoUrl: demoResult.videoUrl,
-          thumbnailUrl: demoResult.thumbnailUrl
-        });
-        // 等待 15 秒后只推送视频，减少请求大小
-        await new Promise(res => setTimeout(res, 15000));
-        // 仅发送视频消息，降低 payload，减少429
-        const videoMessage = {
-          type: 'video',
-          originalContentUrl: demoResult.videoUrl,
-          previewImageUrl: demoResult.thumbnailUrl
-        };
-        await this.lineAdapter.pushMessage(user.line_user_id, videoMessage);
+        // 创建完成消息，包含视频和提示文本
+        const completedMessages = [
+          MessageTemplates.createVideoStatusMessages('demo_completed', {
+            videoUrl: demoResult.videoUrl,
+            thumbnailUrl: demoResult.thumbnailUrl
+          }),
+          {
+            type: 'text',
+            text: '✅ 動画生成が完了しました！\n\nご自身の写真で動画を生成したい場合は、下のメニューからお選びください。'
+          }
+        ];
+        
+        // 延迟后一次性发送所有消息，减少API调用
+        await new Promise(res => setTimeout(res, 20000));
+        await this.lineAdapter.pushMessage(user.line_user_id, completedMessages);
       } else {
         await this.lineAdapter.pushMessage(user.line_user_id, 
           MessageTemplates.createErrorMessage('video_generation')
         );
       }
-      
-      // 切换回主菜单
-      await this.lineAdapter.switchToMainMenu(user.line_user_id);
       
       return { success: true };
     } catch (error) {
