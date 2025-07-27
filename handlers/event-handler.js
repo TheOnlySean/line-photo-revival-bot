@@ -325,15 +325,23 @@ class EventHandler {
    */
   async sendDemoVideos(userId) {
     try {
+      console.log('🎁 开始发送演示视频到用户:', userId);
+      
       const { trialPhotos } = require('../config/demo-trial-photos');
+      console.log('📋 加载演示视频配置，共', trialPhotos.length, '个视频');
       
       const introMessage = MessageTemplates.createTextMessage('🎁 **無料体験をお試しください！**\n\n📸 下記のサンプル写真からお選びください：');
-      const carouselMessage = MessageTemplates.createDemoVideoCarousel(trialPhotos);
+      console.log('✅ 介绍消息创建成功');
       
+      const carouselMessage = MessageTemplates.createDemoVideoCarousel(trialPhotos);
+      console.log('✅ 轮播消息创建成功，卡片数量:', carouselMessage.contents.contents.length);
+      
+      console.log('📤 准备发送消息到用户:', userId);
       await this.lineAdapter.pushMessage(userId, [introMessage, carouselMessage]);
       console.log('✅ 演示视频选项发送完成');
     } catch (error) {
       console.error('❌ 发送演示视频选项失败:', error);
+      console.error('错误详情:', error.stack);
       throw error;
     }
   }
