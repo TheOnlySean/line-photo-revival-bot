@@ -305,8 +305,8 @@ class VideoGenerator {
 
       // 更新数据库状态为失败
       await this.db.query(
-        'UPDATE videos SET status = $1, error_message = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
-        ['failed', errorMessage, videoRecordId]
+        'UPDATE videos SET status = $1 WHERE id = $2',
+        ['failed', videoRecordId]
       );
       console.log('✅ 视频状态已更新为失败');
 

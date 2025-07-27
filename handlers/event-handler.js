@@ -601,8 +601,8 @@ class EventHandler {
         for (const oldTask of pendingTasks) {
           // 将旧任务标记为失败，但不恢复配额（因为这些任务可能还没有扣配额）
           await this.videoService.db.query(
-            'UPDATE videos SET status = $1, error_message = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
-            ['cancelled', '用户创建了新的生成任务', oldTask.id]
+            'UPDATE videos SET status = $1 WHERE id = $2',
+            ['cancelled', oldTask.id]
           );
           console.log('❌ 取消旧任务:', oldTask.id);
         }
