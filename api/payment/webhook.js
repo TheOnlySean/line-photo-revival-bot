@@ -292,26 +292,29 @@ async function handleSubscriptionUpdated(subscription) {
 // 處理訂閱取消事件
 async function handleSubscriptionCancelled(subscription) {
   try {
-    console.log('❌ 訂閱取消:', subscription.id);
+    console.log('🚫 訂閱取消 (不续费):', subscription.id);
 
     const subscriptionRecord = await db.getSubscriptionByStripeId(subscription.id);
     
     if (subscriptionRecord) {
+      // 取消订阅 = 不续费，但当前周期仍然有效
+      // 用户可以继续使用到 current_period_end
       await db.upsertSubscription(subscriptionRecord.user_id, {
         stripeCustomerId: subscription.customer,
         stripeSubscriptionId: subscription.id,
         planType: subscriptionRecord.plan_type,
-        status: 'canceled',
+        status: 'canceled', // 标记为已取消，但服务继续到期结束
         currentPeriodStart: new Date(subscription.current_period_start * 1000),
         currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-        monthlyVideoQuota: 0, // 取消後配額為0
+        monthlyVideoQuota: subscriptionRecord.monthly_video_quota, // 保持当前配额到期结束
         videosUsedThisMonth: subscriptionRecord.videos_used_this_month || 0
       });
 
-      console.log('✅ 訂閱取消處理完成');
+      const periodEnd = new Date(subscription.current_period_end * 1000);
+      console.log(`✅ 訂閱取消處理完成 - 服务继续到: ${periodEnd.toLocaleDateString()}`);
 
       // 發送取消通知
-      await sendSubscriptionCancelledNotification(subscriptionRecord.line_user_id);
+      await sendSubscriptionCancelledNotification(subscriptionRecord.line_user_id, periodEnd);
     }
 
   } catch (error) {
@@ -389,16 +392,16 @@ async function sendSubscriptionIssueNotification(lineUserId, status) {
 }
 
 // 發送訂閱取消通知
-async function sendSubscriptionCancelledNotification(lineUserId) {
+async function sendSubscriptionCancelledNotification(lineUserId, periodEnd) {
   try {
-    console.log('📤 發送訂閱取消通知:', lineUserId);
+    console.log('📤 發送訂閱取消通知:', { lineUserId, periodEnd });
     
     const LineAdapter = require('../../adapters/line-adapter');
     const MessageTemplates = require('../../utils/message-templates');
     const lineAdapter = new LineAdapter();
     
     const cancelMessage = MessageTemplates.createTextMessage(
-      '✅ サブスクリプション解約完了\n\nサブスクリプションを解約いたしました。\n\nご利用いただき、ありがとうございました。\n\nまたのご利用をお待ちしております。'
+      `❌ サブスクリプション解約完了\n\nサブスクリプションを解約いたしました。\n\nサービスは ${periodEnd.toLocaleDateString()} まで継続いたします。\n\nご利用いただき、ありがとうございました。\n\nまたのご利用をお待ちしております。`
     );
     
     await lineAdapter.pushMessage(lineUserId, cancelMessage);
