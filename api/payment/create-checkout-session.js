@@ -4,9 +4,14 @@ const Database = require('../../config/database');
 const db = new Database();
 
 /**
- * 创建带有用户信息的Checkout Session
+ * 创建带有用户信息的Checkout Session - Vercel API格式
  */
 module.exports = async (req, res) => {
+  // 只允许POST请求
+  if (req.method !== 'POST') {
+    return res.status(405).json({ error: 'Method not allowed' });
+  }
+
   console.log('🛒 收到创建Checkout Session请求');
   
   try {
@@ -21,14 +26,18 @@ module.exports = async (req, res) => {
 
     console.log(`👤 为用户 ${userId} 创建 ${planType} 计划的Checkout Session`);
     
-    // 获取用户信息
-    const user = await db.ensureUserExists(userId);
+    // 通过数据库ID获取用户信息
+    const userResult = await db.query('SELECT * FROM users WHERE id = $1', [parseInt(userId)]);
+    const user = userResult.rows[0];
+    
     if (!user) {
       return res.status(404).json({
         success: false,
         error: 'User not found'
       });
     }
+
+    console.log(`👤 找到用户: ID=${user.id}, LINE=${user.line_user_id}, Name=${user.display_name}`);
 
     // 根据计划类型设置价格ID和配额
     let priceId, monthlyQuota, planName;
