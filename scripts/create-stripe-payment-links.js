@@ -110,7 +110,7 @@ async function createStripeProducts() {
       after_completion: {
         type: 'redirect',
         redirect: {
-          url: `${baseUrl}/api/subscription/success?plan=trial&user_id={CHECKOUT_SESSION_ID}`
+          url: `${baseUrl}/subscription-success.html?plan=trial&user_id={CHECKOUT_SESSION_ID}`
         }
       },
       metadata: {
@@ -134,7 +134,7 @@ async function createStripeProducts() {
       after_completion: {
         type: 'redirect',
         redirect: {
-          url: `${baseUrl}/api/subscription/success?plan=standard&user_id={CHECKOUT_SESSION_ID}`
+          url: `${baseUrl}/subscription-success.html?plan=standard&user_id={CHECKOUT_SESSION_ID}`
         }
       },
       metadata: {

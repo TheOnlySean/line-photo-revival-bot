@@ -263,8 +263,8 @@ class MessageTemplates {
    */
   static createPaymentOptionsCarousel(userId = null) {
     // 基础Payment Links URLs
-    const trialBaseUrl = process.env.STRIPE_TRIAL_URL || 'https://buy.stripe.com/7sY00ibgfe065D1aarcs80e';
-    const standardBaseUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/9B628qacb9JQ5D16Yfcs80f';
+    const trialBaseUrl = process.env.STRIPE_TRIAL_URL || 'https://buy.stripe.com/28E14m4RR1dk6H5cizcs80g';
+    const standardBaseUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/8x27sKbgfg8e1mL0zRcs80h';
     
     // 如果有用户ID，添加到URL参数中
     const trialUrl = userId ? `${trialBaseUrl}?client_reference_id=${userId}` : trialBaseUrl;
