@@ -599,28 +599,24 @@ class EventHandler {
     try {
       const photoId = data.photo_id;
       
-      // 1. 切换到处理中菜单并立即给用户提示消息
+      // 1. 切换到处理中菜单（用户看到菜单变化就知道开始处理了）
       await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
-      
-      // 2. 立即发送"开始生成"提示消息（使用pushMessage，因为replyToken要保留给最终结果）
-      const processingMessage = MessageTemplates.createVideoStatusMessages('processing');
-      await this.lineAdapter.pushMessage(user.line_user_id, processingMessage);
 
-      // 3. 等待15秒（模拟生成过程）
+      // 2. 等待15秒（模拟生成过程，用户看到processing menu知道在处理）
       await new Promise(resolve => setTimeout(resolve, 15000));
 
-      // 4. 获取demo视频信息
+      // 3. 获取demo视频信息
       const { trialPhotos } = require('../config/demo-trial-photos');
       const selectedPhoto = trialPhotos.find(photo => photo.id === photoId);
       
       if (selectedPhoto) {
-        // 5. 创建完成消息
+        // 4. 创建完成消息
         const demoCompletedMessages = MessageTemplates.createVideoStatusMessages('demo_completed', {
           videoUrl: selectedPhoto.demo_video_url,
           thumbnailUrl: selectedPhoto.image_url
         });
         
-        // 6. 添加完成提示文本
+        // 5. 添加完成提示文本
         const completedMessages = Array.isArray(demoCompletedMessages) 
           ? [...demoCompletedMessages, {
               type: 'text',
@@ -631,7 +627,7 @@ class EventHandler {
               text: '✅ 動画生成が完了しました！\n\nご自身の写真で動画を生成したい場合は、下のメニューからお選びください。'
             }];
 
-        // 7. 使用replyMessage发送完成消息
+        // 6. 使用免费的replyMessage发送完成消息（完全免费！）
         await this.lineAdapter.replyMessage(event.replyToken, completedMessages);
       } else {
         // 处理错误情况
@@ -639,14 +635,20 @@ class EventHandler {
         await this.lineAdapter.replyMessage(event.replyToken, errorMessage);
       }
       
-      // 8. 切换回主菜单
+      // 7. 切换回主菜单
       await this.lineAdapter.switchToMainMenu(user.line_user_id);
       
       return { success: true };
     } catch (error) {
       console.error('❌ 处理演示生成失败:', error);
-      const errorMessage = MessageTemplates.createErrorMessage('video_generation');
-      await this.lineAdapter.replyMessage(event.replyToken, errorMessage);
+      // 如果出错，尝试用replyMessage发送错误消息（如果replyToken还有效）
+      try {
+        const errorMessage = MessageTemplates.createErrorMessage('video_generation');
+        await this.lineAdapter.replyMessage(event.replyToken, errorMessage);
+      } catch (replyError) {
+        console.error('❌ Reply错误消息也失败:', replyError);
+        // 静默失败，不再尝试pushMessage避免429
+      }
       throw error;
     }
   }
