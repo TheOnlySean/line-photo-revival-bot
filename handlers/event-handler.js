@@ -564,7 +564,7 @@ class EventHandler {
         return { success: false, error: validation.errors.join(', ') };
       }
 
-      // 1. 立即切换到processing menu给用户即时反馈
+      // 1. 立即切换到processing menu给用户即时反馈（不消耗replyToken）
       console.log('🔄 切换到processing menu...');
       await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
 
@@ -586,8 +586,38 @@ class EventHandler {
         return { success: false, error: 'Failed to create video task' };
       }
 
-      // 3. 启动视频生成并获取taskId
-      console.log('🚀 启动视频生成...');
+      // 3. 启动后台异步轮询（保留replyToken供后续使用）
+      console.log('🚀 启动后台异步轮询...');
+      this.startBackgroundPolling(event.replyToken, user, taskResult.videoRecordId, imageUrl, prompt);
+
+      return { success: true, message: 'Background polling started' };
+
+    } catch (error) {
+      console.error('❌ handleConfirmGenerate系统错误:', error);
+      
+      // 确保在系统错误时恢复配额
+      if (taskResult && taskResult.success && taskResult.videoRecordId) {
+        await this.videoService.handleVideoFailure(taskResult.videoRecordId, '系统错误', true);
+      }
+      
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createErrorMessage('video_generation')
+      );
+      await this.lineAdapter.switchToMainMenu(user.line_user_id);
+      
+      return { success: false, error: error.message };
+    }
+  }
+
+  // 新增：后台异步轮询方法
+  async startBackgroundPolling(replyToken, user, videoRecordId, imageUrl, prompt) {
+    console.log('🔄 开始后台轮询:', { videoRecordId, userId: user.line_user_id });
+    
+    try {
+      // 等待15秒后开始轮询
+      console.log('⏳ 等待15秒后开始轮询...');
+      await new Promise(resolve => setTimeout(resolve, 15000));
+
       const VideoGenerator = require('../services/video-generator');
       const videoGenerator = new VideoGenerator(this.videoService.db);
       
@@ -595,18 +625,27 @@ class EventHandler {
       console.log('📡 调用KIE.AI API...');
       const apiResult = await videoGenerator.callRunwayApi(imageUrl, prompt);
       console.log('📡 API调用结果:', apiResult);
+      
       if (!apiResult.success) {
         // API调用失败，恢复配额并通知用户
-        await this.videoService.handleVideoFailure(taskResult.videoRecordId, apiResult.error, true);
-        await this.lineAdapter.replyMessage(event.replyToken, {
+        console.log('❌ API调用失败，恢复配额');
+        await this.videoService.handleVideoFailure(videoRecordId, apiResult.error, true);
+        
+        await this.lineAdapter.replyMessage(replyToken, {
           type: 'text',
-          text: `❌ 動画生成に失敗しました。\n\n詳細: ${apiResult.error}\n\n✅ 利用枠は消費されておりません。`
+          text: '❌ 動画生成に失敗しました。利用枠は消費されておりません。\n\n📱 メインメニューに戻ります。'
         });
         await this.lineAdapter.switchToMainMenu(user.line_user_id);
-        return { success: false, error: apiResult.error };
+        return;
       }
 
-      // 4. 同步轮询5分钟
+      // 更新任务ID
+      await this.videoService.db.query(
+        'UPDATE videos SET task_id = $1 WHERE id = $2',
+        [apiResult.taskId, videoRecordId]
+      );
+
+      // 4. 同步轮询直到完成（最多5分钟）
       console.log('🔄 开始同步轮询，最大5分钟...');
       const maxPollingTime = 5 * 60 * 1000; // 5分钟
       const pollInterval = 10000; // 10秒
@@ -627,7 +666,7 @@ class EventHandler {
           if (status.state === 'success') {
             // 生成成功
             console.log('✅ 视频生成成功！');
-            await this.videoService.updateVideoStatus(taskResult.videoRecordId, 'completed', status.videoUrl);
+            await this.videoService.updateVideoStatus(videoRecordId, 'completed', status.videoUrl);
             finalResult = {
               success: true,
               videoUrl: status.videoUrl,
@@ -637,7 +676,7 @@ class EventHandler {
           } else if (status.state === 'failed' || status.state === 'error') {
             // 生成失败，恢复配额
             console.log('❌ 视频生成失败:', status.message);
-            await this.videoService.handleVideoFailure(taskResult.videoRecordId, status.message, true);
+            await this.videoService.handleVideoFailure(videoRecordId, status.message, true);
             finalResult = {
               success: false,
               error: status.message || '動画生成に失敗しました'
@@ -656,7 +695,7 @@ class EventHandler {
           // 如果轮询错误次数过多，认为任务失败并恢复配额
           if (pollErrorCount >= maxPollErrors) {
             console.error('❌ 轮询错误次数过多，恢复配额');
-            await this.videoService.handleVideoFailure(taskResult.videoRecordId, '轮询服务异常', true);
+            await this.videoService.handleVideoFailure(videoRecordId, '轮询服务异常', true);
             finalResult = {
               success: false,
               error: '動画生成サービスに接続できません'
@@ -668,61 +707,51 @@ class EventHandler {
         }
       }
 
-      // 5. 处理结果
+      // 5. 处理结果并使用replyToken发送
       console.log('📊 轮询结束，处理结果:', finalResult);
       if (finalResult) {
         if (finalResult.success) {
-          // 成功：发送视频
-          const completedMessages = MessageTemplates.createVideoStatusMessages('completed', {
-            videoUrl: finalResult.videoUrl,
-            thumbnailUrl: finalResult.thumbnailUrl
-          });
-          await this.lineAdapter.replyMessage(event.replyToken, completedMessages);
+          // 成功：发送视频和完成消息
+          console.log('✅ 发送成功结果');
+          const videoMessage = MessageTemplates.createVideoMessage(finalResult.videoUrl, finalResult.thumbnailUrl);
+          const completionMessage = MessageTemplates.createVideoCompletionMessage();
+          
+          await this.lineAdapter.replyMessage(replyToken, [videoMessage, completionMessage]);
+          await this.lineAdapter.switchToMainMenu(user.line_user_id);
         } else {
-          // 失败：发送错误信息
-          await this.lineAdapter.replyMessage(event.replyToken, {
+          // 失败：发送错误消息
+          console.log('❌ 发送失败结果');
+          await this.lineAdapter.replyMessage(replyToken, {
             type: 'text',
-            text: `❌ 動画生成に失敗しました。\n\n詳細: ${finalResult.error}\n\n✅ 利用枠は消費されておりません。`
+            text: `❌ 動画生成に失敗しました。利用枠は消費されておりません。\n\n📱 メインメニューに戻ります。\n\nエラー: ${finalResult.error}`
           });
+          await this.lineAdapter.switchToMainMenu(user.line_user_id);
         }
-        // 切换回主菜单
-        await this.lineAdapter.switchToMainMenu(user.line_user_id);
       } else {
-        // 超时：告知用户点击processing menu查询进度
-        await this.lineAdapter.replyMessage(event.replyToken, {
+        // 5分钟超时
+        console.log('⏰ 轮询超时');
+        await this.lineAdapter.replyMessage(replyToken, {
           type: 'text',
-          text: '🎬 動画生成中です...\n\n⏱️ 生成に通常より時間がかかっています。\n\n📱 下のメニューをタップして進捗を確認できます。'
+          text: '⏰ 動画生成に時間がかかっています。\n\n📱 下の処理中メニューをタップして進行状況を確認してください。'
         });
-        // 保持processing menu，等待用户点击查询
+        // 保持在processing menu，不切换到主菜单
       }
 
-      // 记录交互
-      await this.userService.logUserInteraction(user.line_user_id, user.id, 'video_generation_started', {
-        imageUrl, prompt, videoRecordId: taskResult.videoRecordId
-      });
-
-      // 清除用户状态
-      await this.userService.clearUserState(user.id);
-
-      return { success: true };
     } catch (error) {
-      console.error('❌ 处理确认生成失败:', error);
+      console.error('❌ 后台轮询系统错误:', error);
+      
+      // 确保在系统错误时恢复配额
+      await this.videoService.handleVideoFailure(videoRecordId, '系统错误', true);
+      
       try {
-        // 🚨 重要：如果已经创建了视频任务，必须恢复配额
-        if (taskResult && taskResult.success && taskResult.videoRecordId) {
-          console.log('🔄 系统错误，恢复用户配额:', taskResult.videoRecordId);
-          await this.videoService.handleVideoFailure(taskResult.videoRecordId, '系统错误', true);
-        }
-        
-        await this.lineAdapter.replyMessage(event.replyToken, {
+        await this.lineAdapter.replyMessage(replyToken, {
           type: 'text',
-          text: '❌ システムエラーが発生しました。\n\n✅ 利用枠は消費されておりません。\n\n🔄 しばらくしてから再度お試しください。'
+          text: '❌ システムエラーが発生しました。利用枠は消費されておりません。\n\n📱 メインメニューに戻ります。'
         });
         await this.lineAdapter.switchToMainMenu(user.line_user_id);
       } catch (replyError) {
-        console.error('❌ 发送错误回复失败:', replyError);
+        console.error('❌ 发送错误消息失败:', replyError);
       }
-      return { success: false, error: error.message };
     }
   }
 

@@ -1023,6 +1023,39 @@ class MessageTemplates {
       }
     };
   }
+
+  /**
+   * 创建简单的视频消息
+   */
+  static createVideoMessage(videoUrl, thumbnailUrl) {
+    return {
+      type: 'video',
+      originalContentUrl: videoUrl,
+      previewImageUrl: thumbnailUrl || videoUrl
+    };
+  }
+
+  /**
+   * 创建视频完成提示消息  
+   */
+  static createVideoCompletionMessage() {
+    return {
+      type: 'text',
+      text: '🎉 動画生成完了！\n\nいかがでしょうか？\n\n他の写真でも試してみたい場合は、下部メニューからどうぞ！',
+      quickReply: {
+        items: [
+          {
+            type: 'action',
+            action: {
+              type: 'postback',
+              label: 'メインメニューに戻る',
+              data: 'action=switch_to_main_menu'
+            }
+          }
+        ]
+      }
+    };
+  }
 }
 
 module.exports = MessageTemplates; 
