@@ -586,11 +586,11 @@ class EventHandler {
         return { success: false, error: 'Failed to create video task' };
       }
 
-      // 3. 启动后台异步轮询（保留replyToken供后续使用）
-      console.log('🚀 启动后台异步轮询...');
-      this.startBackgroundPolling(event.replyToken, user, taskResult.videoRecordId, imageUrl, prompt);
+      // 3. 同步执行：等待15秒 + 轮询（保留replyToken供后续使用）
+      console.log('🚀 开始同步轮询流程...');
+      await this.executeVideoGenerationWithPolling(event.replyToken, user, taskResult.videoRecordId, imageUrl, prompt);
 
-      return { success: true, message: 'Background polling started' };
+      return { success: true, message: 'Video generation completed' };
 
     } catch (error) {
       console.error('❌ handleConfirmGenerate系统错误:', error);
@@ -609,9 +609,9 @@ class EventHandler {
     }
   }
 
-  // 新增：后台异步轮询方法
-  async startBackgroundPolling(replyToken, user, videoRecordId, imageUrl, prompt) {
-    console.log('🔄 开始后台轮询:', { videoRecordId, userId: user.line_user_id });
+  // 修改：同步执行整个轮询流程
+  async executeVideoGenerationWithPolling(replyToken, user, videoRecordId, imageUrl, prompt) {
+    console.log('🔄 开始同步轮询流程:', { videoRecordId, userId: user.line_user_id });
     
     try {
       // 等待15秒后开始轮询
@@ -738,7 +738,7 @@ class EventHandler {
       }
 
     } catch (error) {
-      console.error('❌ 后台轮询系统错误:', error);
+      console.error('❌ 轮询流程系统错误:', error);
       
       // 确保在系统错误时恢复配额
       await this.videoService.handleVideoFailure(videoRecordId, '系统错误', true);
