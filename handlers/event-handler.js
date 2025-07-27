@@ -745,9 +745,81 @@ class EventHandler {
     try {
       console.log(`🚫 用户 ${user.id} 请求取消订阅`);
       
-      // 先显示确认消息
-      const confirmMessage = MessageTemplates.createCancelSubscriptionConfirmCard();
-      await this.lineAdapter.replyMessage(event.replyToken, confirmMessage);
+      // 调用API获取客户门户链接
+      const axios = require('axios');
+      const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://line-photo-revival-bot.vercel.app';
+      
+      try {
+        const response = await axios.get(`${baseUrl}/api/payment/create-portal-session?userId=${user.id}`);
+        
+        if (response.data.success) {
+          // 发送包含Stripe客户门户链接的消息
+          const portalMessage = MessageTemplates.createFlexMessage(
+            'サブスクリプション管理',
+            {
+              type: 'bubble',
+              body: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  {
+                    type: 'text',
+                    text: '🏪 サブスクリプション管理',
+                    weight: 'bold',
+                    size: 'lg',
+                    color: '#333333'
+                  },
+                  {
+                    type: 'separator',
+                    margin: 'md'
+                  },
+                  {
+                    type: 'text',
+                    text: 'Stripeの安全なページでサブスクリプションを管理できます。',
+                    size: 'sm',
+                    color: '#666666',
+                    margin: 'md',
+                    wrap: true
+                  },
+                  {
+                    type: 'text',
+                    text: '• サブスクリプションの解約\n• お支払い方法の変更\n• 請求履歴の確認',
+                    size: 'sm',
+                    color: '#666666',
+                    margin: 'md',
+                    wrap: true
+                  }
+                ]
+              },
+              footer: {
+                type: 'box',
+                layout: 'vertical',
+                contents: [
+                  {
+                    type: 'button',
+                    style: 'primary',
+                    color: '#FF6B6B',
+                    action: {
+                      type: 'uri',
+                      uri: response.data.portal_url,
+                      label: '🏪 管理ページを開く'
+                    }
+                  }
+                ]
+              }
+            }
+          );
+          
+          await this.lineAdapter.replyMessage(event.replyToken, portalMessage);
+        } else {
+          throw new Error(response.data.error);
+        }
+      } catch (apiError) {
+        console.error('❌ 获取客户门户链接失败:', apiError);
+        await this.lineAdapter.replyMessage(event.replyToken, 
+          MessageTemplates.createTextMessage('❌ 申し訳ございません。サブスクリプション管理ページへのアクセスに問題が発生しました。\n\nしばらくしてから再度お試しください。')
+        );
+      }
       
       return { success: true };
     } catch (error) {

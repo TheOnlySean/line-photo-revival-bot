@@ -20,6 +20,12 @@
     },
     "api/payment/create-direct-checkout.js": {
       "maxDuration": 15
+    },
+    "api/payment/create-portal-session.js": {
+      "maxDuration": 15
+    },
+    "api/payment/portal.js": {
+      "maxDuration": 15
     }
   },
   "crons": [

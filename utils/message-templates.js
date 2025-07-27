@@ -489,7 +489,7 @@ class MessageTemplates {
               color: '#FF6B6B',
               action: {
                 type: 'postback',
-                label: '🚫 サブスクリプションを解約',
+                label: '🚫 サブスクリプションを解約する',
                 data: 'action=CANCEL_SUBSCRIPTION'
               }
             }
