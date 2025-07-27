@@ -240,20 +240,42 @@ async function handleSubscriptionUpdated(subscription) {
     console.log('🔄 訂閱更新:', subscription.id);
 
     const subscriptionRecord = await db.getSubscriptionByStripeId(subscription.id);
-    
+
     if (subscriptionRecord) {
+      // 依据价格 ID 推断新的计划类型与配额
+      let planType = subscriptionRecord.plan_type;
+      let monthlyQuota = subscriptionRecord.monthly_video_quota;
+
+      try {
+        const priceId = subscription.items.data[0]?.price?.id;
+        if (priceId === process.env.STRIPE_STANDARD_PRICE_ID) {
+          planType = 'standard';
+          monthlyQuota = 100;
+        } else if (priceId === process.env.STRIPE_TRIAL_PRICE_ID) {
+          planType = 'trial';
+          monthlyQuota = 8;
+        }
+      } catch (e) {
+        console.warn('⚠️ 无法解析订阅价格ID:', e);
+      }
+
       await db.upsertSubscription(subscriptionRecord.user_id, {
         stripeCustomerId: subscription.customer,
         stripeSubscriptionId: subscription.id,
-        planType: subscriptionRecord.plan_type,
+        planType,
         status: subscription.status,
         currentPeriodStart: new Date(subscription.current_period_start * 1000),
         currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-        monthlyVideoQuota: subscriptionRecord.monthly_video_quota,
+        monthlyVideoQuota: monthlyQuota,
         videosUsedThisMonth: subscriptionRecord.videos_used_this_month || 0
       });
 
       console.log('✅ 訂閱更新處理完成');
+
+      // 如果计划类型发生变化（升级或降级），通知用户
+      if (planType !== subscriptionRecord.plan_type) {
+        await sendSubscriptionWelcomeNotification(subscriptionRecord.line_user_id, planType, monthlyQuota);
+      }
 
       // 如果訂閱被暫停或過期，發送通知
       if (subscription.status === 'past_due' || subscription.status === 'canceled') {
