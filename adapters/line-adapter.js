@@ -70,32 +70,33 @@ class LineAdapter {
    * 发送推送消息
    */
   async pushMessage(userId, messages, retryCount = 0) {
-    try {
-      const messageArray = Array.isArray(messages) ? messages : [messages];
-      await this.client.pushMessage(userId, messageArray);
-    } catch (error) {
-      console.error('❌ 发送推送消息失败:', error);
-      
-      // 如果是429错误且重试次数少于3次，则延迟重试
-      if (error.statusCode === 429 && retryCount < 1) {
-        const delay = 10000; // 10秒后重试一次
-        console.log(`🔄 检测到速率限制，${delay/1000}秒后进行重试...`);
-        
-        return new Promise((resolve, reject) => {
-          setTimeout(async () => {
-            try {
-              await this.pushMessage(userId, messages, retryCount + 1);
-              resolve();
-            } catch (retryError) {
-              reject(retryError);
-            }
-          }, delay);
-        });
-      }
-      
-      throw error;
-    }
-  }
+     try {
+       const messageArray = Array.isArray(messages) ? messages : [messages];
+       await this.client.pushMessage(userId, messageArray);
+     } catch (error) {
+       console.error('❌ 发送推送消息失败:', error);
+       // 429 Too Many Requests
+       if (error.statusCode === 429 && retryCount < 3) {
+         // LINE API 返回的 Retry-After 秒数（若有）
+         const retryAfter = parseInt(error.response?.headers?.['retry-after'] || '0', 10);
+         // 基于重试次数的退避：10s, 30s, 60s
+         const backoffMap = [10000, 30000, 60000];
+         const delay = retryAfter > 0 ? retryAfter * 1000 : backoffMap[retryCount] || 60000;
+         console.log(`🔄 429 速率限制，第 ${retryCount + 1} 次重试，${delay/1000}s 后再试...`);
+         return new Promise((resolve, reject) => {
+           setTimeout(async () => {
+             try {
+               await this.pushMessage(userId, messages, retryCount + 1);
+               resolve();
+             } catch (retryError) {
+               reject(retryError);
+             }
+           }, delay);
+         });
+       }
+       throw error;
+     }
+   }
 
   /**
    * 上传图片并获取URL
