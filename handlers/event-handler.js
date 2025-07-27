@@ -599,16 +599,21 @@ class EventHandler {
     try {
       const photoId = data.photo_id;
       
-      // 1. 立即切换到处理中菜单 - 给用户即时反馈
-      await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
+      // 1. 并行执行：立即切换processing menu + 准备demo数据
+      const [_, selectedPhoto] = await Promise.all([
+        // 立即切换到处理中菜单 - 给用户即时反馈
+        this.lineAdapter.switchToProcessingMenu(user.line_user_id),
+        // 同时准备demo视频信息
+        (() => {
+          const { trialPhotos } = require('../config/demo-trial-photos');
+          return trialPhotos.find(photo => photo.id === photoId);
+        })()
+      ]);
 
       // 2. 等待15秒（模拟生成过程）
       await new Promise(resolve => setTimeout(resolve, 15000));
 
-      // 3. 获取demo视频信息
-      const { trialPhotos } = require('../config/demo-trial-photos');
-      const selectedPhoto = trialPhotos.find(photo => photo.id === photoId);
-      
+      // 3. 处理demo视频
       if (selectedPhoto) {
         // 4. 创建完成消息序列
         const processingMessage = MessageTemplates.createVideoStatusMessages('processing');
@@ -640,17 +645,22 @@ class EventHandler {
           text: '✅ テスト動画の生成が完了しました！\n\nいかがでしょうか？ご自身の写真で動画を生成したい場合は、下のメニューからお選びください。'
         });
 
-        // 6. 使用replyMessage发送完整消息序列（完全免费）
-        await this.lineAdapter.replyMessage(event.replyToken, allMessages);
+        // 6. 并行执行：发送消息 + 切换回主菜单
+        await Promise.all([
+          // 使用replyMessage发送完整消息序列（完全免费）
+          this.lineAdapter.replyMessage(event.replyToken, allMessages),
+          // 同时切换回主菜单
+          this.lineAdapter.switchToMainMenu(user.line_user_id)
+        ]);
       } else {
         // 处理错误情况
         console.error('❌ 找不到指定的demo照片:', photoId);
         const errorMessage = MessageTemplates.createErrorMessage('video_generation');
-        await this.lineAdapter.replyMessage(event.replyToken, errorMessage);
+        await Promise.all([
+          this.lineAdapter.replyMessage(event.replyToken, errorMessage),
+          this.lineAdapter.switchToMainMenu(user.line_user_id)
+        ]);
       }
-      
-      // 7. 切换回主菜单
-      await this.lineAdapter.switchToMainMenu(user.line_user_id);
       
       return { success: true };
     } catch (error) {
