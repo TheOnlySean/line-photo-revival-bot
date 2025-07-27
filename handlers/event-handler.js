@@ -40,23 +40,23 @@ class EventHandler {
       // 确保用户有Rich Menu
       await this.lineAdapter.ensureUserHasRichMenu(userId);
 
-      // 延迟发送演示视频选项，避免速率限制
-      setTimeout(async () => {
+      // 直接发送演示视频选项（依赖LineAdapter的重试机制）
+      try {
+        console.log('🎁 开始发送演示视频选项...');
+        await this.sendDemoVideos(userId);
+        console.log('✅ 演示视频选项发送成功');
+      } catch (demoError) {
+        console.error('❌ 发送演示视频选项失败:', demoError);
+        // 发送简化版本作为备选
         try {
-          await this.sendDemoVideos(userId);
-          console.log('✅ 演示视频选项发送成功');
-        } catch (demoError) {
-          console.error('❌ 发送演示视频选项失败:', demoError);
-          // 发送简化版本作为备选
-          try {
-            await this.lineAdapter.pushMessage(userId, 
-              MessageTemplates.createTextMessage('🎁 無料体験をご希望の場合は、下部メニューからお気軽にお選びください！')
-            );
-          } catch (fallbackError) {
-            console.error('❌ 发送备选消息也失败:', fallbackError);
-          }
+          await this.lineAdapter.pushMessage(userId, 
+            MessageTemplates.createTextMessage('🎁 無料体験をご希望の場合は、下部メニューからお気軽にお選びください！')
+          );
+          console.log('✅ 备选消息发送成功');
+        } catch (fallbackError) {
+          console.error('❌ 发送备选消息也失败:', fallbackError);
         }
-      }, 2000); // 延迟2秒发送
+      }
 
       return { success: true };
     } catch (error) {
@@ -645,21 +645,27 @@ class EventHandler {
 
   async handleCouponAction(event, user) {
     try {
+      console.log(`🎫 用户 ${user.id} 点击优惠券按钮`);
+      
       // 檢查用戶訂閱狀態
       const subscription = await this.userService.getUserSubscription(user.id);
+      console.log('📋 用户订阅状态:', subscription);
       
       if (!subscription) {
         // 沒有訂閱，顯示訂閱計劃選項
+        console.log('💳 显示支付选项卡片');
         const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
         await this.lineAdapter.replyMessage(event.replyToken, planCarousel);
       } else {
         // 已有訂閱，顯示當前狀態
         if (subscription.plan_type === 'standard') {
           // Standard 用戶，僅顯示狀態
+          console.log('⭐ 显示Standard订阅状态卡片');
           const statusMessage = MessageTemplates.createSubscriptionStatusMessage(subscription);
           await this.lineAdapter.replyMessage(event.replyToken, statusMessage);
         } else if (subscription.plan_type === 'trial') {
           // Trial 用戶，詢問是否升級
+          console.log('🆙 显示Trial升级提示卡片');
           const upgradeCard = MessageTemplates.createUpgradePromptCard(subscription);
           await this.lineAdapter.replyMessage(event.replyToken, upgradeCard);
         }
