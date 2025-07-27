@@ -526,10 +526,13 @@ class EventHandler {
       console.log('📋 检查pending任务:', pendingTasks.length);
       
       if (pendingTasks.length > 0) {
-        console.log('⚠️ 用户已有pending任务，切换到processing menu');
-        // 不消耗replyToken！切换到processing menu让用户点击查看状态
-        await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
-        return { success: false, error: 'User already has pending tasks - switched to processing menu' };
+        console.log('⚠️ 用户已有pending任务，提示等待');
+        // 问题2修复：用当前replyToken提示用户等待，不切换menu
+        await this.lineAdapter.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '🎬 現在動画を生成中です。お待ちください...\n\n⏱️ 生成完了まで今しばらくお待ちください。複数の動画を同時に生成することはできません。'
+        });
+        return { success: false, error: 'User already has pending tasks' };
       }
 
       // 從使用者狀態取出暫存資料
@@ -664,9 +667,14 @@ class EventHandler {
           console.log('📊 任务状态:', status);
           
           if (status.state === 'success') {
-            // 生成成功
+            // 生成成功 - 问题1修复：扣除配额
             console.log('✅ 视频生成成功！');
             await this.videoService.db.updateVideoStatus(videoRecordId, 'completed', status.videoUrl);
+            
+            // 扣除用户配额
+            console.log('💰 扣除用户配额...');
+            await this.videoService.db.useVideoQuota(user.id);
+            
             finalResult = {
               success: true,
               videoUrl: status.videoUrl,
@@ -1157,10 +1165,35 @@ class EventHandler {
       const task = pendingTasks[0]; // 假设只有一个任务
       console.log('📊 找到任务:', { taskId: task.task_id, status: task.status, createdAt: task.created_at });
       
+      // 问题3修复：检查任务是否刚刚创建（可能正在轮询中）
+      const taskAge = Date.now() - new Date(task.created_at).getTime();
+      const isRecentTask = taskAge < 7 * 60 * 1000; // 7分钟内的任务
+      
+      if (isRecentTask && !task.task_id) {
+        // 任务很新且还没有task_id，说明可能正在初始轮询中
+        console.log('⏳ 检测到正在初始化的任务，提示等待');
+        await this.lineAdapter.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '🎬 動画を生成中です...\n\n⏱️ 初期化中のため、今しばらくお待ちください。\n\n約1-2分で生成が完了します。'
+        });
+        return { success: true, message: 'Task is initializing, advised to wait' };
+      }
+      
+      if (isRecentTask && task.task_id) {
+        // 任务很新且有task_id，说明正在KIE.AI轮询中
+        console.log('⏳ 检测到正在轮询的任务，提示等待');
+        await this.lineAdapter.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '🎬 動画を生成中です...\n\n⏱️ 生成処理中のため、今しばらくお待ちください。\n\n生成完了次第、自動的にお送りします。'
+        });
+        return { success: true, message: 'Task is actively polling, advised to wait' };
+      }
+
+      // 4. 对于较旧的任务，继续原有的轮询逻辑
       const VideoGenerator = require('../services/video-generator');
       const videoGenerator = new VideoGenerator(this.videoService.db);
 
-      // 4. 继续轮询直到完成（最多5分钟）
+      // 5. 继续轮询直到完成（最多5分钟）
       console.log('🔄 开始状态检查轮询...');
       const maxPollingTime = 5 * 60 * 1000; // 5分钟
       const pollInterval = 10000; // 10秒
@@ -1195,7 +1228,6 @@ class EventHandler {
           
           // 重置错误计数器（成功轮询）
           pollErrorCount = 0;
-          // 继续轮询前等待
           await new Promise(resolve => setTimeout(resolve, pollInterval));
         } catch (pollError) {
           console.error('❌ 轮询错误:', pollError);
@@ -1203,7 +1235,6 @@ class EventHandler {
           
           // 如果轮询错误次数过多，认为任务失败并恢复配额
           if (pollErrorCount >= maxPollErrors) {
-            console.error('❌ 轮询错误次数过多，恢复配额');
             await this.videoService.handleVideoFailure(task.id, '轮询服务异常', true);
             finalResult = {
               success: false,
@@ -1212,59 +1243,50 @@ class EventHandler {
             break;
           }
           
-          // 继续轮询，不立即失败
           await new Promise(resolve => setTimeout(resolve, pollInterval));
         }
       }
 
-      // 4. 处理结果并用replyMessage回复
+      // 6. 处理结果
       if (finalResult) {
         if (finalResult.success) {
-          // 成功：发送视频
-          const completedMessages = MessageTemplates.createVideoStatusMessages('completed', {
-            videoUrl: finalResult.videoUrl,
-            thumbnailUrl: finalResult.thumbnailUrl
-          });
-          await this.lineAdapter.replyMessage(event.replyToken, completedMessages);
+          // 成功：发送视频和完成消息
+          const videoMessage = MessageTemplates.createVideoMessage(finalResult.videoUrl, finalResult.thumbnailUrl);
+          const completionMessage = MessageTemplates.createVideoCompletionMessage();
+          
+          await this.lineAdapter.replyMessage(event.replyToken, [videoMessage, completionMessage]);
+          await this.lineAdapter.switchToMainMenu(user.line_user_id);
         } else {
-          // 失败：发送错误信息
+          // 失败：发送错误消息
           await this.lineAdapter.replyMessage(event.replyToken, {
             type: 'text',
-            text: `❌ 動画生成に失敗しました。\n\n詳細: ${finalResult.error}\n\n✅ ご安心ください。利用枠は消費されておりません。\n\n🔄 しばらくしてから再度お試しいただくか、別の写真でお試しください。`
+            text: `❌ 動画生成に失敗しました。利用枠は消費されておりません。\n\n📱 メインメニューに戻ります。\n\nエラー: ${finalResult.error}`
           });
+          await this.lineAdapter.switchToMainMenu(user.line_user_id);
         }
-        // 切换回主菜单
-        await this.lineAdapter.switchToMainMenu(user.line_user_id);
       } else {
-        // 再次超时：告知用户稍后再试
+        // 超时
         await this.lineAdapter.replyMessage(event.replyToken, {
           type: 'text',
-          text: '🎬 動画生成中です...\n\n⏱️ 生成にさらに時間がかかっています。\n\n🔄 しばらくお待ちいただいてから、再度メニューをタップしてください。'
+          text: '⏰ 動画生成に時間がかかっています。\n\n🔄 しばらくしてから再度お試しください。'
         });
-        // 保持processing menu状态
+        // 保持在processing menu
       }
 
-      return { success: true };
     } catch (error) {
-      console.error('❌ 处理状态确认失败:', error);
-      try {
-        // 🚨 重要：如果有pending任务，系统错误时也要恢复配额
-        const pendingTasks = await this.videoService.db.getUserPendingTasks(user.line_user_id);
-        if (pendingTasks.length > 0) {
-          const task = pendingTasks[0];
-          console.log('🔄 状态确认系统错误，恢复用户配额:', task.id);
-          await this.videoService.handleVideoFailure(task.id, '状态确认系统错误', true);
-        }
-        
-        await this.lineAdapter.replyMessage(event.replyToken, {
-          type: 'text',
-          text: '❌ 進捗確認中にエラーが発生しました。\n\n✅ 利用枠は消費されておりません。\n\n🔄 しばらくしてから再度お試しください。'
-        });
-        await this.lineAdapter.switchToMainMenu(user.line_user_id);
-      } catch (replyError) {
-        console.error('❌ 发送错误回复失败:', replyError);
+      console.error('❌ 状态检查系统错误:', error);
+      
+      const pendingTasks = await this.videoService.db.getUserPendingTasks(user.line_user_id);
+      if (pendingTasks.length > 0) {
+        const task = pendingTasks[0];
+        await this.videoService.handleVideoFailure(task.id, '状态确认系统错误', true);
       }
-      return { success: false, error: error.message };
+      
+      await this.lineAdapter.replyMessage(event.replyToken, {
+        type: 'text',
+        text: '❌ システムエラーが発生しました。利用枠は消費されておりません。\n\n📱 メインメニューに戻ります。'
+      });
+      await this.lineAdapter.switchToMainMenu(user.line_user_id);
     }
   }
 
