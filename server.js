@@ -325,6 +325,9 @@ app.get('/api/stats', async (req, res) => {
 // 取消订阅API端点
 app.post('/api/cancel-subscription', require('./api/payment/cancel-subscription'));
 
+// 创建Checkout Session API端点
+app.post('/api/create-checkout-session', require('./api/payment/create-checkout-session'));
+
 // 订阅支付成功页面
 app.get('/subscription/success', require('./api/payment/subscription-success'));
 

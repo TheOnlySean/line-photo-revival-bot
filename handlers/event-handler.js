@@ -281,6 +281,10 @@ class EventHandler {
           return await this.handleConfirmCancelSubscription(event, user);
         case 'CANCEL_SUBSCRIPTION_CANCEL':
           return await this.handleCancelSubscriptionCancel(event, user);
+        case 'CHECKOUT_TRIAL':
+          return await this.handleCheckout(event, user, 'trial');
+        case 'CHECKOUT_STANDARD':
+          return await this.handleCheckout(event, user, 'standard');
         case 'NO_PHOTO':
           return await this.handleNoPhotoAction(event, user);
         case 'WEBSITE':
@@ -802,6 +806,42 @@ class EventHandler {
       console.error('❌ 处理取消取消订阅失败:', error);
       await this.lineAdapter.replyMessage(event.replyToken, 
         MessageTemplates.createTextMessage('❌ 申し訳ございません。処理中にエラーが発生しました。')
+      );
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleCheckout(event, user, planType) {
+    try {
+      console.log(`🛒 用户 ${user.id} 选择了 ${planType} 计划`);
+      
+      // 调用API创建Checkout Session
+      const axios = require('axios');
+      const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+      
+      const response = await axios.post(`${baseUrl}/api/create-checkout-session`, {
+        userId: user.id,
+        planType: planType
+      });
+      
+      if (response.data.success) {
+        const { url, planName, monthlyQuota } = response.data;
+        
+        // 发送支付链接消息
+        const checkoutMessage = MessageTemplates.createTextMessage(
+          `💳 ${planName}のお支払いページをご用意いたしました。\n\n📊 月間利用枠: ${monthlyQuota}本\n\n下記のリンクからお支払いください：\n${url}`
+        );
+        
+        await this.lineAdapter.replyMessage(event.replyToken, checkoutMessage);
+      } else {
+        throw new Error(response.data.error || 'Failed to create checkout session');
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('❌ 处理支付请求失败:', error);
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createTextMessage('❌ 申し訳ございません。お支払いページの作成中にエラーが発生しました。しばらくしてから再度お試しください。')
       );
       return { success: false, error: error.message };
     }

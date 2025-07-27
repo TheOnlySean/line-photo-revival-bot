@@ -1,156 +1,109 @@
 const { stripe, stripeConfig } = require('../../config/stripe-config');
+const Database = require('../../config/database');
 
-export default async function handler(req, res) {
-  // 只允許 POST 請求
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+const db = new Database();
 
+/**
+ * 创建带有用户信息的Checkout Session
+ */
+module.exports = async (req, res) => {
+  console.log('🛒 收到创建Checkout Session请求');
+  
   try {
-    const { planType, userId } = req.body;
-
-    // 驗證計劃類型
-    if (!planType || !stripeConfig.plans[planType]) {
-      return res.status(400).json({ error: 'Invalid plan type' });
+    const { userId, planType } = req.body;
+    
+    if (!userId || !planType) {
+      return res.status(400).json({
+        success: false,
+        error: 'Missing userId or planType parameter'
+      });
     }
 
-    const plan = stripeConfig.plans[planType];
-    const baseUrl = process.env.VERCEL_URL 
-      ? `https://${process.env.VERCEL_URL}` 
-      : 'https://line-photo-revival-bot.vercel.app';
+    console.log(`👤 为用户 ${userId} 创建 ${planType} 计划的Checkout Session`);
+    
+    // 获取用户信息
+    const user = await db.ensureUserExists(userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
 
-    // 創建 Stripe Checkout Session
+    // 根据计划类型设置价格ID和配额
+    let priceId, monthlyQuota, planName;
+    
+    if (planType === 'trial') {
+      priceId = process.env.STRIPE_TRIAL_PRICE_ID;
+      monthlyQuota = 8;
+      planName = 'お試しプラン';
+    } else if (planType === 'standard') {
+      priceId = process.env.STRIPE_STANDARD_PRICE_ID;
+      monthlyQuota = 100;
+      planName = 'スタンダードプラン';
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid planType. Must be "trial" or "standard"'
+      });
+    }
+
+    if (!priceId) {
+      return res.status(500).json({
+        success: false,
+        error: `Missing price ID for ${planType} plan`
+      });
+    }
+
+    // 创建Checkout Session
+    const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://line-photo-revival-bot.vercel.app';
+    
     const session = await stripe.checkout.sessions.create({
-      mode: 'subscription',
-      payment_method_types: [
-        'card',
-        'konbini',          // 日本便利店支付
-        'customer_balance'   // 客戶餘額（支持銀行轉帳）
-      ],
-      
-      // 啟用 Apple Pay 和 Google Pay（通過 card 類型自動支持）
-      payment_method_collection: 'always',
-      
-      // 對日本用戶啟用更多支付方式
-      payment_method_options: {
-        konbini: {
-          expires_after_days: 3 // 便利店支付3天內有效
-        },
-        card: {
-          request_three_d_secure: 'automatic' // 自動3D安全驗證
-        }
-      },
-      
+      payment_method_types: ['card'],
       line_items: [
         {
-          price_data: {
-            currency: plan.currency,
-            product_data: {
-              name: plan.nameJa,
-              description: `月間${plan.videoCount}本の動画生成 - AI写真復活サービス`,
-              images: [
-                `${baseUrl}/logo-placeholder.svg` // 使用品牌Logo作為產品圖
-              ],
-              metadata: {
-                features: plan.videoCount === 8 ? 
-                  'AI写真復活機能,高品質動画出力,モバイル対応,サポート対応' :
-                  'AI写真復活機能,高品質動画出力,モバイル対応,カスタムプロンプト,優先処理,優先サポート'
-              }
-            },
-            recurring: {
-              interval: plan.interval
-            },
-            unit_amount: plan.price // Stripe 使用最小貨幣單位，日元是整數
-          },
-          quantity: 1
-        }
+          price: priceId,
+          quantity: 1,
+        },
       ],
-      
-      // 成功和取消 URL
-      success_url: `${baseUrl}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/payment/cancel`,
-      
-      // 客戶信息
-      customer_creation: 'always',
-      
-      // 元數據，用於 webhook 處理
+      mode: 'subscription',
+      success_url: `${baseUrl}/subscription/success?session_id={CHECKOUT_SESSION_ID}&plan=${planType}`,
+      cancel_url: `${baseUrl}/subscription/cancel?plan=${planType}`,
       metadata: {
-        userId: userId || 'anonymous',
+        userId: userId.toString(),
+        lineUserId: user.line_user_id,
         planType: planType,
-        videoCount: plan.videoCount.toString()
+        monthlyQuota: monthlyQuota.toString(),
+        planName: planName
       },
-      
-      // 自動稅費計算（如果設置）
-      automatic_tax: {
-        enabled: false // 可以根據需要啟用
-      },
-      
-      // 設置訂閱選項
       subscription_data: {
-        description: `写真復活 - ${plan.nameJa}`,
         metadata: {
-          userId: userId || 'anonymous',
+          userId: userId.toString(),
+          lineUserId: user.line_user_id,
           planType: planType,
-          videoCount: plan.videoCount.toString(),
-          service: '写真復活 AI動画生成サービス'
-        }
-      },
-      
-      // 本地化設置
-      locale: 'ja', // 日語界面
-      
-      // 允許促銷代碼
-      allow_promotion_codes: true,
-      
-      // 客戶信息收集
-      customer_update: {
-        address: 'auto',
-        name: 'auto'
-      },
-      
-      // 發票設置
-      invoice_creation: {
-        enabled: true,
-        invoice_data: {
-          description: `写真復活 ${plan.nameJa} - 月間${plan.videoCount}本の動画生成`,
-          metadata: {
-            service: '写真復活サービス',
-            plan: plan.nameJa
-          },
-          footer: 'ご利用いただき、ありがとうございます。'
-        }
-      },
-      
-      // 支付方法配置
-      payment_method_configuration: undefined, // 使用默認配置
-      
-      // 品牌和自定義
-      custom_text: {
-        submit: {
-          message: '安全な決済でお支払いを完了'
+          monthlyQuota: monthlyQuota.toString()
         }
       }
     });
 
-    // 記錄支付會話創建
-    console.log('💳 Stripe Checkout Session 創建成功:', {
-      sessionId: session.id,
-      userId: userId,
-      planType: planType,
-      amount: plan.price
-    });
+    console.log('✅ Checkout Session创建成功:', session.id);
 
-    return res.status(200).json({
+    res.json({
+      success: true,
+      sessionId: session.id,
       url: session.url,
-      sessionId: session.id
+      planType: planType,
+      planName: planName,
+      monthlyQuota: monthlyQuota
     });
 
   } catch (error) {
-    console.error('❌ 創建 Stripe Checkout Session 失敗:', error);
+    console.error('❌ 创建Checkout Session失败:', error);
     
-    return res.status(500).json({ 
+    res.status(500).json({
+      success: false,
       error: 'Failed to create checkout session',
-      message: error.message 
+      details: error.message
     });
   }
-} 
+}; 

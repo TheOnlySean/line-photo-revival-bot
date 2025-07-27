@@ -1,7 +1,9 @@
 const { stripe, stripeConfig } = require('../../config/stripe-config');
-const db = require('../../config/database');
+const Database = require('../../config/database');
 
-export default async function handler(req, res) {
+const db = new Database();
+
+module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
@@ -58,45 +60,72 @@ export default async function handler(req, res) {
 async function handleCheckoutCompleted(session) {
   try {
     console.log('💳 結帳完成:', session.id);
+    console.log('📋 Session metadata:', session.metadata);
     
-    const { userId, planType, videoCount } = session.metadata;
+    const { userId, lineUserId, planType, monthlyQuota } = session.metadata;
     
     if (!userId) {
       console.error('❌ 缺少用戶ID在結帳會話中');
       return;
     }
 
-    // 確保用戶存在
-    const user = await db.ensureUserExists(userId);
+    console.log(`👤 处理用户 ${userId} (LINE: ${lineUserId}) 的 ${planType} 订阅`);
+
+    // 根据用户ID获取用户信息
+    let user;
+    if (lineUserId) {
+      // 如果有LINE用户ID，使用ensureUserExists
+      user = await db.ensureUserExists(lineUserId);
+    } else {
+      // 否则通过数据库ID查找用户
+      const result = await db.query('SELECT * FROM users WHERE id = $1', [parseInt(userId)]);
+      user = result.rows[0];
+      if (!user) {
+        console.error('❌ 找不到用户:', userId);
+        return;
+      }
+    }
     
     // 獲取 Stripe 訂閱信息
     const subscription = await stripe.subscriptions.retrieve(session.subscription);
     
-    // 根據計劃類型設置配額
-    const planConfig = stripeConfig.plans[planType];
-    const monthlyQuota = planConfig ? planConfig.videoCount : parseInt(videoCount || '0');
+    console.log('📊 Stripe订阅信息:', {
+      id: subscription.id,
+      status: subscription.status,
+      current_period_start: subscription.current_period_start,
+      current_period_end: subscription.current_period_end
+    });
+
+    // 使用metadata中的配额信息
+    const quota = parseInt(monthlyQuota) || (planType === 'trial' ? 8 : 100);
 
     // 創建或更新訂閱記錄
-    await db.upsertSubscription(user.id, {
+    const subscriptionRecord = await db.upsertSubscription(user.id, {
       stripeCustomerId: session.customer,
       stripeSubscriptionId: session.subscription,
       planType: planType,
       status: subscription.status,
       currentPeriodStart: new Date(subscription.current_period_start * 1000),
       currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      monthlyVideoQuota: monthlyQuota,
+      monthlyVideoQuota: quota,
       videosUsedThisMonth: 0 // 新訂閱從0開始
     });
 
     console.log('✅ 訂閱創建成功:', {
       userId: user.id,
+      lineUserId: user.line_user_id,
       planType,
-      monthlyQuota,
-      subscriptionId: session.subscription
+      monthlyQuota: quota,
+      subscriptionId: session.subscription,
+      subscriptionRecord: subscriptionRecord
     });
 
     // 發送歡迎通知
-    await sendSubscriptionWelcomeNotification(userId, planType, monthlyQuota);
+    if (user.line_user_id) {
+      await sendSubscriptionWelcomeNotification(user.line_user_id, planType, quota);
+    } else {
+      console.warn('⚠️ 没有LINE用户ID，无法发送欢迎通知');
+    }
 
   } catch (error) {
     console.error('❌ 處理結帳完成失敗:', error);
