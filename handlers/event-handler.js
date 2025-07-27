@@ -291,9 +291,25 @@ class EventHandler {
       }
     } catch (error) {
       console.error('❌ 处理Postback失败:', error);
-      await this.lineAdapter.replyMessage(event.replyToken, 
-        MessageTemplates.createErrorMessage('general')
-      );
+      
+      // 尝试获取用户信息用于push消息，避免重复使用replyToken
+      try {
+        const userId = event.source.userId;
+        await this.lineAdapter.pushMessage(userId, 
+          MessageTemplates.createErrorMessage('general')
+        );
+      } catch (pushError) {
+        console.error('❌ 发送错误消息失败:', pushError);
+        // 如果push也失败了，尝试reply（但可能会失败）
+        try {
+          await this.lineAdapter.replyMessage(event.replyToken, 
+            MessageTemplates.createErrorMessage('general')
+          );
+        } catch (replyError) {
+          console.error('❌ Reply错误消息也失败:', replyError);
+        }
+      }
+      
       return { success: false, error: error.message };
     }
   }
@@ -764,7 +780,7 @@ class EventHandler {
       
       // 首先检查用户是否有正在进行的视频任务
       const db = require('../config/database');
-      const pendingTasks = await db.getUserPendingVideoTasks(user.id);
+      const pendingTasks = await db.getUserPendingTasks(user.line_user_id);
       
       if (pendingTasks.length === 0) {
         // 没有正在生成的视频，切换到主菜单并提示
@@ -842,7 +858,8 @@ class EventHandler {
       return { success: true };
     } catch (error) {
       console.error('❌ 處理狀態確認失敗:', error);
-      await this.lineAdapter.replyMessage(event.replyToken, 
+      // 使用 push 而不是 reply，因为 replyToken 可能已经被使用过了
+      await this.lineAdapter.pushMessage(user.line_user_id, 
         MessageTemplates.createTextMessage('❌ 進捗確認中にエラーが発生しました。しばらくしてから再度お試しください。')
       );
       return { success: false, error: error.message };
