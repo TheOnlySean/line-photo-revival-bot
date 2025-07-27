@@ -599,9 +599,8 @@ class EventHandler {
     try {
       const photoId = data.photo_id;
       
-      // 立即回复处理中消息，避免多次API调用
-      const processingMessage = MessageTemplates.createVideoStatusMessages('processing');
-      await this.lineAdapter.replyMessage(event.replyToken, processingMessage);
+      // 切换到处理中菜单 - 重要的UX，不能删除
+      await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
 
       // 生成演示视频
       const demoResult = await this.videoService.generateDemoVideo(photoId);
@@ -627,6 +626,9 @@ class EventHandler {
           MessageTemplates.createErrorMessage('video_generation')
         );
       }
+      
+      // 切换回主菜单 - 重要的UX，不能删除
+      await this.lineAdapter.switchToMainMenu(user.line_user_id);
       
       return { success: true };
     } catch (error) {
