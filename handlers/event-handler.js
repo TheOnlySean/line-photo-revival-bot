@@ -596,6 +596,8 @@ class EventHandler {
       const startTime = Date.now();
       
       let finalResult = null;
+      let pollErrorCount = 0;
+      const maxPollErrors = 5; // 最多允许5次轮询错误
       
       while (Date.now() - startTime < maxPollingTime) {
         await new Promise(resolve => setTimeout(resolve, pollInterval));
@@ -621,9 +623,25 @@ class EventHandler {
             };
             break;
           }
+          
+          // 重置错误计数器（成功轮询）
+          pollErrorCount = 0;
           // 继续轮询...
         } catch (pollError) {
           console.error('❌ 轮询错误:', pollError);
+          pollErrorCount++;
+          
+          // 如果轮询错误次数过多，认为任务失败并恢复配额
+          if (pollErrorCount >= maxPollErrors) {
+            console.error('❌ 轮询错误次数过多，恢复配额');
+            await this.videoService.handleVideoFailure(taskResult.videoRecordId, '轮询服务异常', true);
+            finalResult = {
+              success: false,
+              error: '動画生成サービスに接続できません'
+            };
+            break;
+          }
+          
           // 继续轮询，不立即失败
         }
       }
@@ -667,9 +685,16 @@ class EventHandler {
     } catch (error) {
       console.error('❌ 处理确认生成失败:', error);
       try {
-        await this.lineAdapter.replyMessage(event.replyToken, 
-          MessageTemplates.createErrorMessage('video_generation')
-        );
+        // 🚨 重要：如果已经创建了视频任务，必须恢复配额
+        if (taskResult && taskResult.success && taskResult.videoRecordId) {
+          console.log('🔄 系统错误，恢复用户配额:', taskResult.videoRecordId);
+          await this.videoService.handleVideoFailure(taskResult.videoRecordId, '系统错误', true);
+        }
+        
+        await this.lineAdapter.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '❌ システムエラーが発生しました。\n\n✅ 利用枠は消費されておりません。\n\n🔄 しばらくしてから再度お試しください。'
+        });
         await this.lineAdapter.switchToMainMenu(user.line_user_id);
       } catch (replyError) {
         console.error('❌ 发送错误回复失败:', replyError);
@@ -1067,6 +1092,8 @@ class EventHandler {
       const startTime = Date.now();
       
       let finalResult = null;
+      let pollErrorCount = 0;
+      const maxPollErrors = 5; // 最多允许5次轮询错误
       
       while (Date.now() - startTime < maxPollingTime) {
         try {
@@ -1091,10 +1118,25 @@ class EventHandler {
             break;
           }
           
+          // 重置错误计数器（成功轮询）
+          pollErrorCount = 0;
           // 继续轮询前等待
           await new Promise(resolve => setTimeout(resolve, pollInterval));
         } catch (pollError) {
           console.error('❌ 轮询错误:', pollError);
+          pollErrorCount++;
+          
+          // 如果轮询错误次数过多，认为任务失败并恢复配额
+          if (pollErrorCount >= maxPollErrors) {
+            console.error('❌ 轮询错误次数过多，恢复配额');
+            await this.videoService.handleVideoFailure(task.id, '轮询服务异常', true);
+            finalResult = {
+              success: false,
+              error: '動画生成サービスに接続できません'
+            };
+            break;
+          }
+          
           // 继续轮询，不立即失败
           await new Promise(resolve => setTimeout(resolve, pollInterval));
         }
@@ -1131,9 +1173,17 @@ class EventHandler {
     } catch (error) {
       console.error('❌ 处理状态确认失败:', error);
       try {
+        // 🚨 重要：如果有pending任务，系统错误时也要恢复配额
+        const pendingTasks = await this.videoService.db.getUserPendingTasks(user.line_user_id);
+        if (pendingTasks.length > 0) {
+          const task = pendingTasks[0];
+          console.log('🔄 状态确认系统错误，恢复用户配额:', task.id);
+          await this.videoService.handleVideoFailure(task.id, '状态确认系统错误', true);
+        }
+        
         await this.lineAdapter.replyMessage(event.replyToken, {
           type: 'text',
-          text: '❌ 進捗確認中にエラーが発生しました。\n\nしばらくしてから再度お試しください。'
+          text: '❌ 進捗確認中にエラーが発生しました。\n\n✅ 利用枠は消費されておりません。\n\n🔄 しばらくしてから再度お試しください。'
         });
         await this.lineAdapter.switchToMainMenu(user.line_user_id);
       } catch (replyError) {
