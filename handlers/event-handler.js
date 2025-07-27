@@ -602,7 +602,7 @@ class EventHandler {
       // 切换到处理中菜单 - 重要的UX，不能删除
       await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
 
-      // 生成演示视频
+      // 生成演示视频（现在是立即返回的）
       const demoResult = await this.videoService.generateDemoVideo(photoId);
       
       if (demoResult.success) {
@@ -629,13 +629,12 @@ class EventHandler {
         console.log('🔍 最终completedMessages长度:', completedMessages.length);
         console.log('🔍 最终消息结构:', JSON.stringify(completedMessages, null, 2));
 
-        // 延迟后一次性发送所有消息，减少API调用
-        await new Promise(res => setTimeout(res, 20000));
-        await this.lineAdapter.pushMessage(user.line_user_id, completedMessages);
+        // 使用免费的replyMessage发送完成消息
+        await this.lineAdapter.replyMessage(event.replyToken, completedMessages);
       } else {
-        await this.lineAdapter.pushMessage(user.line_user_id, 
-          MessageTemplates.createErrorMessage('video_generation')
-        );
+        // 发送错误消息
+        const errorMessage = MessageTemplates.createErrorMessage('video_generation');
+        await this.lineAdapter.replyMessage(event.replyToken, errorMessage);
       }
       
       // 切换回主菜单 - 重要的UX，不能删除
