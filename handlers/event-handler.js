@@ -666,7 +666,7 @@ class EventHandler {
           if (status.state === 'success') {
             // 生成成功
             console.log('✅ 视频生成成功！');
-            await this.videoService.updateVideoStatus(videoRecordId, 'completed', status.videoUrl);
+            await this.videoService.db.updateVideoStatus(videoRecordId, 'completed', status.videoUrl);
             finalResult = {
               success: true,
               videoUrl: status.videoUrl,
@@ -1176,7 +1176,7 @@ class EventHandler {
           
           if (status.state === 'success') {
             // 生成成功
-            await this.videoService.updateVideoStatus(task.id, 'completed', status.videoUrl);
+            await this.videoService.db.updateVideoStatus(task.id, 'completed', status.videoUrl);
             finalResult = {
               success: true,
               videoUrl: status.videoUrl,
