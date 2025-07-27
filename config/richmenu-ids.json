@@ -1,6 +1,6 @@
 {
-  "mainRichMenuId": "richmenu-6aafdcffa5a05c43568b28ece0d4f315",
-  "processingRichMenuId": "richmenu-c644815c08e2460c2cae2da2f55928cd",
-  "updatedAt": "2025-01-26T20:30:00.000Z",
-  "note": "Updated with direct URI actions for website and share buttons"
+  "mainRichMenuId": "richmenu-3550ea942f8c4ac03125fd9f383b849c",
+  "processingRichMenuId": "richmenu-61f51f23df853075a9f2c692247fff44",
+  "updatedAt": "2025-01-26T21:00:00.000Z",
+  "note": "Fixed processing menu height and updated share link to correct LINE account"
 }
