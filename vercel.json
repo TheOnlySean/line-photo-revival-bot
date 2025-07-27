@@ -30,10 +30,6 @@
   },
   "crons": [
     {
-      "path": "/api/cron/check-tasks",
-      "schedule": "*/2 * * * *"
-    },
-    {
       "path": "/api/cron/reset-quota",
       "schedule": "5 0 * * *"
     }
