@@ -147,22 +147,21 @@ class LineAdapter {
   }
 
   async switchToMainMenu(userId) {
-    try {
-      // 确保Rich Menu ID已初始化
-      await this.initializeRichMenuIds();
-      
-      if (this.mainRichMenuId) {
-        await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
-        console.log('✅ 切换到主菜单成功:', userId);
-        return true;
-      } else {
-        console.error('❌ 主菜单ID未找到');
-        return false;
-      }
-    } catch (error) {
-      console.error('❌ 切换到主菜单失败:', error);
-      return false;
-    }
+    return new Promise((resolve, reject) => {
+      global._lineApiQueue.push({
+        fn: async () => {
+          try {
+            await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
+            console.log('✅ 切换到主菜单成功:', userId);
+            resolve(true);
+          } catch (err) {
+            console.error('❌ 切换到主菜单失败:', err);
+            reject(err);
+          }
+        },
+        reject
+      });
+    });
   }
 
   async switchToProcessingMenu(userId) {
@@ -178,22 +177,21 @@ class LineAdapter {
   }
 
   async ensureUserHasRichMenu(userId) {
-    try {
-      // 确保Rich Menu ID已初始化
-      await this.initializeRichMenuIds();
-      
-      if (this.mainRichMenuId) {
-        await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
-        console.log('✅ 用户Rich Menu设置成功:', userId);
-        return true;
-      } else {
-        console.error('❌ 主菜单ID未找到');
-        return false;
-      }
-    } catch (error) {
-      console.error('❌ 设置用户Rich Menu失败:', error);
-      return false;
-    }
+    return new Promise((resolve, reject) => {
+      global._lineApiQueue.push({
+        fn: async () => {
+          try {
+            await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
+            console.log('✅ 用户Rich Menu设置成功:', userId);
+            resolve(true);
+          } catch (err) {
+            console.error('❌ 设置用户Rich Menu失败:', err);
+            reject(err);
+          }
+        },
+        reject
+      });
+    });
   }
 
   /**
