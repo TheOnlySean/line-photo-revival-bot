@@ -519,9 +519,14 @@ class EventHandler {
 
   async handleConfirmGenerate(event, user, data) {
     try {
+      console.log('🎬 开始处理确认生成:', { userId: user.line_user_id, userState: user.current_prompt });
+      
       // 先检查用户是否已有正在进行的任务
       const pendingTasks = await this.videoService.db.getUserPendingTasks(user.line_user_id);
+      console.log('📋 检查pending任务:', pendingTasks.length);
+      
       if (pendingTasks.length > 0) {
+        console.log('⚠️ 用户已有pending任务，拒绝新请求');
         await this.lineAdapter.replyMessage(event.replyToken, {
           type: 'text',
           text: '🎬 現在動画を生成中です。お待ちください...\n\n⏱️ 生成完了まで今しばらくお待ちください。複数の動画を同時に生成することはできません。'
@@ -536,10 +541,14 @@ class EventHandler {
         const cached = JSON.parse(user.current_prompt || '{}');
         prompt = cached.prompt;
         imageUrl = cached.imageUrl;
-      } catch (_) {}
+        console.log('📝 解析用户状态:', { prompt, imageUrl });
+      } catch (parseError) {
+        console.error('❌ 解析用户状态失败:', parseError);
+      }
 
       // 檢查必要參數：prompt必須存在，imageUrl可以為null
       if (!prompt) {
+        console.error('❌ 缺少prompt参数');
         await this.lineAdapter.replyMessage(event.replyToken, 
           MessageTemplates.createErrorMessage('video_generation')
         );
@@ -547,8 +556,10 @@ class EventHandler {
       }
 
       // 验证参数
+      console.log('🔍 验证参数...');
       const validation = this.videoService.validateVideoParams(imageUrl, prompt);
       if (!validation.isValid) {
+        console.error('❌ 参数验证失败:', validation.errors);
         await this.lineAdapter.replyMessage(event.replyToken, 
           MessageTemplates.createErrorMessage('video_generation')
         );
@@ -556,17 +567,21 @@ class EventHandler {
       }
 
       // 1. 立即切换到processing menu给用户即时反馈
+      console.log('🔄 切换到processing menu...');
       await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
 
       // 2. 创建视频任务
+      console.log('📊 创建视频任务...');
       const subscription = await this.userService.getUserSubscription(user.id);
       const taskResult = await this.videoService.createVideoTask(user.id, {
         imageUrl,
         prompt,
         subscriptionId: subscription?.id
       });
+      console.log('📊 任务创建结果:', taskResult);
 
       if (!taskResult.success) {
+        console.error('❌ 创建视频任务失败:', taskResult);
         await this.lineAdapter.replyMessage(event.replyToken, 
           MessageTemplates.createErrorMessage('video_generation')
         );
@@ -574,11 +589,14 @@ class EventHandler {
       }
 
       // 3. 启动视频生成并获取taskId
+      console.log('🚀 启动视频生成...');
       const VideoGenerator = require('../services/video-generator');
       const videoGenerator = new VideoGenerator(this.videoService.db);
       
       // 调用KIE.AI API
+      console.log('📡 调用KIE.AI API...');
       const apiResult = await videoGenerator.callRunwayApi(imageUrl, prompt);
+      console.log('📡 API调用结果:', apiResult);
       if (!apiResult.success) {
         // API调用失败，恢复配额并通知用户
         await this.videoService.handleVideoFailure(taskResult.videoRecordId, apiResult.error, true);
@@ -591,6 +609,7 @@ class EventHandler {
       }
 
       // 4. 同步轮询5分钟
+      console.log('🔄 开始同步轮询，最大5分钟...');
       const maxPollingTime = 5 * 60 * 1000; // 5分钟
       const pollInterval = 10000; // 10秒
       const startTime = Date.now();
@@ -601,12 +620,15 @@ class EventHandler {
       
       while (Date.now() - startTime < maxPollingTime) {
         await new Promise(resolve => setTimeout(resolve, pollInterval));
+        console.log(`🔍 轮询检查 (${Math.floor((Date.now() - startTime) / 1000)}s)...`);
         
         try {
           const status = await videoGenerator.checkTaskStatus(apiResult.taskId);
+          console.log('📊 任务状态:', status);
           
           if (status.state === 'success') {
             // 生成成功
+            console.log('✅ 视频生成成功！');
             await this.videoService.updateVideoStatus(taskResult.videoRecordId, 'completed', status.videoUrl);
             finalResult = {
               success: true,
@@ -616,6 +638,7 @@ class EventHandler {
             break;
           } else if (status.state === 'failed' || status.state === 'error') {
             // 生成失败，恢复配额
+            console.log('❌ 视频生成失败:', status.message);
             await this.videoService.handleVideoFailure(taskResult.videoRecordId, status.message, true);
             finalResult = {
               success: false,
@@ -626,6 +649,7 @@ class EventHandler {
           
           // 重置错误计数器（成功轮询）
           pollErrorCount = 0;
+          console.log('⏳ 继续轮询...');
           // 继续轮询...
         } catch (pollError) {
           console.error('❌ 轮询错误:', pollError);
@@ -647,6 +671,7 @@ class EventHandler {
       }
 
       // 5. 处理结果
+      console.log('📊 轮询结束，处理结果:', finalResult);
       if (finalResult) {
         if (finalResult.success) {
           // 成功：发送视频
