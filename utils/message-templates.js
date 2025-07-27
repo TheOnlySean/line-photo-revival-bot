@@ -5,6 +5,8 @@
 class MessageTemplates {
   // 动态构造应用根 URL，用于生成Stripe Portal链接
   static BASE_URL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://line-photo-revival-bot.vercel.app';
+  // Stripe 公共客户门户登录地址（可选）
+  static PORTAL_LOGIN_URL = process.env.STRIPE_PORTAL_LOGIN_URL || null;
   
   /**
    * 创建欢迎消息
@@ -492,7 +494,7 @@ class MessageTemplates {
               action: {
                 type: 'uri',
                 label: '🚫 サブスクリプションを解約する',
-                uri: `${MessageTemplates.BASE_URL}/api/payment/portal?userId=${subscription.user_id}`
+                uri: MessageTemplates.PORTAL_LOGIN_URL || `${MessageTemplates.BASE_URL}/api/payment/portal?userId=${subscription.user_id}`
               }
             }
           ]
@@ -591,7 +593,7 @@ class MessageTemplates {
               action: {
                 type: 'uri',
                 label: '🚫 サブスクリプションを解約する',
-                uri: `${MessageTemplates.BASE_URL}/api/payment/portal?userId=${subscription.user_id}`
+                uri: MessageTemplates.PORTAL_LOGIN_URL || `${MessageTemplates.BASE_URL}/api/payment/portal?userId=${subscription.user_id}`
               }
             }
           ]
