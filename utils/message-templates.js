@@ -225,7 +225,7 @@ class MessageTemplates {
               },
               {
                 type: 'text',
-                text: `今月の動画生成配額（${total}本）をすべて使い切りました。`,
+                text: '今月の動画生成配額をすべて使い切りました。',
                 size: 'sm',
                 color: '#666666',
                 wrap: true,
@@ -300,7 +300,7 @@ class MessageTemplates {
               },
               {
                 type: 'text',
-                text: `今月のスタンダードプラン配額（${total}本）をすべて消費されました。`,
+                text: '今月のスタンダードプラン配額をすべて使い切りました。',
                 size: 'sm',
                 color: '#666666',
                 wrap: true,
