@@ -61,30 +61,37 @@ async function handleCheckoutCompleted(session) {
   try {
     console.log('💳 結帳完成:', session.id);
     console.log('📋 Session metadata:', session.metadata);
+    console.log('📋 Session client_reference_id:', session.client_reference_id);
     
-    const { userId, lineUserId, planType, monthlyQuota } = session.metadata;
+    // 优先使用client_reference_id（从URL参数传递的用户ID）
+    let userId = session.client_reference_id;
+    let planType = null;
+    let monthlyQuota = null;
+    
+    // 如果没有client_reference_id，尝试从metadata获取
+    if (!userId && session.metadata) {
+      userId = session.metadata.userId;
+      planType = session.metadata.planType;
+      monthlyQuota = session.metadata.monthlyQuota;
+    }
     
     if (!userId) {
       console.error('❌ 缺少用戶ID在結帳會話中');
       return;
     }
 
-    console.log(`👤 处理用户 ${userId} (LINE: ${lineUserId}) 的 ${planType} 订阅`);
+    console.log(`👤 处理用户 ${userId} 的订阅`);
 
-    // 根据用户ID获取用户信息
-    let user;
-    if (lineUserId) {
-      // 如果有LINE用户ID，使用ensureUserExists
-      user = await db.ensureUserExists(lineUserId);
-    } else {
-      // 否则通过数据库ID查找用户
-      const result = await db.query('SELECT * FROM users WHERE id = $1', [parseInt(userId)]);
-      user = result.rows[0];
-      if (!user) {
-        console.error('❌ 找不到用户:', userId);
-        return;
-      }
+    // 通过数据库ID查找用户
+    const result = await db.query('SELECT * FROM users WHERE id = $1', [parseInt(userId)]);
+    const user = result.rows[0];
+    
+    if (!user) {
+      console.error('❌ 找不到用户:', userId);
+      return;
     }
+
+    console.log(`👤 找到用户: ID=${user.id}, LINE=${user.line_user_id}, Name=${user.display_name}`);
     
     // 獲取 Stripe 訂閱信息
     const subscription = await stripe.subscriptions.retrieve(session.subscription);
@@ -96,8 +103,26 @@ async function handleCheckoutCompleted(session) {
       current_period_end: subscription.current_period_end
     });
 
-    // 使用metadata中的配额信息
-    const quota = parseInt(monthlyQuota) || (planType === 'trial' ? 8 : 100);
+    // 从订阅的价格信息推断计划类型和配额
+    if (!planType || !monthlyQuota) {
+      const priceId = subscription.items.data[0]?.price?.id;
+      if (priceId === process.env.STRIPE_TRIAL_PRICE_ID) {
+        planType = 'trial';
+        monthlyQuota = 8;
+      } else if (priceId === process.env.STRIPE_STANDARD_PRICE_ID) {
+        planType = 'standard';
+        monthlyQuota = 100;
+      } else {
+        // 默认值
+        planType = 'trial';
+        monthlyQuota = 8;
+        console.warn('⚠️ 无法确定计划类型，使用默认值');
+      }
+    } else {
+      monthlyQuota = parseInt(monthlyQuota);
+    }
+
+    console.log(`📋 计划信息: ${planType}, 配额: ${monthlyQuota}`);
 
     // 創建或更新訂閱記錄
     const subscriptionRecord = await db.upsertSubscription(user.id, {
@@ -107,7 +132,7 @@ async function handleCheckoutCompleted(session) {
       status: subscription.status,
       currentPeriodStart: new Date(subscription.current_period_start * 1000),
       currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      monthlyVideoQuota: quota,
+      monthlyVideoQuota: monthlyQuota,
       videosUsedThisMonth: 0 // 新訂閱從0開始
     });
 
@@ -115,14 +140,14 @@ async function handleCheckoutCompleted(session) {
       userId: user.id,
       lineUserId: user.line_user_id,
       planType,
-      monthlyQuota: quota,
+      monthlyQuota: monthlyQuota,
       subscriptionId: session.subscription,
       subscriptionRecord: subscriptionRecord
     });
 
     // 發送歡迎通知
     if (user.line_user_id) {
-      await sendSubscriptionWelcomeNotification(user.line_user_id, planType, quota);
+      await sendSubscriptionWelcomeNotification(user.line_user_id, planType, monthlyQuota);
     } else {
       console.warn('⚠️ 没有LINE用户ID，无法发送欢迎通知');
     }

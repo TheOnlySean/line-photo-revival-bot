@@ -261,7 +261,15 @@ class MessageTemplates {
   /**
    * 创建支付选项轮播卡片
    */
-  static createPaymentOptionsCarousel() {
+  static createPaymentOptionsCarousel(userId = null) {
+    // 基础Payment Links URLs
+    const trialBaseUrl = process.env.STRIPE_TRIAL_URL || 'https://buy.stripe.com/4gM9ASesrbRY6H5fuLcs80a';
+    const standardBaseUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/fZu6oGfwvaNU9Th2HZcs80b';
+    
+    // 如果有用户ID，添加到URL参数中
+    const trialUrl = userId ? `${trialBaseUrl}?client_reference_id=${userId}` : trialBaseUrl;
+    const standardUrl = userId ? `${standardBaseUrl}?client_reference_id=${userId}` : standardBaseUrl;
+    
     // 使用 Vercel Blob Storage 中的图片 URL
     const trialImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/trial-plan-card-N975LY0W25XEwRrP44qHVLcdEDvew5.jpg';
     const standardImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/standard-plan-card-ANII7ezO1Gf1k5oltKBGKCJww2WaNn.jpg';
@@ -286,8 +294,8 @@ class MessageTemplates {
                   aspectRatio: '1:1.2',
                   aspectMode: 'cover',
                   action: {
-                    type: 'postback',
-                    data: 'action=CHECKOUT_TRIAL'
+                    type: 'uri',
+                    uri: trialUrl
                   }
                 }
               ],
@@ -310,8 +318,8 @@ class MessageTemplates {
                   aspectRatio: '1:1.2',
                   aspectMode: 'cover',
                   action: {
-                    type: 'postback',
-                    data: 'action=CHECKOUT_STANDARD'
+                    type: 'uri',
+                    uri: standardUrl
                   }
                 }
               ],

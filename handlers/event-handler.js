@@ -144,7 +144,7 @@ class EventHandler {
         });
         await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
         // 推送订阅选项卡片
-        const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+        const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
         await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
         return { success: true };
       }
@@ -268,7 +268,7 @@ class EventHandler {
           return await this.handleCouponAction(event, user);
         case 'CHANGE_PLAN':
           // 處理計劃更改請求，顯示訂閱選項
-          const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+          const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
           await this.lineAdapter.replyMessage(event.replyToken, planCarousel);
           return { success: true };
         case 'UPGRADE_TO_STANDARD':
@@ -281,18 +281,12 @@ class EventHandler {
           return await this.handleConfirmCancelSubscription(event, user);
         case 'CANCEL_SUBSCRIPTION_CANCEL':
           return await this.handleCancelSubscriptionCancel(event, user);
-        case 'CHECKOUT_TRIAL':
-          return await this.handleCheckout(event, user, 'trial');
-        case 'CHECKOUT_STANDARD':
-          return await this.handleCheckout(event, user, 'standard');
         case 'NO_PHOTO':
           return await this.handleNoPhotoAction(event, user);
-        case 'WEBSITE':
-          return await this.handleWebsiteAction(event, user);
-        case 'SHARE':
-          return await this.handleShareAction(event, user);
-        case 'CHECK_STATUS':
-          return await this.handleCheckStatusAction(event, user);
+        case 'OFFICIAL_SITE':
+          return await this.handleOfficialSite(event, user);
+        case 'SHARE_FRIENDS':
+          return await this.handleShareFriends(event, user);
         default:
           await this.lineAdapter.replyMessage(event.replyToken, 
             MessageTemplates.createTextMessage('🤔 申し訳ございません。下部のメニューからご利用ください。')
@@ -394,7 +388,7 @@ class EventHandler {
       );
       
       // 推送订阅选项卡片
-      const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+      const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
       await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
       return { success: true };
     }
@@ -417,7 +411,7 @@ class EventHandler {
       );
       
       // 推送订阅选项卡片
-      const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+      const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
       await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
       return { success: true };
     }
@@ -440,7 +434,7 @@ class EventHandler {
       );
       
       // 推送订阅选项卡片
-      const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+      const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
       await this.lineAdapter.pushMessage(user.line_user_id, planCarousel);
       return { success: true };
     }
@@ -642,7 +636,7 @@ class EventHandler {
       
       if (!subscription) {
         // 沒有訂閱，顯示訂閱計劃選項
-        const planCarousel = MessageTemplates.createPaymentOptionsCarousel();
+        const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
         await this.lineAdapter.replyMessage(event.replyToken, planCarousel);
       } else {
         // 已有訂閱，顯示當前狀態
@@ -806,84 +800,6 @@ class EventHandler {
       console.error('❌ 处理取消取消订阅失败:', error);
       await this.lineAdapter.replyMessage(event.replyToken, 
         MessageTemplates.createTextMessage('❌ 申し訳ございません。処理中にエラーが発生しました。')
-      );
-      return { success: false, error: error.message };
-    }
-  }
-
-  async handleCheckout(event, user, planType) {
-    try {
-      console.log(`🛒 用户 ${user.id} 选择了 ${planType} 计划`);
-      
-      // 直接创建Checkout Session，避免内部API调用
-      const { stripe } = require('../config/stripe-config');
-      
-      // 根据计划类型设置价格ID和配额
-      let priceId, monthlyQuota, planName;
-      
-      if (planType === 'trial') {
-        priceId = process.env.STRIPE_TRIAL_PRICE_ID;
-        monthlyQuota = 8;
-        planName = 'お試しプラン';
-      } else if (planType === 'standard') {
-        priceId = process.env.STRIPE_STANDARD_PRICE_ID;
-        monthlyQuota = 100;
-        planName = 'スタンダードプラン';
-      } else {
-        throw new Error('Invalid planType. Must be "trial" or "standard"');
-      }
-
-      if (!priceId) {
-        throw new Error(`Missing price ID for ${planType} plan`);
-      }
-
-      console.log(`👤 为用户创建Checkout Session: ID=${user.id}, LINE=${user.line_user_id}, Plan=${planType}`);
-
-      // 创建Checkout Session
-      const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://line-photo-revival-bot.vercel.app';
-      
-      const session = await stripe.checkout.sessions.create({
-        payment_method_types: ['card'],
-        line_items: [
-          {
-            price: priceId,
-            quantity: 1,
-          },
-        ],
-        mode: 'subscription',
-        success_url: `${baseUrl}/subscription/success?session_id={CHECKOUT_SESSION_ID}&plan=${planType}`,
-        cancel_url: `${baseUrl}/subscription/cancel?plan=${planType}`,
-        metadata: {
-          userId: user.id.toString(),
-          lineUserId: user.line_user_id,
-          planType: planType,
-          monthlyQuota: monthlyQuota.toString(),
-          planName: planName
-        },
-        subscription_data: {
-          metadata: {
-            userId: user.id.toString(),
-            lineUserId: user.line_user_id,
-            planType: planType,
-            monthlyQuota: monthlyQuota.toString()
-          }
-        }
-      });
-
-      console.log('✅ Checkout Session创建成功:', session.id);
-      
-      // 发送支付链接消息
-      const checkoutMessage = MessageTemplates.createTextMessage(
-        `💳 ${planName}のお支払いページをご用意いたしました。\n\n📊 月間利用枠: ${monthlyQuota}本\n\n下記のリンクからお支払いください：\n${session.url}`
-      );
-      
-      await this.lineAdapter.replyMessage(event.replyToken, checkoutMessage);
-      
-      return { success: true };
-    } catch (error) {
-      console.error('❌ 处理支付请求失败:', error);
-      await this.lineAdapter.replyMessage(event.replyToken, 
-        MessageTemplates.createTextMessage('❌ 申し訳ございません。お支払いページの作成中にエラーが発生しました。しばらくしてから再度お試しください。')
       );
       return { success: false, error: error.message };
     }
