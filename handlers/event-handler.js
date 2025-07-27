@@ -39,6 +39,7 @@ class EventHandler {
 
       // 确保用户有Rich Menu
       await this.lineAdapter.ensureUserHasRichMenu(userId);
+      console.log('🔍 Rich Menu设置完成，准备发送演示视频');
 
       // 直接发送演示视频选项（依赖LineAdapter的重试机制）
       try {
@@ -332,6 +333,7 @@ class EventHandler {
   async sendDemoVideos(userId) {
     try {
       console.log('🎁 开始发送演示视频到用户:', userId);
+      console.log('🔍 当前时间:', new Date().toISOString());
       
       const { trialPhotos } = require('../config/demo-trial-photos');
       console.log('📋 加载演示视频配置，共', trialPhotos.length, '个视频');
