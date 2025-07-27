@@ -275,6 +275,12 @@ class EventHandler {
           return await this.handleUpgradeToStandard(event, user);
         case 'CANCEL_UPGRADE':
           return await this.handleCancelUpgrade(event, user);
+        case 'CANCEL_SUBSCRIPTION':
+          return await this.handleCancelSubscription(event, user);
+        case 'CONFIRM_CANCEL_SUBSCRIPTION':
+          return await this.handleConfirmCancelSubscription(event, user);
+        case 'CANCEL_SUBSCRIPTION_CANCEL':
+          return await this.handleCancelSubscriptionCancel(event, user);
         case 'NO_PHOTO':
           return await this.handleNoPhotoAction(event, user);
         case 'WEBSITE':
@@ -733,6 +739,70 @@ class EventHandler {
       return { success: true };
     } catch (error) {
       console.error('❌ 處理取消升級失敗:', error);
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleCancelSubscription(event, user) {
+    try {
+      console.log(`🚫 用户 ${user.id} 请求取消订阅`);
+      
+      // 先显示确认消息
+      const confirmMessage = MessageTemplates.createCancelSubscriptionConfirmCard();
+      await this.lineAdapter.replyMessage(event.replyToken, confirmMessage);
+      
+      return { success: true };
+    } catch (error) {
+      console.error('❌ 处理取消订阅请求失败:', error);
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createTextMessage('❌ 申し訳ございません。処理中にエラーが発生しました。しばらくしてから再度お試しください。')
+      );
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleConfirmCancelSubscription(event, user) {
+    try {
+      console.log(`✅ 用户 ${user.id} 确认取消订阅`);
+      
+      // 调用API取消订阅
+      const axios = require('axios');
+      const baseUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000';
+      
+      const response = await axios.post(`${baseUrl}/api/cancel-subscription`, {
+        userId: user.id
+      });
+      
+      if (response.data.success) {
+        await this.lineAdapter.replyMessage(event.replyToken, 
+          MessageTemplates.createTextMessage('✅ サブスクリプションを解約いたしました。\n\nご利用いただき、ありがとうございました。')
+        );
+      } else {
+        throw new Error(response.data.error);
+      }
+      
+      return { success: true };
+    } catch (error) {
+      console.error('❌ 确认取消订阅失败:', error);
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createTextMessage('❌ 申し訳ございません。解約処理中にエラーが発生しました。しばらくしてから再度お試しください。')
+      );
+      return { success: false, error: error.message };
+    }
+  }
+
+  async handleCancelSubscriptionCancel(event, user) {
+    try {
+      console.log(`❌ 用户 ${user.id} 取消了取消订阅操作`);
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createTextMessage('✅ 解約をキャンセルしました。\n\n引き続きサービスをご利用ください。')
+      );
+      return { success: true };
+    } catch (error) {
+      console.error('❌ 处理取消取消订阅失败:', error);
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createTextMessage('❌ 申し訳ございません。処理中にエラーが発生しました。')
+      );
       return { success: false, error: error.message };
     }
   }

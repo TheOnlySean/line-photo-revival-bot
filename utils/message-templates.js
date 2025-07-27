@@ -329,6 +329,78 @@ class MessageTemplates {
   }
 
   /**
+   * 创建取消订阅确认卡片
+   */
+  static createCancelSubscriptionConfirmCard() {
+    return {
+      type: 'flex',
+      altText: '🚫 サブスクリプション解約確認',
+      contents: {
+        type: 'bubble',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '🚫 サブスクリプション解約',
+              weight: 'bold',
+              size: 'lg',
+              color: '#FF6B6B'
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            },
+            {
+              type: 'text',
+              text: '本当にサブスクリプションを解約しますか？',
+              size: 'md',
+              color: '#333333',
+              margin: 'md',
+              wrap: true
+            },
+            {
+              type: 'text',
+              text: '解約後は動画生成サービスをご利用いただけなくなります。',
+              size: 'sm',
+              color: '#666666',
+              margin: 'md',
+              wrap: true
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              color: '#FF6B6B',
+              action: {
+                type: 'postback',
+                label: '解約を確定する',
+                data: 'action=CONFIRM_CANCEL_SUBSCRIPTION'
+              }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              action: {
+                type: 'postback',
+                label: 'キャンセル',
+                data: 'action=CANCEL_SUBSCRIPTION_CANCEL'
+              }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
    * 创建订阅状态显示消息
    */
   static createSubscriptionStatusMessage(subscription) {
@@ -398,6 +470,23 @@ class MessageTemplates {
                   margin: 'xs'
                 }
               ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'secondary',
+              color: '#FF6B6B',
+              action: {
+                type: 'postback',
+                label: '🚫 サブスクリプションを解約',
+                data: 'action=CANCEL_SUBSCRIPTION'
+              }
             }
           ]
         }
