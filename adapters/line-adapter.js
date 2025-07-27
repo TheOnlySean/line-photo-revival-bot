@@ -69,12 +69,30 @@ class LineAdapter {
   /**
    * 发送推送消息
    */
-  async pushMessage(userId, messages) {
+  async pushMessage(userId, messages, retryCount = 0) {
     try {
       const messageArray = Array.isArray(messages) ? messages : [messages];
       await this.client.pushMessage(userId, messageArray);
     } catch (error) {
       console.error('❌ 发送推送消息失败:', error);
+      
+      // 如果是429错误且重试次数少于3次，则延迟重试
+      if (error.statusCode === 429 && retryCount < 3) {
+        const delay = (retryCount + 1) * 2000; // 2秒, 4秒, 6秒
+        console.log(`🔄 检测到速率限制，${delay/1000}秒后进行第${retryCount + 1}次重试...`);
+        
+        return new Promise((resolve, reject) => {
+          setTimeout(async () => {
+            try {
+              await this.pushMessage(userId, messages, retryCount + 1);
+              resolve();
+            } catch (retryError) {
+              reject(retryError);
+            }
+          }, delay);
+        });
+      }
+      
       throw error;
     }
   }

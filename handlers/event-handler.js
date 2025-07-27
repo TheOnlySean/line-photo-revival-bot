@@ -40,17 +40,23 @@ class EventHandler {
       // 确保用户有Rich Menu
       await this.lineAdapter.ensureUserHasRichMenu(userId);
 
-      // 发送演示视频选项
-      try {
-        await this.sendDemoVideos(userId);
-        console.log('✅ 演示视频选项发送成功');
-      } catch (demoError) {
-        console.error('❌ 发送演示视频选项失败:', demoError);
-        // 发送简化版本
-        await this.lineAdapter.pushMessage(userId, 
-          MessageTemplates.createTextMessage('🎁 無料体験をご希望の場合は、下部メニューからお気軽にお選びください！')
-        );
-      }
+      // 延迟发送演示视频选项，避免速率限制
+      setTimeout(async () => {
+        try {
+          await this.sendDemoVideos(userId);
+          console.log('✅ 演示视频选项发送成功');
+        } catch (demoError) {
+          console.error('❌ 发送演示视频选项失败:', demoError);
+          // 发送简化版本作为备选
+          try {
+            await this.lineAdapter.pushMessage(userId, 
+              MessageTemplates.createTextMessage('🎁 無料体験をご希望の場合は、下部メニューからお気軽にお選びください！')
+            );
+          } catch (fallbackError) {
+            console.error('❌ 发送备选消息也失败:', fallbackError);
+          }
+        }
+      }, 2000); // 延迟2秒发送
 
       return { success: true };
     } catch (error) {
