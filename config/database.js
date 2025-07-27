@@ -333,13 +333,14 @@ class Database {
     }
   }
 
-  // 獲取用戶的處理中任務
+  // 獲取用戶的處理中任務（按创建时间降序排列）
   async getUserPendingTasks(lineUserId) {
     try {
       const result = await this.query(
         `SELECT v.* FROM videos v 
          JOIN users u ON v.user_id = u.id 
-         WHERE u.line_user_id = $1 AND v.status IN ('pending', 'processing')`,
+         WHERE u.line_user_id = $1 AND v.status IN ('pending', 'processing')
+         ORDER BY v.created_at DESC`,
         [lineUserId]
       );
       return result.rows;
