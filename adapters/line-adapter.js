@@ -12,27 +12,27 @@ const globalLineClient = global._cachedLineClient || new Client({
 global._cachedLineClient = globalLineClient;
 
 // ---- 全局推送队列：确保 <= 60 req/min ----
-if (!global._lineApiQueue) {
-  global._lineApiQueue = [];
-  global._lineApiBusy = false;
+// 简单延迟控制，适合serverless环境
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-  const processQueue = async () => {
-    if (global._lineApiBusy) return;
-    const task = global._lineApiQueue.shift();
-    if (!task) return;
-    global._lineApiBusy = true;
-    try {
-      await task.fn();
-    } catch (e) {
-      console.error('❌ LINE API 调用失败:', e);
-      task.reject(e);
-    } finally {
-      global._lineApiBusy = false;
-    }
-  };
+// 记录上次API调用时间，确保间隔
+if (!global._lastApiCall) {
+  global._lastApiCall = 0;
+}
 
-  // 每 1100ms 处理 1 个任务（≈54 req/min）
-  setInterval(processQueue, 1100);
+async function rateLimitedApiCall(apiCall) {
+  const now = Date.now();
+  const timeSinceLastCall = now - global._lastApiCall;
+  const minInterval = 1200; // 1.2秒间隔，≈50 req/min
+  
+  if (timeSinceLastCall < minInterval) {
+    const waitTime = minInterval - timeSinceLastCall;
+    console.log(`⏳ API调用间隔控制，等待 ${waitTime}ms`);
+    await sleep(waitTime);
+  }
+  
+  global._lastApiCall = Date.now();
+  return await apiCall();
 }
 
 /**
@@ -94,20 +94,16 @@ class LineAdapter {
    * 发送推送消息
    */
   async pushMessage(userId, messages) {
-    return new Promise((resolve, reject) => {
-      global._lineApiQueue.push({
-        fn: async () => {
-          try {
-            const messageArray = Array.isArray(messages) ? messages : [messages];
-            const res = await this.client.pushMessage(userId, messageArray);
-            console.log('✅ pushMessage success:', { userId, res });
-            resolve(res);
-          } catch (err) {
-            reject(err);
-          }
-        },
-        reject
-      });
+    return await rateLimitedApiCall(async () => {
+      try {
+        const messageArray = Array.isArray(messages) ? messages : [messages];
+        const res = await this.client.pushMessage(userId, messageArray);
+        console.log('✅ pushMessage success:', { userId });
+        return res;
+      } catch (error) {
+        console.error('❌ pushMessage failed:', error);
+        throw error;
+      }
     });
   }
 
@@ -147,50 +143,41 @@ class LineAdapter {
   }
 
   async switchToMainMenu(userId) {
-    return new Promise((resolve, reject) => {
-      global._lineApiQueue.push({
-        fn: async () => {
-          try {
-            await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
-            console.log('✅ 切换到主菜单成功:', userId);
-            resolve(true);
-          } catch (err) {
-            console.error('❌ 切换到主菜单失败:', err);
-            reject(err);
-          }
-        },
-        reject
-      });
+    return await rateLimitedApiCall(async () => {
+      try {
+        await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
+        console.log('✅ 切换到主菜单成功:', userId);
+        return true;
+      } catch (error) {
+        console.error('❌ 切换到主菜单失败:', error);
+        throw error;
+      }
     });
   }
 
   async switchToProcessingMenu(userId) {
-    return new Promise((resolve, reject) => {
-      global._lineApiQueue.push({
-        fn: async () => {
-          try {
-            await this.client.linkRichMenuToUser(userId, this.processingRichMenuId);
-            resolve();
-          } catch (err) { reject(err); }
-        }, reject });
+    return await rateLimitedApiCall(async () => {
+      try {
+        await this.client.linkRichMenuToUser(userId, this.processingRichMenuId);
+        console.log('✅ 切换到处理菜单成功:', userId);
+        return true;
+      } catch (error) {
+        console.error('❌ 切换到处理菜单失败:', error);
+        throw error;
+      }
     });
   }
 
   async ensureUserHasRichMenu(userId) {
-    return new Promise((resolve, reject) => {
-      global._lineApiQueue.push({
-        fn: async () => {
-          try {
-            await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
-            console.log('✅ 用户Rich Menu设置成功:', userId);
-            resolve(true);
-          } catch (err) {
-            console.error('❌ 设置用户Rich Menu失败:', err);
-            reject(err);
-          }
-        },
-        reject
-      });
+    return await rateLimitedApiCall(async () => {
+      try {
+        await this.client.linkRichMenuToUser(userId, this.mainRichMenuId);
+        console.log('✅ 用户Rich Menu设置成功:', userId);
+        return true;
+      } catch (error) {
+        console.error('❌ 设置用户Rich Menu失败:', error);
+        throw error;
+      }
     });
   }
 
