@@ -1,7 +1,10 @@
+// 引入 Stripe 配置
+const stripeConfig = require('../config/stripe-config');
+
 // 檢查API密鑰類型 - 支援兩種環境變數名稱
-const stripeKey = process.env.STRIPE_KEY || process.env.STRIPE_SECRET_KEY;
+const stripeKey = process.env.STRIPE_KEY || process.env.STRIPE_SECRET_KEY || stripeConfig.secretKey;
 const isTestMode = stripeKey?.startsWith('sk_test_');
-const isLiveMode = stripeKey?.startsWith('sk_live_');
+const isLiveMode = stripeKey?.startsWith('sk_live_') || stripeKey?.startsWith('rk_live_');
 
 if (!isTestMode && !isLiveMode) {
   console.error('❌ 無效的Stripe API密鑰格式');
@@ -23,6 +26,9 @@ async function createStripeProducts() {
   try {
     console.log('🚀 開始創建Stripe產品和價格...');
     
+    // 支援的支付方式（暂时只用card）
+    const paymentMethods = ['card'];
+    
     // 使用 Vercel Blob Storage 中的图片 URL（与 demo 图片相同的存储方式）
     const trialImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/trial-plan-card-ExEKLoZtWADP4E6Hg1EKHWRozh6JWe.jpg';
     const standardImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/standard-plan-card-rI0weVQnOXT7UBgR7dPagRFgoMofjo.jpg';
@@ -30,12 +36,14 @@ async function createStripeProducts() {
     // 1. 創建Trial產品
     console.log('📦 創建Trial產品...');
     const trialProduct = await stripe.products.create({
-      name: 'お試しプラン - 動画生成サービス',
-      description: '月8本の動画生成が可能なお試しプラン',
+      name: 'お試しプラン',
+      description: '🎉 特別価格！通常¥4,000 → ¥300 (92%OFF)\n月8本の動画生成が可能なお試しプラン',
       images: [trialImageUrl],
       metadata: {
         plan_type: 'trial',
-        video_quota: '8'
+        video_quota: '8',
+        original_price: '4000',
+        discount_percentage: '92'
       }
     });
 
@@ -49,20 +57,23 @@ async function createStripeProducts() {
         interval: 'month'
       },
       metadata: {
-        original_price: '600', // 原價¥600
-        discount_info: '限定価格 (通常¥600 → ¥300)'
+        original_price: '4000',
+        discount_info: '特別価格 (通常¥4,000 → ¥300)',
+        discount_percentage: '92'
       }
     });
 
     // 3. 創建Standard產品
     console.log('📦 創建Standard產品...');
     const standardProduct = await stripe.products.create({
-      name: 'スタンダードプラン - 動画生成サービス',
-      description: '月100本の動画生成が可能なスタンダードプラン',
+      name: 'スタンダードプラン',
+      description: '🔥 大幅割引！通常¥50,000 → ¥2,980 (94%OFF)\n月100本の動画生成が可能なスタンダードプラン',
       images: [standardImageUrl],
       metadata: {
         plan_type: 'standard',
-        video_quota: '100'
+        video_quota: '100',
+        original_price: '50000',
+        discount_percentage: '94'
       }
     });
 
@@ -76,6 +87,9 @@ async function createStripeProducts() {
         interval: 'month'
       },
       metadata: {
+        original_price: '50000',
+        discount_info: '大幅割引 (通常¥50,000 → ¥2,980)',
+        discount_percentage: '94',
         popular_plan: 'true'
       }
     });
