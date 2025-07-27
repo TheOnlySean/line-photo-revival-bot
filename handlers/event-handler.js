@@ -36,34 +36,20 @@ class EventHandler {
       // 发送欢迎消息 + 试用提示
       const welcomeMessage = MessageTemplates.createWelcomeMessage();
       const introMessage = MessageTemplates.createTextMessage('🎁 **無料体験をお試しください！**\n\n📸 下記のサンプル写真からお選びください：');
-      await this.lineAdapter.replyMessage(event.replyToken, [welcomeMessage, introMessage]);
-      console.log('✅ 欢迎 + 试用提示消息发送成功');
-
-      // 等待1秒后设置Rich Menu，避免API调用冲突
-      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // 确保用户有Rich Menu
       await this.lineAdapter.ensureUserHasRichMenu(userId);
       console.log('🔍 Rich Menu设置完成');
 
-      // 再等待2秒后发送演示视频，确保API调用间隔足够
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      // 直接在同一个 reply 中发送演示视频选项，避免 push 速率/配额限制
+      const { trialPhotos } = require('../config/demo-trial-photos');
+      const carouselMessage = MessageTemplates.createDemoVideoCarousel(trialPhotos);
+
       try {
-        console.log('🎁 开始发送演示视频选项...');
-        await this.sendDemoVideos(userId);
-        console.log('✅ 演示视频选项发送成功');
-      } catch (demoError) {
-        console.error('❌ 发送演示视频选项失败:', demoError);
-        // 发送简化版本作为备选
-        try {
-          await this.lineAdapter.pushMessage(userId, 
-            MessageTemplates.createTextMessage('🎁 無料体験をご希望の場合は、下部メニューからお気軽にお選びください！')
-          );
-          console.log('✅ 备选消息发送成功');
-        } catch (fallbackError) {
-          console.error('❌ 发送备选消息也失败:', fallbackError);
-        }
+        await this.lineAdapter.replyMessage(event.replyToken, [welcomeMessage, introMessage, carouselMessage]);
+        console.log('✅ 欢迎+提示+演示视频 一并发送成功');
+      } catch (replyError) {
+        console.error('❌ 发送欢迎&演示视频失败:', replyError);
       }
 
       return { success: true };
