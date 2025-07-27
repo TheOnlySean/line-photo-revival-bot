@@ -613,14 +613,9 @@ class EventHandler {
           videoUrl: demoResult.videoUrl,
           thumbnailUrl: demoResult.thumbnailUrl
         });
-        
-        // 避免立即 Push 触发 429，分两次推送
-        await new Promise(res => setTimeout(res, 1500));
-        // 先推送文本提示
-        await this.lineAdapter.pushMessage(user.line_user_id, completedMessages[0]);
-        // 再推送视频，间隔 1 秒
-        await new Promise(res => setTimeout(res, 1000));
-        await this.lineAdapter.pushMessage(user.line_user_id, completedMessages[1]);
+        // 等待 20 秒後一次推送文字+视频，减少请求次数
+        await new Promise(res => setTimeout(res, 20000));
+        await this.lineAdapter.pushMessage(user.line_user_id, completedMessages);
       } else {
         await this.lineAdapter.pushMessage(user.line_user_id, 
           MessageTemplates.createErrorMessage('video_generation')
