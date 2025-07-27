@@ -540,9 +540,26 @@ class EventHandler {
     }
   }
 
-  async handleConfirmGenerate(event, user, data) {
+    async handleConfirmGenerate(event, user, data) {
     try {
       console.log('🎬 开始处理确认生成:', { userId: user.line_user_id, userState: user.current_prompt });
+      
+      // 🚫 首先检查用户是否已有正在处理的任务（防止重复生成）
+      const pendingTasks = await this.videoService.db.getUserPendingTasks(user.line_user_id);
+      console.log('📋 检查pending任务:', pendingTasks.length);
+      
+      if (pendingTasks.length > 0) {
+        console.log('⚠️ 用户已有pending任务，拒绝创建新任务');
+        // 直接回复用户等待消息，不创建新任务
+        await this.lineAdapter.replyMessage(event.replyToken, {
+          type: 'text',
+          text: '🎬 現在動画を生成中です。お待ちください...\n\n⏱️ 複数の動画を同時に生成することはできません。\n\n生成完了まで今しばらくお待ちください。'
+        });
+        
+        // 确保用户在processing menu状态
+        await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
+        return { success: false, error: 'User already has pending tasks' };
+      }
 
       // 從使用者狀態取出暫存資料
       let prompt = null;
@@ -615,23 +632,7 @@ class EventHandler {
     console.log('🔄 开始同步轮询流程:', { userId: user.line_user_id });
     
     try {
-      // 1. 先清理用户的旧pending任务（避免任务混乱）
-      const pendingTasks = await this.videoService.db.getUserPendingTasks(user.line_user_id);
-      console.log('📋 检查pending任务:', pendingTasks.length);
-      
-      if (pendingTasks.length > 0) {
-        console.log('🧹 清理旧的pending任务...');
-        for (const oldTask of pendingTasks) {
-          // 将旧任务标记为失败，但不恢复配额（因为这些任务可能还没有扣配额）
-          await this.videoService.db.query(
-            'UPDATE videos SET status = $1 WHERE id = $2',
-            ['cancelled', oldTask.id]
-          );
-          console.log('❌ 取消旧任务:', oldTask.id);
-        }
-      }
-
-      // 2. 总是创建新任务（基于当前的prompt和imageUrl）
+      // 1. 创建新任务（此时已确保用户没有pending任务）
       console.log('📊 创建新视频任务...');
       const subscription = await this.userService.getUserSubscription(user.id);
       const taskResult = await this.videoService.createVideoTask(user.id, {
@@ -652,7 +653,7 @@ class EventHandler {
       const videoRecordId = taskResult.videoRecordId;
       console.log('📊 新任务创建成功:', { videoRecordId });
 
-      // 3. 等待15秒后开始API调用
+      // 2. 等待15秒后开始API调用
       console.log('⏳ 等待15秒后开始API调用...');
       await new Promise(resolve => setTimeout(resolve, 15000));
 
@@ -684,7 +685,7 @@ class EventHandler {
         [taskId, videoRecordId]
       );
 
-      // 4. 同步轮询直到完成（最多5分钟）
+      // 3. 同步轮询直到完成（最多5分钟）
       console.log('🔄 开始同步轮询，最大5分钟..., taskId:', taskId);
       const maxPollingTime = 5 * 60 * 1000; // 5分钟
       const pollInterval = 10000; // 10秒
@@ -751,7 +752,7 @@ class EventHandler {
         }
       }
 
-      // 5. 处理结果并使用replyToken发送
+      // 4. 处理结果并使用replyToken发送
       console.log('📊 轮询结束，处理结果:', finalResult);
       if (finalResult) {
         if (finalResult.success) {
