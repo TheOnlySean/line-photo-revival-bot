@@ -266,8 +266,8 @@ class MessageTemplates {
     const standardUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/bJe9AS843aNUd5t5Ubcs807';
     
     // 使用 Vercel Blob Storage 中的图片 URL（与 demo 图片相同的存储方式）
-    const trialImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/trial-plan-card-ExEKLoZtWADP4E6Hg1EKHWRozh6JWe.jpg';
-    const standardImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/standard-plan-card-rI0weVQnOXT7UBgR7dPagRFgoMofjo.jpg';
+    const trialImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/trial-plan-card-N975LY0W25XEwRrP44qHVLcdEDvew5.jpg';
+    const standardImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/standard-plan-card-ANII7ezO1Gf1k5oltKBGKCJww2WaNn.jpg';
     
     return {
       type: 'flex',
