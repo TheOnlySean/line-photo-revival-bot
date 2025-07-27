@@ -215,17 +215,27 @@ class Database {
   // 使用視頻配額
   async useVideoQuota(userId) {
     try {
+      console.log(`💰 开始扣除用户 ${userId} 的视频配额...`);
+      
       const result = await this.query(
         `UPDATE subscriptions 
          SET videos_used_this_month = videos_used_this_month + 1,
              updated_at = CURRENT_TIMESTAMP
          WHERE user_id = $1 AND status = 'active'
-         RETURNING *`,
+         RETURNING user_id, plan_type, videos_used_this_month, monthly_video_quota`,
         [userId]
       );
-      return result.rows[0];
+      
+      if (result.rows.length > 0) {
+        const subscription = result.rows[0];
+        console.log(`✅ 配额扣除成功 - 用户: ${userId}, 计划: ${subscription.plan_type}, 已用: ${subscription.videos_used_this_month}/${subscription.monthly_video_quota}`);
+        return subscription;
+      } else {
+        console.log(`⚠️ 未找到用户 ${userId} 的活跃订阅，无法扣除配额`);
+        return null;
+      }
     } catch (error) {
-      console.error('❌ 使用視頻配額失敗:', error);
+      console.error(`❌ 扣除用户 ${userId} 视频配额失败:`, error);
       throw error;
     }
   }
@@ -251,18 +261,27 @@ class Database {
   // 恢复视频配额（用于生成失败时）
   async restoreVideoQuota(userId) {
     try {
+      console.log(`🔄 开始恢复用户 ${userId} 的视频配额...`);
+      
       const result = await this.query(
         `UPDATE subscriptions 
          SET videos_used_this_month = GREATEST(videos_used_this_month - 1, 0),
              updated_at = CURRENT_TIMESTAMP
          WHERE user_id = $1 AND status = 'active'
-         RETURNING *`,
+         RETURNING user_id, plan_type, videos_used_this_month, monthly_video_quota`,
         [userId]
       );
-      console.log(`✅ 已恢复用户 ${userId} 的视频配额`);
-      return result.rows[0];
+      
+      if (result.rows.length > 0) {
+        const subscription = result.rows[0];
+        console.log(`✅ 配额恢复成功 - 用户: ${userId}, 计划: ${subscription.plan_type}, 已用: ${subscription.videos_used_this_month}/${subscription.monthly_video_quota}`);
+        return subscription;
+      } else {
+        console.log(`⚠️ 未找到用户 ${userId} 的活跃订阅，无法恢复配额`);
+        return null;
+      }
     } catch (error) {
-      console.error('❌ 恢复视频配额失败:', error);
+      console.error(`❌ 恢复用户 ${userId} 视频配额失败:`, error);
       throw error;
     }
   }

@@ -293,6 +293,7 @@ class VideoGenerator {
   async handleVideoFailure(lineUserId, videoRecordId, errorMessage) {
     try {
       console.log('❌ 处理视频生成失败:', errorMessage);
+      console.log('🔍 videoRecordId:', videoRecordId);
 
       // 获取视频记录以恢复用户配额
       const videoRecord = await this.db.query(
@@ -300,21 +301,40 @@ class VideoGenerator {
         [videoRecordId]
       );
 
+      console.log('📋 视频记录查询结果:', videoRecord.rows);
+
       // 更新数据库状态为失败
       await this.db.query(
-        'UPDATE videos SET status = $1, error_message = $2 WHERE id = $3',
+        'UPDATE videos SET status = $1, error_message = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
         ['failed', errorMessage, videoRecordId]
       );
+      console.log('✅ 视频状态已更新为失败');
 
       // 恢复用户配额
       if (videoRecord.rows.length > 0) {
         const userId = videoRecord.rows[0].user_id;
+        console.log(`💰 开始恢复用户 ${userId} 的配额...`);
+        
         try {
-          await this.db.restoreVideoQuota(userId);
-          console.log(`✅ 已恢复用户 ${userId} 的视频配额`);
+          // 先查询当前配额状态
+          const quotaBefore = await this.db.checkVideoQuota(userId);
+          console.log('📊 恢复前配额状态:', quotaBefore);
+          
+          // 恢复配额
+          const restoreResult = await this.db.restoreVideoQuota(userId);
+          console.log('🔄 配额恢复操作结果:', restoreResult);
+          
+          // 再次查询确认配额已恢复
+          const quotaAfter = await this.db.checkVideoQuota(userId);
+          console.log('📊 恢复后配额状态:', quotaAfter);
+          
+          console.log(`✅ 已成功恢复用户 ${userId} 的视频配额`);
         } catch (quotaError) {
-          console.error('❌ 恢复配额失败:', quotaError.message);
+          console.error('❌ 恢复配额失败:', quotaError);
+          // 即使配额恢复失败，也要继续发送通知
         }
+      } else {
+        console.error('❌ 未找到视频记录，无法恢复配额');
       }
 
       // 通过回调函数发送失败通知
@@ -336,6 +356,19 @@ class VideoGenerator {
 
     } catch (error) {
       console.error('❌ 处理视频失败时出错:', error);
+      // 即使处理失败，也要尝试发送通知
+      if (this.messageCallback) {
+        try {
+          await this.messageCallback('video_failed', {
+            lineUserId,
+            videoRecordId,
+            errorMessage: '系统处理错误，请联系客服',
+            quotaRestored: false // 标记配额恢复状态不确定
+          });
+        } catch (notifyError) {
+          console.error('❌ 发送错误通知失败:', notifyError);
+        }
+      }
     }
   }
 
