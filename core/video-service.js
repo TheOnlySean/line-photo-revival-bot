@@ -95,7 +95,8 @@ class VideoService {
   }
 
   /**
-   * 生成演示视频 - 模拟生成过程，保持用户体验
+   * 生成演示视频 - 直接返回预设视频信息
+   * 等待时间已在调用方处理
    */
   async generateDemoVideo(demoPhotoId) {
     try {
@@ -109,9 +110,8 @@ class VideoService {
         };
       }
 
-      // 模拟生成等待时间，保持用户体验中"正在生成"的感觉
-      await new Promise(resolve => setTimeout(resolve, 15000));
-
+      // 直接返回预设的演示视频信息
+      // 等待时间已在调用方（event-handler）中处理
       return {
         success: true,
         videoUrl: selectedPhoto.demo_video_url,

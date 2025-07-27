@@ -599,24 +599,29 @@ class EventHandler {
     try {
       const photoId = data.photo_id;
       
-      // 1. 立即回复"开始生成"消息（免费的replyMessage）
-      const processingMessage = MessageTemplates.createVideoStatusMessages('processing');
-      await this.lineAdapter.replyMessage(event.replyToken, processingMessage);
+      // 完全使用免费的replyMessage实现，避免任何pushMessage调用
+      // reply token有效期20分钟，我们等待15秒后回复完全没问题
       
-      // 2. 切换到处理中菜单 - 重要的UX，不能删除
+      // 1. 切换到处理中菜单（让用户看到处理状态）
       await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
 
-      // 3. 生成演示视频（包含15秒等待时间）
-      const demoResult = await this.videoService.generateDemoVideo(photoId);
+      // 2. 等待15秒（模拟生成过程）
+      console.log('⏳ 开始等待15秒模拟视频生成...');
+      await new Promise(resolve => setTimeout(resolve, 15000));
+      console.log('✅ 15秒等待完成，准备发送视频');
+
+      // 3. 获取demo视频信息
+      const { trialPhotos } = require('../config/demo-trial-photos');
+      const selectedPhoto = trialPhotos.find(photo => photo.id === photoId);
       
-      if (demoResult.success) {
+      if (selectedPhoto) {
         // 4. 创建完成消息，包含视频和提示文本
         const demoCompletedMessages = MessageTemplates.createVideoStatusMessages('demo_completed', {
-          videoUrl: demoResult.videoUrl,
-          thumbnailUrl: demoResult.thumbnailUrl
+          videoUrl: selectedPhoto.demo_video_url,
+          thumbnailUrl: selectedPhoto.image_url
         });
         
-        // 确保正确展开数组 - demo_completed返回数组，需要展开
+        // 确保正确展开数组
         const completedMessages = Array.isArray(demoCompletedMessages) 
           ? [...demoCompletedMessages, {
               type: 'text',
@@ -627,18 +632,14 @@ class EventHandler {
               text: '✅ 動画生成が完了しました！\n\nご自身の写真で動画を生成したい場合は、下のメニューからお選びください。'
             }];
             
-        // 调试日志：检查消息格式
-        console.log('🔍 demoCompletedMessages类型:', Array.isArray(demoCompletedMessages) ? '数组' : '对象');
-        console.log('🔍 demoCompletedMessages长度:', Array.isArray(demoCompletedMessages) ? demoCompletedMessages.length : 'N/A');
-        console.log('🔍 最终completedMessages长度:', completedMessages.length);
-        console.log('🔍 最终消息结构:', JSON.stringify(completedMessages, null, 2));
+        console.log('🔍 准备用replyMessage发送完成消息，消息数量:', completedMessages.length);
 
-        // 5. 发送完成消息（这里必须用pushMessage，因为replyToken已经用过了）
-        await this.lineAdapter.pushMessage(user.line_user_id, completedMessages);
+        // 5. 使用免费的replyMessage发送完成消息（reply token仍然有效）
+        await this.lineAdapter.replyMessage(event.replyToken, completedMessages);
       } else {
-        // 发送错误消息
+        console.error('❌ 找不到指定的demo照片:', photoId);
         const errorMessage = MessageTemplates.createErrorMessage('video_generation');
-        await this.lineAdapter.pushMessage(user.line_user_id, errorMessage);
+        await this.lineAdapter.replyMessage(event.replyToken, errorMessage);
       }
       
       // 6. 切换回主菜单 - 重要的UX，不能删除
