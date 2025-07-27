@@ -1,3 +1,18 @@
+/**
+ * 支付成功页面API端点
+ * 返回一个简单的HTML页面
+ */
+module.exports = async (req, res) => {
+  try {
+    const { plan = 'trial', user_id } = req.query;
+    
+    console.log(`🎉 支付成功页面访问: plan=${plan}, user_id=${user_id}`);
+    
+    // 根据计划类型设置页面内容
+    const planName = plan === 'standard' ? 'スタンダードプラン' : 'お試しプラン';
+    const planDetails = plan === 'standard' ? '月100本の動画生成' : '月8本の動画生成';
+    
+    const html = `
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -60,8 +75,8 @@
     <p>ありがとうございます！<br>サブスクリプションのお支払いが完了いたしました。</p>
 
     <div class="plan-info">
-      <strong id="plan-name">お試しプラン</strong><br>
-      <span id="plan-details">月8本の動画生成</span>
+      <strong>${planName}</strong><br>
+      <span>${planDetails}</span>
     </div>
 
     <p>LINEにて確認メッセージをお送りしております。<br>すぐに動画生成をお楽しみください！</p>
@@ -72,16 +87,6 @@
   </div>
 
   <script>
-    // 获取URL参数
-    const urlParams = new URLSearchParams(window.location.search);
-    const plan = urlParams.get('plan');
-    
-    // 根据计划类型更新页面内容
-    if (plan === 'standard') {
-      document.getElementById('plan-name').textContent = 'スタンダードプラン';
-      document.getElementById('plan-details').textContent = '月100本の動画生成';
-    }
-    
     // 5秒后尝试关闭页面（在LINE应用中）
     setTimeout(() => {
       if (window.navigator.userAgent.includes('Line')) {
@@ -90,4 +95,17 @@
     }, 5000);
   </script>
 </body>
-</html> 
+</html>`;
+
+    // 设置正确的Content-Type
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.status(200).send(html);
+    
+  } catch (error) {
+    console.error('❌ 支付成功页面错误:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Internal server error'
+    });
+  }
+}; 
