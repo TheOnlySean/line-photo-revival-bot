@@ -672,7 +672,7 @@ class EventHandler {
   async handleUpgradeToStandard(event, user) {
     try {
       // 顯示 Standard Plan 訂閱選項
-      const standardUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/bJe9AS843aNUd5t5Ubcs807';
+      const standardUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/9B6bJ05VV5tAghFfuLcs809';
       
       const upgradeMessage = {
         type: 'flex',

@@ -262,8 +262,8 @@ class MessageTemplates {
    * 创建支付选项卡片
    */
   static createPaymentOptionsCarousel() {
-    const trialUrl = process.env.STRIPE_TRIAL_URL || 'https://buy.stripe.com/00w5kCbgfaNU1mL5Ubcs806';
-    const standardUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/bJe9AS843aNUd5t5Ubcs807';
+    const trialUrl = process.env.STRIPE_TRIAL_URL || 'https://buy.stripe.com/fZu5kC6ZZ6xEghF4Q7cs808';
+    const standardUrl = process.env.STRIPE_STANDARD_URL || 'https://buy.stripe.com/9B6bJ05VV5tAghFfuLcs809';
     
     // 使用 Vercel Blob Storage 中的图片 URL（与 demo 图片相同的存储方式）
     const trialImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/trial-plan-card-N975LY0W25XEwRrP44qHVLcdEDvew5.jpg';
