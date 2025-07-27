@@ -612,14 +612,23 @@ class EventHandler {
           thumbnailUrl: demoResult.thumbnailUrl
         });
         
-        const completedMessages = [
-          ...demoCompletedMessages, // 展开demo_completed数组
-          {
-            type: 'text',
-            text: '✅ 動画生成が完了しました！\n\nご自身の写真で動画を生成したい場合は、下のメニューからお選びください。'
-          }
-        ];
-        
+        // 确保正确展开数组 - demo_completed返回数组，需要展开
+        const completedMessages = Array.isArray(demoCompletedMessages) 
+          ? [...demoCompletedMessages, {
+              type: 'text',
+              text: '✅ 動画生成が完了しました！\n\nご自身の写真で動画を生成したい場合は、下のメニューからお選びください。'
+            }]
+          : [demoCompletedMessages, {
+              type: 'text', 
+              text: '✅ 動画生成が完了しました！\n\nご自身の写真で動画を生成したい場合は、下のメニューからお選びください。'
+            }];
+            
+        // 调试日志：检查消息格式
+        console.log('🔍 demoCompletedMessages类型:', Array.isArray(demoCompletedMessages) ? '数组' : '对象');
+        console.log('🔍 demoCompletedMessages长度:', Array.isArray(demoCompletedMessages) ? demoCompletedMessages.length : 'N/A');
+        console.log('🔍 最终completedMessages长度:', completedMessages.length);
+        console.log('🔍 最终消息结构:', JSON.stringify(completedMessages, null, 2));
+
         // 延迟后一次性发送所有消息，减少API调用
         await new Promise(res => setTimeout(res, 20000));
         await this.lineAdapter.pushMessage(user.line_user_id, completedMessages);
