@@ -11,6 +11,30 @@ const globalLineClient = global._cachedLineClient || new Client({
 });
 global._cachedLineClient = globalLineClient;
 
+// ---- 全局推送队列：确保 <= 60 req/min ----
+if (!global._lineApiQueue) {
+  global._lineApiQueue = [];
+  global._lineApiBusy = false;
+
+  const processQueue = async () => {
+    if (global._lineApiBusy) return;
+    const task = global._lineApiQueue.shift();
+    if (!task) return;
+    global._lineApiBusy = true;
+    try {
+      await task.fn();
+    } catch (e) {
+      console.error('❌ LINE API 调用失败:', e);
+      task.reject(e);
+    } finally {
+      global._lineApiBusy = false;
+    }
+  };
+
+  // 每 1100ms 处理 1 个任务（≈54 req/min）
+  setInterval(processQueue, 1100);
+}
+
 /**
  * LINE Adapter - 封装所有与LINE Messaging API的交互
  * 职责：Webhook处理、消息发送、Rich Menu管理、用户信息获取
@@ -69,35 +93,23 @@ class LineAdapter {
   /**
    * 发送推送消息
    */
-  async pushMessage(userId, messages, retryCount = 0) {
-     try {
-       const messageArray = Array.isArray(messages) ? messages : [messages];
-       const res = await this.client.pushMessage(userId, messageArray);
-       console.log('✅ pushMessage success:', { userId, res });
-     } catch (error) {
-       console.error('❌ 发送推送消息失败:', error);
-       // 429 Too Many Requests
-       if (error.statusCode === 429 && retryCount < 3) {
-         // LINE API 返回的 Retry-After 秒数（若有）
-         const retryAfter = parseInt(error.response?.headers?.['retry-after'] || '0', 10);
-         // 基于重试次数的退避：10s, 30s, 60s
-         const backoffMap = [10000, 30000, 60000];
-         const delay = retryAfter > 0 ? retryAfter * 1000 : backoffMap[retryCount] || 60000;
-         console.log(`🔄 429 速率限制，第 ${retryCount + 1} 次重试，${delay/1000}s 后再试...`);
-         return new Promise((resolve, reject) => {
-           setTimeout(async () => {
-             try {
-               await this.pushMessage(userId, messages, retryCount + 1);
-               resolve();
-             } catch (retryError) {
-               reject(retryError);
-             }
-           }, delay);
-         });
-       }
-       throw error;
-     }
-   }
+  async pushMessage(userId, messages) {
+    return new Promise((resolve, reject) => {
+      global._lineApiQueue.push({
+        fn: async () => {
+          try {
+            const messageArray = Array.isArray(messages) ? messages : [messages];
+            const res = await this.client.pushMessage(userId, messageArray);
+            console.log('✅ pushMessage success:', { userId, res });
+            resolve(res);
+          } catch (err) {
+            reject(err);
+          }
+        },
+        reject
+      });
+    });
+  }
 
   /**
    * 上传图片并获取URL
@@ -154,22 +166,15 @@ class LineAdapter {
   }
 
   async switchToProcessingMenu(userId) {
-    try {
-      // 确保Rich Menu ID已初始化
-      await this.initializeRichMenuIds();
-      
-      if (this.processingRichMenuId) {
-        await this.client.linkRichMenuToUser(userId, this.processingRichMenuId);
-        console.log('✅ 切换到处理菜单成功:', userId);
-        return true;
-      } else {
-        console.error('❌ 处理菜单ID未找到');
-        return false;
-      }
-    } catch (error) {
-      console.error('❌ 切换到处理中菜单失败:', error);
-      return false;
-    }
+    return new Promise((resolve, reject) => {
+      global._lineApiQueue.push({
+        fn: async () => {
+          try {
+            await this.client.linkRichMenuToUser(userId, this.processingRichMenuId);
+            resolve();
+          } catch (err) { reject(err); }
+        }, reject });
+    });
   }
 
   async ensureUserHasRichMenu(userId) {
