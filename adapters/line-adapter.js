@@ -72,7 +72,8 @@ class LineAdapter {
   async pushMessage(userId, messages, retryCount = 0) {
      try {
        const messageArray = Array.isArray(messages) ? messages : [messages];
-       await this.client.pushMessage(userId, messageArray);
+       const res = await this.client.pushMessage(userId, messageArray);
+       console.log('✅ pushMessage success:', { userId, res });
      } catch (error) {
        console.error('❌ 发送推送消息失败:', error);
        // 429 Too Many Requests
