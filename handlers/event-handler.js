@@ -21,7 +21,7 @@ class EventHandler {
   async handleFollow(event) {
     try {
       const userId = event.source.userId;
-      console.log('👋 用户添加好友:', userId);
+      console.log('�� 用户添加好友:', userId);
 
       // 获取用户profile
       const profile = await this.lineAdapter.getUserProfile(userId);
@@ -32,6 +32,45 @@ class EventHandler {
       if (!followResult.success) {
         throw new Error(followResult.error);
       }
+
+      // 发送欢迎消息
+      const welcomeMessage = MessageTemplates.createWelcomeMessage();
+      await this.lineAdapter.replyMessage(event.replyToken, welcomeMessage);
+      console.log('✅ 欢迎消息发送成功');
+
+      // 等待1秒后设置Rich Menu，避免API调用冲突
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // 确保用户有Rich Menu
+      await this.lineAdapter.ensureUserHasRichMenu(userId);
+      console.log('🔍 Rich Menu设置完成');
+
+      // 再等待2秒后发送演示视频，确保API调用间隔足够
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      try {
+        console.log('🎁 开始发送演示视频选项...');
+        await this.sendDemoVideos(userId);
+        console.log('✅ 演示视频选项发送成功');
+      } catch (demoError) {
+        console.error('❌ 发送演示视频选项失败:', demoError);
+        // 发送简化版本作为备选
+        try {
+          await this.lineAdapter.pushMessage(userId, 
+            MessageTemplates.createTextMessage('🎁 無料体験をご希望の場合は、下部メニューからお気軽にお選びください！')
+          );
+          console.log('✅ 备选消息发送成功');
+        } catch (fallbackError) {
+          console.error('❌ 发送备选消息也失败:', fallbackError);
+        }
+      }
+
+      return { success: true };
+    } catch (error) {
+      console.error('❌ 处理用户关注失败:', error);
+      return { success: false, error: error.message };
+    }
+  }
 
       // 发送欢迎消息
       const welcomeMessage = MessageTemplates.createWelcomeMessage();
