@@ -1,4 +1,4 @@
-const stripe = require('stripe');
+const Stripe = require('stripe');
 
 /**
  * Stripe 配置
@@ -13,4 +13,9 @@ const stripeConfig = {
   country: 'JP'
 };
 
-module.exports = stripeConfig; 
+// 初始化 Stripe 實例
+const stripe = new Stripe(stripeConfig.secretKey, {
+  apiVersion: '2023-10-16'
+});
+
+module.exports = { stripe, stripeConfig }; 
