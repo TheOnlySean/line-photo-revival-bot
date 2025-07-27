@@ -613,9 +613,15 @@ class EventHandler {
           videoUrl: demoResult.videoUrl,
           thumbnailUrl: demoResult.thumbnailUrl
         });
-        // 等待 20 秒後一次推送文字+视频，减少请求次数
-        await new Promise(res => setTimeout(res, 20000));
-        await this.lineAdapter.pushMessage(user.line_user_id, completedMessages);
+        // 等待 15 秒后只推送视频，减少请求大小
+        await new Promise(res => setTimeout(res, 15000));
+        // 仅发送视频消息，降低 payload，减少429
+        const videoMessage = {
+          type: 'video',
+          originalContentUrl: demoResult.videoUrl,
+          previewImageUrl: demoResult.thumbnailUrl
+        };
+        await this.lineAdapter.pushMessage(user.line_user_id, videoMessage);
       } else {
         await this.lineAdapter.pushMessage(user.line_user_id, 
           MessageTemplates.createErrorMessage('video_generation')
