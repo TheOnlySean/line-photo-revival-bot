@@ -585,10 +585,11 @@ class MessageTemplates {
             {
               type: 'button',
               style: 'secondary',
+              color: '#FF6B6B',
               action: {
                 type: 'postback',
-                label: 'キャンセル',
-                data: 'action=CANCEL_UPGRADE'
+                label: '🚫 サブスクリプションを解約する',
+                data: 'action=CANCEL_SUBSCRIPTION'
               }
             }
           ]

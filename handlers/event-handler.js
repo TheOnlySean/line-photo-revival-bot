@@ -41,10 +41,11 @@ class EventHandler {
       await this.lineAdapter.ensureUserHasRichMenu(userId);
       console.log('🔍 Rich Menu设置完成，准备发送演示视频');
 
-      // 直接发送演示视频选项（依赖LineAdapter的重试机制）
-      try {
-        console.log('🎁 开始发送演示视频选项...');
-        await this.sendDemoVideos(userId);
+      // 延迟发送演示视频选项，避免速率限制
+      setTimeout(async () => {
+        try {
+          console.log('🎁 开始发送演示视频选项...');
+          await this.sendDemoVideos(userId);
         console.log('✅ 演示视频选项发送成功');
       } catch (demoError) {
         console.error('❌ 发送演示视频选项失败:', demoError);
@@ -57,7 +58,7 @@ class EventHandler {
         } catch (fallbackError) {
           console.error('❌ 发送备选消息也失败:', fallbackError);
         }
-      }
+      }, 3000); // 延迟3秒发送
 
       return { success: true };
     } catch (error) {
