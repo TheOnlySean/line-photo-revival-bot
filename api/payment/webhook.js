@@ -1,6 +1,29 @@
 const { stripe, stripeConfig } = require('../../config/stripe-config');
 const db = require('../../config/database');
 
+// 禁用 Vercel 的自动 body 解析，以便获取原始请求体
+export const config = {
+  api: {
+    bodyParser: false,
+  },
+}
+
+// 读取原始请求体的辅助函数
+function getRawBody(req) {
+  return new Promise((resolve, reject) => {
+    let data = '';
+    req.on('data', chunk => {
+      data += chunk;
+    });
+    req.on('end', () => {
+      resolve(data);
+    });
+    req.on('error', err => {
+      reject(err);
+    });
+  });
+}
+
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' });
@@ -12,8 +35,11 @@ module.exports = async function handler(req, res) {
   let event;
 
   try {
+    // 获取原始请求体
+    const rawBody = await getRawBody(req);
+    
     // 驗證 webhook 簽名
-    event = stripe.webhooks.constructEvent(req.body, sig, endpointSecret);
+    event = stripe.webhooks.constructEvent(rawBody, sig, endpointSecret);
     console.log('✅ Stripe webhook 事件驗證成功:', event.type);
   } catch (err) {
     console.error('❌ Webhook signature verification failed:', err.message);
