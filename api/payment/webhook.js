@@ -1,7 +1,5 @@
 const { stripe, stripeConfig } = require('../../config/stripe-config');
-const Database = require('../../config/database');
-
-const db = new Database();
+const db = require('../../config/database');
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') {
