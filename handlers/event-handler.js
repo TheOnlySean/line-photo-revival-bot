@@ -614,6 +614,8 @@ class EventHandler {
           thumbnailUrl: demoResult.thumbnailUrl
         });
         
+        // 避免立即 Push 触发 429，延迟 1.5 秒后再发送
+        await new Promise(res => setTimeout(res, 1500));
         await this.lineAdapter.pushMessage(user.line_user_id, completedMessages);
       } else {
         await this.lineAdapter.pushMessage(user.line_user_id, 
