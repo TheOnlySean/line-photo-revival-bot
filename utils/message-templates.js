@@ -3,6 +3,8 @@
  * 职责：创建各种消息格式（文本、Flex Message、Carousel等）
  */
 class MessageTemplates {
+  // 动态构造应用根 URL，用于生成Stripe Portal链接
+  static BASE_URL = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'https://line-photo-revival-bot.vercel.app';
   
   /**
    * 创建欢迎消息
@@ -488,9 +490,9 @@ class MessageTemplates {
               style: 'secondary',
               color: '#FF6B6B',
               action: {
-                type: 'postback',
+                type: 'uri',
                 label: '🚫 サブスクリプションを解約する',
-                data: 'action=CANCEL_SUBSCRIPTION'
+                uri: `${MessageTemplates.BASE_URL}/api/payment/portal?userId=${subscription.user_id}`
               }
             }
           ]
@@ -587,9 +589,9 @@ class MessageTemplates {
               style: 'secondary',
               color: '#FF6B6B',
               action: {
-                type: 'postback',
+                type: 'uri',
                 label: '🚫 サブスクリプションを解約する',
-                data: 'action=CANCEL_SUBSCRIPTION'
+                uri: `${MessageTemplates.BASE_URL}/api/payment/portal?userId=${subscription.user_id}`
               }
             }
           ]
