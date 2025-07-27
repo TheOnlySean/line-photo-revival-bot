@@ -33,10 +33,11 @@ class EventHandler {
         throw new Error(followResult.error);
       }
 
-      // 发送欢迎消息
+      // 发送欢迎消息 + 试用提示
       const welcomeMessage = MessageTemplates.createWelcomeMessage();
-      await this.lineAdapter.replyMessage(event.replyToken, welcomeMessage);
-      console.log('✅ 欢迎消息发送成功');
+      const introMessage = MessageTemplates.createTextMessage('🎁 **無料体験をお試しください！**\n\n📸 下記のサンプル写真からお選びください：');
+      await this.lineAdapter.replyMessage(event.replyToken, [welcomeMessage, introMessage]);
+      console.log('✅ 欢迎 + 试用提示消息发送成功');
 
       // 等待1秒后设置Rich Menu，避免API调用冲突
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -344,14 +345,11 @@ class EventHandler {
       const { trialPhotos } = require('../config/demo-trial-photos');
       console.log('📋 加载演示视频配置，共', trialPhotos.length, '个视频');
       
-      const introMessage = MessageTemplates.createTextMessage('🎁 **無料体験をお試しください！**\n\n📸 下記のサンプル写真からお選びください：');
-      console.log('✅ 介绍消息创建成功');
-      
       const carouselMessage = MessageTemplates.createDemoVideoCarousel(trialPhotos);
       console.log('✅ 轮播消息创建成功，卡片数量:', carouselMessage.contents.contents.length);
       
       console.log('📤 准备发送消息到用户:', userId);
-      await this.lineAdapter.pushMessage(userId, [introMessage, carouselMessage]);
+      await this.lineAdapter.pushMessage(userId, [carouselMessage]);
       console.log('✅ 演示视频选项发送完成');
     } catch (error) {
       console.error('❌ 发送演示视频选项失败:', error);
