@@ -526,12 +526,10 @@ class EventHandler {
       console.log('📋 检查pending任务:', pendingTasks.length);
       
       if (pendingTasks.length > 0) {
-        console.log('⚠️ 用户已有pending任务，拒绝新请求');
-        await this.lineAdapter.replyMessage(event.replyToken, {
-          type: 'text',
-          text: '🎬 現在動画を生成中です。お待ちください...\n\n⏱️ 生成完了まで今しばらくお待ちください。複数の動画を同時に生成することはできません。'
-        });
-        return { success: false, error: 'User already has pending tasks' };
+        console.log('⚠️ 用户已有pending任务，切换到processing menu');
+        // 不消耗replyToken！切换到processing menu让用户点击查看状态
+        await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
+        return { success: false, error: 'User already has pending tasks - switched to processing menu' };
       }
 
       // 從使用者狀態取出暫存資料
@@ -1093,11 +1091,31 @@ class EventHandler {
 
   async handleCheckVideoStatus(event, user) {
     try {
-      // 1. 检查用户是否有正在进行的视频任务
+      console.log('🔍 开始检查视频状态:', { userId: user.line_user_id });
+      
+      // 1. 先清理超过2小时的过期任务
+      try {
+        const cleanupResult = await this.videoService.db.query(
+          `UPDATE videos SET status = 'failed' 
+           WHERE user_id = (SELECT id FROM users WHERE line_user_id = $1) 
+           AND status IN ('pending', 'processing') 
+           AND created_at < NOW() - INTERVAL '2 hours'`,
+          [user.line_user_id]
+        );
+        if (cleanupResult.rowCount > 0) {
+          console.log('🧹 清理了', cleanupResult.rowCount, '个过期任务');
+        }
+      } catch (cleanupError) {
+        console.error('❌ 清理过期任务失败:', cleanupError);
+      }
+      
+      // 2. 检查用户是否有正在进行的视频任务
       const pendingTasks = await this.videoService.db.getUserPendingTasks(user.line_user_id);
+      console.log('📋 检查pending任务:', pendingTasks.length);
       
       if (pendingTasks.length === 0) {
         // 没有正在生成的视频，切换到主菜单并提示
+        console.log('✅ 没有pending任务，切换到主菜单');
         await this.lineAdapter.switchToMainMenu(user.line_user_id);
         await this.lineAdapter.replyMessage(event.replyToken, {
           type: 'text',
@@ -1106,12 +1124,15 @@ class EventHandler {
         return { success: true, message: 'No pending tasks, switched to main menu' };
       }
 
-      // 2. 获取任务信息
+      // 3. 获取任务信息
       const task = pendingTasks[0]; // 假设只有一个任务
+      console.log('📊 找到任务:', { taskId: task.task_id, status: task.status, createdAt: task.created_at });
+      
       const VideoGenerator = require('../services/video-generator');
       const videoGenerator = new VideoGenerator(this.videoService.db);
 
-      // 3. 继续轮询直到完成（最多5分钟）
+      // 4. 继续轮询直到完成（最多5分钟）
+      console.log('🔄 开始状态检查轮询...');
       const maxPollingTime = 5 * 60 * 1000; // 5分钟
       const pollInterval = 10000; // 10秒
       const startTime = Date.now();
