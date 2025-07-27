@@ -55,7 +55,7 @@ class MessageTemplates {
                 type: 'button',
                 action: {
                   type: 'postback',
-                  label: '🎬 この写真で体験',
+                  label: 'この写真で\n体験する',
                   data: `action=demo_generate&photo_id=${photo.id}`
                 },
                 style: 'primary',
