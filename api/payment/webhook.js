@@ -115,8 +115,8 @@ async function handleCheckoutCompleted(session) {
 
     console.log(`👤 处理用户 ${userId} 的订阅`);
 
-    // 通过数据库ID查找用户（加上環境過濾）
-    const result = await db.query('SELECT * FROM users WHERE id = $1 AND environment = $2', [parseInt(userId), currentEnvironment]);
+    // 通过数据库ID查找用户（所有环境共用）
+    const result = await db.query('SELECT * FROM users WHERE id = $1', [parseInt(userId)]);
     const user = result.rows[0];
     
     if (!user) {
