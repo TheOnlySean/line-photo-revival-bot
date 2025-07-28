@@ -1,7 +1,42 @@
 const { Client } = require('@line/bot-sdk');
 const lineConfig = require('../config/line-config');
-// 直接從本地配置文件讀取 Rich Menu ID，避免每次呼叫 listRichMenu
-const richMenuIds = require('../config/richmenu-ids.json');
+const fs = require('fs');
+const path = require('path');
+
+// 根据环境加载正确的Rich Menu配置
+function loadRichMenuConfig() {
+  const environment = process.env.NODE_ENV || 'development';
+  
+  try {
+    if (environment === 'production') {
+      // 尝试加载生产环境配置
+      const productionConfigPath = path.join(__dirname, '..', 'config', 'richmenu-ids-production.json');
+      if (fs.existsSync(productionConfigPath)) {
+        console.log('🔴 使用生产环境Rich Menu配置');
+        return require('../config/richmenu-ids-production.json');
+      }
+    }
+    
+    // 默认使用开发环境配置
+    console.log('🟡 使用开发环境Rich Menu配置');
+    return require('../config/richmenu-ids.json');
+    
+  } catch (error) {
+    console.error('❌ 加载Rich Menu配置失败:', error);
+    // 回退到硬编码的生产环境ID
+    if (environment === 'production') {
+      console.log('🔄 使用硬编码的生产环境Rich Menu ID');
+      return {
+        mainRichMenuId: 'richmenu-31f0120a68cf4e4cfb7b4029d7308b39',
+        processingRichMenuId: 'richmenu-f0083edd35a1b15ba95869b3f10cab71'
+      };
+    }
+    throw error;
+  }
+}
+
+// 加载Rich Menu配置
+const richMenuConfig = loadRichMenuConfig();
 
 // 全局 Line Client，可在 Vercel container 重用，減少冷啟開銷
 const globalLineClient = global._cachedLineClient || new Client({
@@ -18,9 +53,14 @@ class LineAdapter {
     // 使用全局 client
     this.client = globalLineClient;
 
-    // 直接設置 Rich Menu ID
-    this.mainRichMenuId = richMenuIds.mainRichMenuId;
-    this.processingRichMenuId = richMenuIds.processingRichMenuId;
+    // 根据环境设置Rich Menu ID
+    this.mainRichMenuId = richMenuConfig.mainRichMenuId;
+    this.processingRichMenuId = richMenuConfig.processingRichMenuId;
+    
+    console.log(`📋 Rich Menu配置 (${process.env.NODE_ENV || 'development'}):`, {
+      main: this.mainRichMenuId,
+      processing: this.processingRichMenuId
+    });
 
     // 已初始化
     this.richMenuInitialized = true;
