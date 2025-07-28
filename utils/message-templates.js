@@ -697,7 +697,7 @@ class MessageTemplates {
               color: '#42C76A',
               action: {
                 type: 'postback',
-                label: '⬆️ Standard にアップグレード',
+                label: '⬆️ スタンダードプランにアップグレード',
                 data: 'action=UPGRADE_TO_STANDARD'
               }
             },

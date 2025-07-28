@@ -69,7 +69,7 @@ class VideoNotificationHandler {
       let failedText = '❌ 申し訳ございません。動画生成に失敗しました。\n\n';
       
       // 添加具体错误信息（如果有的话）
-      if (errorMessage && errorMessage !== '视频生成失败' && errorMessage !== '系统错误，请稍后再试') {
+      if (errorMessage && errorMessage !== '動画生成に失敗しました' && errorMessage !== 'システムエラーが発生しました') {
         failedText += `詳細: ${errorMessage}\n\n`;
       }
       

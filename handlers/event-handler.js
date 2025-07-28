@@ -1189,7 +1189,7 @@ class EventHandler {
       
       const upgradeMessage = {
         type: 'flex',
-        altText: '⬆️ Standard Plan 升級',
+        altText: '⬆️ スタンダードプランにアップグレード',
         contents: {
           type: 'bubble',
           body: {
@@ -1198,7 +1198,7 @@ class EventHandler {
             contents: [
               {
                 type: 'text',
-                text: '⬆️ Standard Plan',
+                text: '⬆️ スタンダードプラン',
                 weight: 'bold',
                 size: 'xl',
                 color: '#42C76A'
@@ -1241,7 +1241,7 @@ class EventHandler {
 
   async handleCancelUpgrade(event, user) {
     try {
-      const cancelMessage = MessageTemplates.createTextMessage('✅ アップグレードをキャンセルしました。\n\n現在のTrial Planを引き続きご利用ください。');
+      const cancelMessage = MessageTemplates.createTextMessage('✅ アップグレードをキャンセルしました。\n\n現在のお試しプランを引き続きご利用ください。');
       await this.lineAdapter.replyMessage(event.replyToken, cancelMessage);
       return { success: true };
     } catch (error) {
