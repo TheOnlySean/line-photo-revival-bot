@@ -1169,13 +1169,18 @@ class EventHandler {
     }
   }
 
+  // 注意：以下两个方法不再被Rich Menu使用，因为官网和分享按钮已改为URI action直接跳转
+  // 保留这些方法以备将来可能的其他用途
+  
   async handleWebsiteAction(event, user) {
+    // 此方法不再被Rich Menu调用 - Rich Menu现在直接跳转到 https://angelsphoto.ai
     const websiteCard = MessageTemplates.createWebsiteCard();
     await this.lineAdapter.replyMessage(event.replyToken, websiteCard);
     return { success: true };
   }
 
   async handleShareAction(event, user) {
+    // 此方法不再被Rich Menu调用 - Rich Menu现在直接跳转到分享页面
     const lineConfig = require('../config/line-config');
     const shareCard = MessageTemplates.createShareCard(lineConfig.basicId);
     await this.lineAdapter.replyMessage(event.replyToken, shareCard);
