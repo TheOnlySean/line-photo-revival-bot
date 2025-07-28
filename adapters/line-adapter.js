@@ -38,9 +38,36 @@ function loadRichMenuConfig() {
 // 加载Rich Menu配置
 const richMenuConfig = loadRichMenuConfig();
 
-// 全局 Line Client，可在 Vercel container 重用，減少冷啟開銷
+// 根据环境选择正确的LINE配置
+function getLineConfig() {
+  const environment = process.env.NODE_ENV || 'development';
+  
+  if (environment === 'production') {
+    return {
+      channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN_PROD || process.env.LINE_CHANNEL_ACCESS_TOKEN,
+      channelSecret: process.env.LINE_CHANNEL_SECRET_PROD || process.env.LINE_CHANNEL_SECRET,
+      channelId: process.env.LINE_CHANNEL_ID_PROD || process.env.LINE_CHANNEL_ID
+    };
+  } else {
+    return {
+      channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN_DEV || lineConfig.channelAccessToken,
+      channelSecret: process.env.LINE_CHANNEL_SECRET_DEV || lineConfig.channelSecret,
+      channelId: process.env.LINE_CHANNEL_ID_DEV || lineConfig.channelId
+    };
+  }
+}
+
+// 获取环境特定的配置
+const environmentLineConfig = getLineConfig();
+
+console.log(`🔧 LINE配置 (${process.env.NODE_ENV || 'development'}):`, {
+  channelId: environmentLineConfig.channelId,
+  tokenPrefix: environmentLineConfig.channelAccessToken.substring(0, 20) + '...'
+});
+
+// 全局 Line Client，使用环境特定的配置
 const globalLineClient = global._cachedLineClient || new Client({
-  channelAccessToken: lineConfig.channelAccessToken
+  channelAccessToken: environmentLineConfig.channelAccessToken
 });
 global._cachedLineClient = globalLineClient;
 
@@ -71,7 +98,7 @@ class LineAdapter {
    */
   validateSignature(body, signature) {
     const crypto = require('crypto');
-    const channelSecret = lineConfig.channelSecret;
+    const channelSecret = environmentLineConfig.channelSecret; // 使用环境特定的配置
     const hash = crypto
       .createHmac('SHA256', channelSecret)
       .update(body)
