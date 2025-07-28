@@ -364,11 +364,9 @@ class EventHandler {
           return await this.handleCheckVideoStatus(event, user);
         case 'NO_PHOTO':
           return await this.handleNoPhotoAction(event, user);
-        case 'OFFICIAL_SITE':
-          return await this.handleWebsiteAction(event, user);
-        case 'SHARE_FRIENDS':
-        case 'SHARE':
-          return await this.handleShareAction(event, user);
+        // 注意：OFFICIAL_SITE 和 SHARE 现在使用URI action直接跳转，不再触发postback
+        // case 'OFFICIAL_SITE': - 已改为直接跳转 https://angelsphoto.ai
+        // case 'SHARE': - 已改为直接分享 @824unncx
         case 'START_VIDEO_GENERATION':
           // 检查是否需要发送配额重置通知
           const hasNotification = await this.checkAndHandleQuotaResetNotification(userId, event.replyToken);
