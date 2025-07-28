@@ -1,7 +1,7 @@
 {
-  "mainRichMenuId": "richmenu-86f043cff0f95e32afed3f03b53a77bb",
+  "mainRichMenuId": "richmenu-d89cc34f23472f58a2a99496265592df",
   "processingRichMenuId": "richmenu-64b946bf2b649102a37d0f72b29edda2",
   "environment": "production",
-  "updatedAt": "2025-07-28T13:20:16.550Z",
-  "note": "Updated with new main.jpg design"
+  "updatedAt": "2025-07-28T13:59:05.907Z",
+  "note": "Fixed button actions: Website and Share now direct jump"
 } 
