@@ -87,6 +87,15 @@ async function handleCheckoutCompleted(session) {
     console.log('📋 Session metadata:', session.metadata);
     console.log('📋 Session client_reference_id:', session.client_reference_id);
     
+    // 檢查環境標識
+    const currentEnvironment = process.env.NODE_ENV || 'development';
+    const sessionEnvironment = session.metadata?.environment || 'development';
+    
+    if (sessionEnvironment !== currentEnvironment) {
+      console.log(`🔄 跳過 ${sessionEnvironment} 環境的事件 (當前環境: ${currentEnvironment})`);
+      return;
+    }
+    
     // 优先使用client_reference_id（从URL参数传递的用户ID）
     let userId = session.client_reference_id;
     let planType = null;
@@ -106,8 +115,8 @@ async function handleCheckoutCompleted(session) {
 
     console.log(`👤 处理用户 ${userId} 的订阅`);
 
-    // 通过数据库ID查找用户
-    const result = await db.query('SELECT * FROM users WHERE id = $1', [parseInt(userId)]);
+    // 通过数据库ID查找用户（加上環境過濾）
+    const result = await db.query('SELECT * FROM users WHERE id = $1 AND environment = $2', [parseInt(userId), currentEnvironment]);
     const user = result.rows[0];
     
     if (!user) {

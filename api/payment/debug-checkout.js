@@ -47,8 +47,8 @@ export default async function handler(req, res) {
             quantity: 1
           }
         ],
-        success_url: 'https://line-photo-revival-bot.vercel.app/payment/success?session_id={CHECKOUT_SESSION_ID}',
-        cancel_url: 'https://line-photo-revival-bot.vercel.app/payment/cancel',
+              success_url: `${process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'https://line-photo-revival-bot.vercel.app'}/payment/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.VERCEL_URL ? 'https://' + process.env.VERCEL_URL : 'https://line-photo-revival-bot.vercel.app'}/payment/cancel`,
         metadata: {
           userId: userId || 'anonymous',
           planType: plan,

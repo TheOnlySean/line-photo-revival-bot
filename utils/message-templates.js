@@ -1146,6 +1146,105 @@ class MessageTemplates {
       }
     };
   }
+
+  /**
+   * 创建配额重置通知消息
+   */
+  static createQuotaResetNotificationMessage(planType, monthlyQuota) {
+    const planName = planType === 'trial' ? 'トライアル' : 'スタンダード';
+    
+    return {
+      type: 'flex',
+      altText: '🎉 月間配額がリセットされました！',
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '🎉 配額更新完了！',
+              weight: 'bold',
+              size: 'xl',
+              color: '#27ACB2',
+              align: 'center'
+            }
+          ],
+          backgroundColor: '#F0FFFE',
+          paddingAll: '20px'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: `${planName}プランの月間配額が\nリセットされました！`,
+              size: 'md',
+              color: '#333333',
+              align: 'center',
+              wrap: true
+            },
+            {
+              type: 'separator',
+              margin: 'lg'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              contents: [
+                {
+                  type: 'text',
+                  text: '今月の利用可能回数',
+                  size: 'sm',
+                  color: '#666666',
+                  align: 'center'
+                },
+                {
+                  type: 'text',
+                  text: `${monthlyQuota}回`,
+                  size: 'xxl',
+                  weight: 'bold',
+                  color: '#27ACB2',
+                  align: 'center'
+                }
+              ],
+              margin: 'lg'
+            },
+            {
+              type: 'text',
+              text: '✨ 新しい月間配額で写真復活をお楽しみください！',
+              size: 'sm',
+              color: '#666666',
+              align: 'center',
+              wrap: true,
+              margin: 'lg'
+            }
+          ],
+          paddingAll: '20px'
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'button',
+              action: {
+                type: 'postback',
+                label: '🎬 早速始める',
+                data: 'action=START_VIDEO_GENERATION'
+              },
+              style: 'primary',
+              color: '#27ACB2'
+            }
+          ],
+          paddingAll: '20px'
+        }
+      }
+    };
+  }
 }
 
 module.exports = MessageTemplates; 

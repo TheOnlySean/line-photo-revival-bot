@@ -43,6 +43,51 @@ class EventHandler {
   }
 
   /**
+   * 检查并处理配额重置通知
+   * 如果用户有配额重置通知标记，发送通知消息并清除标记
+   */
+  async checkAndHandleQuotaResetNotification(userId, replyToken) {
+    try {
+      const user = await this.userService.getUserWithState(userId);
+      if (!user || user.current_prompt !== 'QUOTA_RESET_NOTIFICATION') {
+        return false; // 没有通知标记，返回false
+      }
+
+      console.log(`📢 检测到用户 ${userId} 需要配额重置通知`);
+
+      // 获取用户订阅信息
+      const subscription = await this.userService.getUserSubscription(user.id);
+      if (!subscription) {
+        console.log(`⚠️  用户 ${userId} 没有订阅信息，清除通知标记`);
+        await this.userService.setUserState(user.id, 'idle');
+        return false;
+      }
+
+      // 创建配额重置通知消息
+      const notificationMessage = MessageTemplates.createQuotaResetNotificationMessage(
+        subscription.plan_type,
+        subscription.monthly_video_quota
+      );
+
+      // 发送通知消息
+      await this.lineAdapter.replyMessage(replyToken, notificationMessage);
+
+      // 只清除通知标记，保持用户当前状态不变
+      await this.userService.db.query(`
+        UPDATE users 
+        SET current_prompt = NULL, updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `, [user.id]);
+
+      console.log(`✅ 配额重置通知已发送给用户 ${userId}，标记已清除`);
+      return true; // 已处理通知，返回true
+    } catch (error) {
+      console.error(`❌ 处理配额重置通知失败 (用户 ${userId}):`, error);
+      return false;
+    }
+  }
+
+  /**
    * 处理用户关注事件
    */
   async handleFollow(event) {
@@ -91,6 +136,12 @@ class EventHandler {
       const messageText = event.message.text;
 
       console.log(`📝 收到文本消息: ${messageText} from ${userId}`);
+
+      // 检查是否需要发送配额重置通知
+      const hasNotification = await this.checkAndHandleQuotaResetNotification(userId, event.replyToken);
+      if (hasNotification) {
+        return { success: true, handled: 'quota_reset_notification' };
+      }
 
       // 获取用户信息
       const user = await this.userService.getUserWithState(userId);
@@ -317,6 +368,17 @@ class EventHandler {
           return await this.handleOfficialSite(event, user);
         case 'SHARE_FRIENDS':
           return await this.handleShareFriends(event, user);
+        case 'START_VIDEO_GENERATION':
+          // 检查是否需要发送配额重置通知
+          const hasNotification = await this.checkAndHandleQuotaResetNotification(userId, event.replyToken);
+          if (hasNotification) {
+            return { success: true, handled: 'quota_reset_notification' };
+          }
+          
+          // 显示视频生成选项菜单
+          const startMessage = MessageTemplates.createTextMessage('🎬 写真復活を始めましょう！\n\n下のメニューから生成したい動画の種類を選択してください：');
+          await this.lineAdapter.replyMessage(event.replyToken, startMessage);
+          return { success: true };
         default:
           await this.lineAdapter.replyMessage(event.replyToken, 
             MessageTemplates.createTextMessage('🤔 申し訳ございません。下部のメニューからご利用ください。')

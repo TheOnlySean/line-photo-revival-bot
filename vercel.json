@@ -31,7 +31,7 @@
   "crons": [
     {
       "path": "/api/cron/reset-quota",
-      "schedule": "5 0 * * *"
+      "schedule": "50 18 * * *"
     }
   ],
   "rewrites": [

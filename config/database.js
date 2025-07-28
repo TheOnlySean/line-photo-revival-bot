@@ -27,10 +27,12 @@ class Database {
   // 確保用戶存在（自動創建）
   async ensureUserExists(lineUserId, displayName = null) {
     try {
+      const environment = process.env.NODE_ENV || 'development';
+      
       // 先嘗試查詢用戶
       const existingUser = await this.query(
-        'SELECT * FROM users WHERE line_user_id = $1',
-        [lineUserId]
+        'SELECT * FROM users WHERE line_user_id = $1 AND environment = $2',
+        [lineUserId, environment]
       );
 
       if (existingUser.rows.length > 0) {
@@ -39,13 +41,13 @@ class Database {
 
       // 用戶不存在，創建新用戶
       const newUser = await this.query(
-        `INSERT INTO users (line_user_id, display_name) 
-         VALUES ($1, $2) 
+        `INSERT INTO users (line_user_id, display_name, environment) 
+         VALUES ($1, $2, $3) 
          RETURNING *`,
-        [lineUserId, displayName]
+        [lineUserId, displayName, environment]
       );
 
-      console.log('✅ 新用戶創建成功:', { lineUserId, id: newUser.rows[0].id });
+      console.log('✅ 新用戶創建成功:', { lineUserId, id: newUser.rows[0].id, environment });
       return newUser.rows[0];
     } catch (error) {
       console.error('❌ 確保用戶存在失敗:', error);
@@ -56,9 +58,10 @@ class Database {
   // 獲取用戶信息
   async getUser(lineUserId) {
     try {
+      const environment = process.env.NODE_ENV || 'development';
       const result = await this.query(
-        'SELECT * FROM users WHERE line_user_id = $1',
-        [lineUserId]
+        'SELECT * FROM users WHERE line_user_id = $1 AND environment = $2',
+        [lineUserId, environment]
       );
       return result.rows[0] || null;
     } catch (error) {
@@ -93,9 +96,10 @@ class Database {
     cancelAtPeriodEnd = false
   }) {
     try {
+      const environment = process.env.NODE_ENV || 'development';
       const existing = await this.query(
-        'SELECT * FROM subscriptions WHERE user_id = $1',
-        [userId]
+        'SELECT * FROM subscriptions WHERE user_id = $1 AND environment = $2',
+        [userId, environment]
       );
 
       if (existing.rows.length > 0) {
@@ -118,11 +122,11 @@ class Database {
         const result = await this.query(
           `INSERT INTO subscriptions 
            (user_id, stripe_customer_id, stripe_subscription_id, plan_type, status,
-            current_period_start, current_period_end, monthly_video_quota, videos_used_this_month, cancel_at_period_end)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            current_period_start, current_period_end, monthly_video_quota, videos_used_this_month, cancel_at_period_end, environment)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
            RETURNING *`,
           [userId, stripeCustomerId, stripeSubscriptionId, planType, status,
-           currentPeriodStart, currentPeriodEnd, monthlyVideoQuota, videosUsedThisMonth, cancelAtPeriodEnd]
+           currentPeriodStart, currentPeriodEnd, monthlyVideoQuota, videosUsedThisMonth, cancelAtPeriodEnd, environment]
         );
         return result.rows[0];
       }
@@ -135,9 +139,10 @@ class Database {
   // 獲取用戶訂閱信息
   async getUserSubscription(userId) {
     try {
+      const environment = process.env.NODE_ENV || 'development';
       const result = await this.query(
-        'SELECT * FROM subscriptions WHERE user_id = $1 AND status = $2',
-        [userId, 'active']
+        'SELECT * FROM subscriptions WHERE user_id = $1 AND status = $2 AND environment = $3',
+        [userId, 'active', environment]
       );
       return result.rows[0] || null;
     } catch (error) {
@@ -149,9 +154,10 @@ class Database {
   // 通過Stripe訂閱ID獲取訂閱
   async getSubscriptionByStripeId(stripeSubscriptionId) {
     try {
+      const environment = process.env.NODE_ENV || 'development';
       const result = await this.query(
-        'SELECT s.*, u.line_user_id FROM subscriptions s JOIN users u ON s.user_id = u.id WHERE s.stripe_subscription_id = $1',
-        [stripeSubscriptionId]
+        'SELECT s.*, u.line_user_id FROM subscriptions s JOIN users u ON s.user_id = u.id WHERE s.stripe_subscription_id = $1 AND s.environment = $2 AND u.environment = $2',
+        [stripeSubscriptionId, environment]
       );
       return result.rows[0] || null;
     } catch (error) {
@@ -164,9 +170,10 @@ class Database {
   async checkVideoQuota(userId) {
     try {
       // 直接查询 active 状态的订阅
+      const environment = process.env.NODE_ENV || 'development';
       const result = await this.query(
-        'SELECT * FROM subscriptions WHERE user_id = $1 AND status = $2',
-        [userId, 'active']
+        'SELECT * FROM subscriptions WHERE user_id = $1 AND status = $2 AND environment = $3',
+        [userId, 'active', environment]
       );
       
       const subscription = result.rows[0];
@@ -236,13 +243,14 @@ class Database {
   // 重置月度配額
   async resetMonthlyQuota(userId) {
     try {
+      const environment = process.env.NODE_ENV || 'development';
       const result = await this.query(
         `UPDATE subscriptions 
          SET videos_used_this_month = 0,
              updated_at = CURRENT_TIMESTAMP
-         WHERE user_id = $1
+         WHERE user_id = $1 AND environment = $2
          RETURNING *`,
-        [userId]
+        [userId, environment]
       );
       return result.rows[0];
     } catch (error) {
@@ -292,12 +300,13 @@ class Database {
         status = 'pending'
       } = videoData;
 
+      const environment = process.env.NODE_ENV || 'development';
       const result = await this.query(
         `INSERT INTO videos 
-         (user_id, subscription_id, task_id, prompt_text, image_url, status)
-         VALUES ($1, $2, $3, $4, $5, $6)
+         (user_id, subscription_id, task_id, prompt_text, image_url, status, environment)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
-        [userId, subscriptionId, taskId, promptText, imageUrl, status]
+        [userId, subscriptionId, taskId, promptText, imageUrl, status, environment]
       );
       return result.rows[0];
     } catch (error) {
@@ -309,20 +318,21 @@ class Database {
   // 更新視頻狀態
   async updateVideoStatus(taskId, status, videoUrl = null) {
     try {
+      const environment = process.env.NODE_ENV || 'development';
       let query, params;
       
       if (videoUrl) {
         query = `UPDATE videos 
                  SET status = $2, video_url = $3, generated_at = CURRENT_TIMESTAMP
-                 WHERE task_id = $1 
+                 WHERE task_id = $1 AND environment = $4
                  RETURNING *`;
-        params = [taskId, status, videoUrl];
+        params = [taskId, status, videoUrl, environment];
       } else {
         query = `UPDATE videos 
                  SET status = $2
-                 WHERE task_id = $1 
+                 WHERE task_id = $1 AND environment = $3
                  RETURNING *`;
-        params = [taskId, status];
+        params = [taskId, status, environment];
       }
 
       const result = await this.query(query, params);
@@ -336,12 +346,14 @@ class Database {
   // 獲取用戶的處理中任務（按创建时间降序排列）
   async getUserPendingTasks(lineUserId) {
     try {
+      const environment = process.env.NODE_ENV || 'development';
       const result = await this.query(
         `SELECT v.* FROM videos v 
          JOIN users u ON v.user_id = u.id 
-         WHERE u.line_user_id = $1 AND v.status IN ('pending', 'processing')
+         WHERE u.line_user_id = $1 AND v.status IN ('pending', 'processing') 
+         AND u.environment = $2 AND v.environment = $2
          ORDER BY v.created_at DESC`,
-        [lineUserId]
+        [lineUserId, environment]
       );
       return result.rows;
     } catch (error) {

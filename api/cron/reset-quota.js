@@ -61,15 +61,22 @@ export default async function handler(req, res) {
               videos_used_this_month = 0,
               current_period_start = $1,
               current_period_end = $2,
-              last_quota_reset_at = NOW(),
               updated_at = NOW()
             WHERE id = $3
           `, [newPeriodStart, newPeriodEnd, subscription.id]);
+
+          // 设置用户通知标记，在下次交互时提醒配额已重置
+          await db.query(`
+            UPDATE users 
+            SET current_prompt = 'QUOTA_RESET_NOTIFICATION'
+            WHERE id = $1
+          `, [subscription.user_id]);
 
           console.log(`✅ 用戶 ${subscription.user_id} 配額已重置 (${subscription.plan_type} plan)`);
           console.log(`   舊週期: ${subscription.current_period_start} ~ ${subscription.current_period_end}`);
           console.log(`   新週期: ${newPeriodStart} ~ ${newPeriodEnd.toISOString()}`);
           console.log(`   配額: ${subscription.videos_used_this_month} → 0 (月限額: ${subscription.monthly_quota})`);
+          console.log(`   📢 已設置配額重置通知標記`);
           
           resetCount++;
         }
