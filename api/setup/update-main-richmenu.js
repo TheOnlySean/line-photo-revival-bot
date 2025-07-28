@@ -120,22 +120,24 @@ export default async function handler(req, res) {
       }
     }
 
-    // 6. 更新配置文件
-    const configPath = path.join(process.cwd(), 'config', 'richmenu-ids-production.json');
+    // 6. 准备配置信息 (不写入文件，因为Vercel文件系统只读)
     let config = {};
     
     try {
+      const configPath = path.join(process.cwd(), 'config', 'richmenu-ids-production.json');
       config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
     } catch (error) {
-      console.log('📝 创建新的配置文件');
+      console.log('📝 无法读取现有配置文件');
     }
 
-    config.mainRichMenuId = newMainMenuId;
-    config.updatedAt = new Date().toISOString();
-    config.note = 'Updated with new main.jpg design';
+    const newConfig = {
+      ...config,
+      mainRichMenuId: newMainMenuId,
+      updatedAt: new Date().toISOString(),
+      note: 'Updated with new main.jpg design'
+    };
 
-    fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
-    console.log('📝 配置文件已更新');
+    console.log('📝 配置更新信息准备完成（需要手动更新）');
 
     console.log('🎉 主Rich Menu更新完成！');
 
@@ -148,7 +150,8 @@ export default async function handler(req, res) {
         oldMainMenuId: currentMainMenuId,
         imageSizeKB: Math.round(imageBuffer.length / 1024),
         areas: newMainRichMenu.areas.length,
-        configUpdated: true
+        configUpdated: false,
+        newConfigData: newConfig
       }
     });
 
