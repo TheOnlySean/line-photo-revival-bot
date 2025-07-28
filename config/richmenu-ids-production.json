@@ -1,7 +1,7 @@
 {
-  "mainRichMenuId": "richmenu-31f0120a68cf4e4cfb7b4029d7308b39",
-  "processingRichMenuId": "richmenu-f0083edd35a1b15ba95869b3f10cab71",
+  "mainRichMenuId": "richmenu-4c4bf9192adfc5b38777bf4c9b1e8bf2",
+  "processingRichMenuId": "richmenu-64b946bf2b649102a37d0f72b29edda2",
   "environment": "production",
-  "updatedAt": "2025-07-28T06:45:21.012Z",
-  "note": "Production environment Rich Menu setup"
+  "updatedAt": "2025-07-28T09:45:22.932Z",
+  "note": "Updated with correct @824unncx share button"
 } 
