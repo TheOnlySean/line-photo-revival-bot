@@ -365,7 +365,7 @@ class EventHandler {
         case 'NO_PHOTO':
           return await this.handleNoPhotoAction(event, user);
         case 'OFFICIAL_SITE':
-          return await this.handleOfficialSite(event, user);
+          return await this.handleWebsiteAction(event, user);
         case 'SHARE_FRIENDS':
         case 'SHARE':
           return await this.handleShareAction(event, user);
