@@ -1,5 +1,6 @@
 const { stripe } = require('../../config/stripe-config');
 const db = require('../../config/database');
+const lineConfig = require('../../config/line-config');
 
 /**
  * 创建Stripe客户门户会话
@@ -42,7 +43,7 @@ module.exports = async (req, res) => {
     // 创建客户门户会话
     const portalSession = await stripe.billingPortal.sessions.create({
       customer: subscription.stripe_customer_id,
-      return_url: 'https://line.me/R/ti/p/@055jelum', // 返回LINE官方账号
+      return_url: `https://line.me/R/ti/p/${lineConfig.basicId}`, // 返回LINE官方账号
     });
 
     console.log('✅ 客户门户会话创建成功:', portalSession.url);

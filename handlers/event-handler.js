@@ -367,7 +367,8 @@ class EventHandler {
         case 'OFFICIAL_SITE':
           return await this.handleOfficialSite(event, user);
         case 'SHARE_FRIENDS':
-          return await this.handleShareFriends(event, user);
+        case 'SHARE':
+          return await this.handleShareAction(event, user);
         case 'START_VIDEO_GENERATION':
           // 检查是否需要发送配额重置通知
           const hasNotification = await this.checkAndHandleQuotaResetNotification(userId, event.replyToken);
@@ -1177,7 +1178,8 @@ class EventHandler {
   }
 
   async handleShareAction(event, user) {
-    const shareCard = MessageTemplates.createShareCard();
+    const lineConfig = require('../config/line-config');
+    const shareCard = MessageTemplates.createShareCard(lineConfig.basicId);
     await this.lineAdapter.replyMessage(event.replyToken, shareCard);
     return { success: true };
   }

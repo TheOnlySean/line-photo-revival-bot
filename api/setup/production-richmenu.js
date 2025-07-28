@@ -1,6 +1,7 @@
 const { Client } = require('@line/bot-sdk');
 const fs = require('fs');
 const path = require('path');
+const lineConfig = require('../../config/line-config');
 
 export default async function handler(req, res) {
   // 只允许POST请求和特定的管理密钥
@@ -56,7 +57,7 @@ export default async function handler(req, res) {
         },
         {
           bounds: { x: 1666, y: 843, width: 834, height: 843 },
-          action: { type: "uri", uri: "https://line.me/R/nv/recommendOA/@055jelum" }
+          action: { type: "uri", uri: `https://line.me/R/nv/recommendOA/${lineConfig.basicId}` }
         }
       ]
     };

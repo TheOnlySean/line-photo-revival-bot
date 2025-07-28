@@ -110,7 +110,7 @@ async function createStripeProducts() {
       after_completion: {
         type: 'redirect',
         redirect: {
-          url: `https://line.me/R/ti/p/@055jelum`
+          url: `https://line.me/R/ti/p/${lineConfig.basicId}`
         }
       },
       metadata: {
@@ -134,7 +134,7 @@ async function createStripeProducts() {
       after_completion: {
         type: 'redirect',
         redirect: {
-          url: `https://line.me/R/ti/p/@055jelum`
+          url: `https://line.me/R/ti/p/${lineConfig.basicId}`
         }
       },
       metadata: {

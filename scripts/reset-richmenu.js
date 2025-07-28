@@ -39,7 +39,7 @@ const mainRichMenu = {
     },
     {
       bounds: { x: 1666, y: 843, width: 834, height: 843 },
-      action: { type: "uri", uri: "https://line.me/R/nv/recommendOA/@055jelum" }
+      action: { type: "uri", uri: `https://line.me/R/nv/recommendOA/${lineConfig.basicId}` }
     }
   ]
 };

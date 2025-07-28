@@ -1,9 +1,29 @@
+// 获取环境特定的LINE账号配置
+function getEnvironmentLineChannelId() {
+  const environment = process.env.NODE_ENV || 'development';
+  
+  if (environment === 'production') {
+    return {
+      basicId: '@824unncx',  // 生产环境Basic ID
+      channelId: process.env.LINE_CHANNEL_ID_PROD || process.env.LINE_CHANNEL_ID || '2006877928'
+    };
+  } else {
+    return {
+      basicId: '@055jelum',  // 开发环境Basic ID
+      channelId: process.env.LINE_CHANNEL_ID_DEV || '2005541661'
+    };
+  }
+}
+
 // LINE Bot 配置
 const lineConfig = {
   // 测试账号配置 - 优先使用环境变量
   channelSecret: process.env.LINE_CHANNEL_SECRET || 'e9bd551af7f1c36500d0764a3edb6562',
   channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN || '7uB4UmaonelwPyjgnngdA0OQRCugGweLYP5jLYRhkCUh6C4HS8ugK7DbyxyDDgQxo0PK9+GljmxVPW3EHv+QPsrzToEmrz12ERPNEimHmV6rIIwNWj6Qpo8yep6NyMmWyYfLtAbvvdvBMnU2EjpmZQdB04t89/1O/w1cDnyilFU=',
   channelId: process.env.LINE_CHANNEL_ID || '2005541661',
+  
+  // 环境特定配置
+  ...getEnvironmentLineChannelId(),
   
   // 服务器配置
   port: process.env.PORT || 3000,
