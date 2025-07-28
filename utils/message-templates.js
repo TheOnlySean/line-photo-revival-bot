@@ -974,7 +974,8 @@ class MessageTemplates {
         {
           type: 'video',
           originalContentUrl: options.videoUrl,
-          previewImageUrl: options.thumbnailUrl || options.videoUrl
+          previewImageUrl: options.thumbnailUrl || options.videoUrl,
+          altText: '🎉 動画生成が完了しました！動画をご確認ください'
         }
       ],
       demo_completed: [
@@ -997,7 +998,8 @@ class MessageTemplates {
         {
           type: 'video',
           originalContentUrl: options.videoUrl,
-          previewImageUrl: options.thumbnailUrl
+          previewImageUrl: options.thumbnailUrl,
+          altText: '🎁 テスト動画が完成しました！動画をご確認ください'
         }
       ],
       failed: {
@@ -1117,11 +1119,12 @@ class MessageTemplates {
   /**
    * 创建简单的视频消息
    */
-  static createVideoMessage(videoUrl, thumbnailUrl) {
+  static createVideoMessage(videoUrl, thumbnailUrl, altText = '🎬 動画をお送りします') {
     return {
       type: 'video',
       originalContentUrl: videoUrl,
-      previewImageUrl: thumbnailUrl || videoUrl
+      previewImageUrl: thumbnailUrl || videoUrl,
+      altText: altText
     };
   }
 

@@ -59,7 +59,8 @@ module.exports = async (req, res) => {
           const message = {
             type: 'video',
             originalContentUrl: videoUrl,
-            previewImageUrl: thumbnailUrl || videoUrl
+            previewImageUrl: thumbnailUrl || videoUrl,
+            altText: '🎉 動画生成が完了しました！動画をご確認ください'
           };
           
           await lineClient.pushMessage({
