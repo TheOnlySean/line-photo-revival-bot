@@ -151,3 +151,4 @@ demo-files/*.png
 !demo-files/
 !demo-files/README.md 
 .vercel
+.env*.local

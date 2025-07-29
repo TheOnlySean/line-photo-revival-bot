@@ -38,7 +38,7 @@ class Database {
       }
 
       // 用戶不存在，創建新用戶（environment仅作记录，不用于过滤）
-      const environment = process.env.NODE_ENV || 'development';
+      const environment = process.env.VERCEL_ENV || process.env.NODE_ENV || 'development';
       const newUser = await this.query(
         `INSERT INTO users (line_user_id, display_name, environment) 
          VALUES ($1, $2, $3) 
@@ -116,7 +116,7 @@ class Database {
         return result.rows[0];
       } else {
         // 創建新訂閱（environment仅作记录）
-        const environment = process.env.NODE_ENV || 'development';
+        const environment = process.env.VERCEL_ENV || process.env.NODE_ENV || 'development';
         const result = await this.query(
           `INSERT INTO subscriptions 
            (user_id, stripe_customer_id, stripe_subscription_id, plan_type, status,
@@ -294,7 +294,7 @@ class Database {
         status = 'pending'
       } = videoData;
 
-      const environment = process.env.NODE_ENV || 'development';
+      const environment = process.env.VERCEL_ENV || process.env.NODE_ENV || 'development';
       const result = await this.query(
         `INSERT INTO videos 
          (user_id, subscription_id, task_id, prompt_text, image_url, status, environment)
@@ -339,7 +339,7 @@ class Database {
   // 獲取用戶的處理中任務（按创建时间降序排列）
   async getUserPendingTasks(lineUserId) {
     try {
-      const environment = process.env.NODE_ENV || 'development';
+      const environment = process.env.VERCEL_ENV || process.env.NODE_ENV || 'development';
       const result = await this.query(
         `SELECT v.* FROM videos v 
          JOIN users u ON v.user_id = u.id 

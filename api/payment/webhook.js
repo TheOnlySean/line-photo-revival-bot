@@ -87,8 +87,8 @@ async function handleCheckoutCompleted(session) {
     console.log('📋 Session metadata:', session.metadata);
     console.log('📋 Session client_reference_id:', session.client_reference_id);
     
-    // 檢查環境標識
-    const currentEnvironment = process.env.NODE_ENV || 'development';
+    // 檢查環境標識 - 在Vercel中使用VERCEL_ENV
+    const currentEnvironment = process.env.VERCEL_ENV || process.env.NODE_ENV || 'development';
     const sessionEnvironment = session.metadata?.environment || 'development';
     
     if (sessionEnvironment !== currentEnvironment) {

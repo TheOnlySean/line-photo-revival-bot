@@ -41,7 +41,7 @@ export default async function handler(req, res) {
         userId: userId || 'anonymous',
         planType: plan,
         videoCount: planConfig.videoCount.toString(),
-        environment: process.env.NODE_ENV || 'development'
+        environment: process.env.VERCEL_ENV || process.env.NODE_ENV || 'development'
       },
       locale: 'ja'
     });
