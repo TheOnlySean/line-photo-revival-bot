@@ -1,6 +1,7 @@
 // 获取环境特定的LINE账号配置
 function getEnvironmentLineChannelId() {
-  const environment = process.env.NODE_ENV || 'development';
+  // 在Vercel中使用VERCEL_ENV，其他环境使用NODE_ENV
+  const environment = process.env.VERCEL_ENV || process.env.NODE_ENV || 'development';
   
   if (environment === 'production') {
     return {
