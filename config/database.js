@@ -337,17 +337,29 @@ class Database {
   }
 
   // 獲取用戶的處理中任務（按创建时间降序排列）
+  // 修复：移除严格的环境过滤，允许跨环境任务查询
   async getUserPendingTasks(lineUserId) {
     try {
-      const environment = process.env.VERCEL_ENV || process.env.NODE_ENV || 'development';
+      console.log(`🔍 查询用户 ${lineUserId} 的待处理任务...`);
+      
+      // 移除环境过滤，允许查找所有环境中的任务
+      // 这修复了用户在开发环境但任务在生产环境创建的问题
       const result = await this.query(
-        `SELECT v.* FROM videos v 
+        `SELECT v.*, v.environment as video_env, u.environment as user_env
+         FROM videos v 
          JOIN users u ON v.user_id = u.id 
          WHERE u.line_user_id = $1 AND v.status IN ('pending', 'processing') 
-         AND u.environment = $2 AND v.environment = $2
          ORDER BY v.created_at DESC`,
-        [lineUserId, environment]
+        [lineUserId]
       );
+      
+      console.log(`📊 找到 ${result.rows.length} 个待处理任务`);
+      if (result.rows.length > 0) {
+        result.rows.forEach((task, index) => {
+          console.log(`   ${index + 1}. ID: ${task.id}, 状态: ${task.status}, task_id: ${task.task_id || 'null'}, 用户环境: ${task.user_env}, 视频环境: ${task.video_env}`);
+        });
+      }
+      
       return result.rows;
     } catch (error) {
       console.error('❌ 獲取用戶待處理任務失敗:', error);

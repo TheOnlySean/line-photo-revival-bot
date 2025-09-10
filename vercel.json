@@ -32,6 +32,10 @@
     {
       "path": "/api/cron/reset-quota",
       "schedule": "50 18 * * *"
+    },
+    {
+      "path": "/api/cron/check-tasks",
+      "schedule": "*/5 * * * *"
     }
   ],
   "rewrites": [
