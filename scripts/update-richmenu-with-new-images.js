@@ -51,11 +51,11 @@ async function updateRichMenus() {
         },
         {
           bounds: { x: 833, y: 843, width: 834, height: 843 },
-          action: { type: "postback", data: "action=WEBSITE" }
+          action: { type: "uri", uri: "https://angelsphoto.ai" }
         },
         {
           bounds: { x: 1667, y: 843, width: 833, height: 843 },
-          action: { type: "postback", data: "action=SHARE" }
+          action: { type: "uri", uri: `https://line.me/R/nv/recommendOA/${lineConfig.basicId}` }
         }
       ]
     };

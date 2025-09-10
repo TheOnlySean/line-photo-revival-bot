@@ -126,6 +126,14 @@ class VideoGenerator {
             success: false,
             error: 'API认证失败，请联系客服'
           };
+        } else if (status === 402 || (status === 200 && errorData?.code === 402)) {
+          // 402错误或200状态码但内容是402 - 余额不足
+          console.error('❌ 402错误 - API余额不足:', errorData?.msg || 'Insufficient credits');
+          return {
+            success: false,
+            error: 'システムメンテナンス中です。しばらくしてから再度お試しください。',
+            isMaintenanceError: true // 标记为维护错误
+          };
         } else if (status === 429) {
           return {
             success: false,
