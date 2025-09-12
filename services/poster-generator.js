@@ -134,9 +134,6 @@ class PosterGenerator {
 
       // 海报合成的Prompt
       const posterPrompt = `用[image2]的风格为[image1]的人物做一个杂志封面设计，增加老照片老书本的滤镜效果。
-
-重要！保持[image1]中原有的人物数量完全不变，不要增加或减少任何人物！
-
 注意！不要改变角色的面部长相表情！`;
 
       // 调用 KIE.AI API 进行海报合成
