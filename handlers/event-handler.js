@@ -672,7 +672,7 @@ class EventHandler {
 
       // C. 执行完整的海报生成流程
       console.log('C️⃣ 调用海报生成器...');
-      const result = await this.posterGenerator.generatePoster(user.id, userImageUrl);
+      const result = await this.posterGenerator.generatePoster(user.id, userImageUrl, posterTaskId);
       console.log('✅ 海报生成器调用完成，结果:', result.success ? '成功' : '失败');
 
       if (result.success) {

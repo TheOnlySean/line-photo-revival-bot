@@ -33,9 +33,9 @@ class PosterGenerator {
 
   /**
    * 完整的海报生成流程
-   * 两步异步生成 + 同步轮询（简化版本）
+   * 两步异步生成 + 同步轮询，支持TaskID保存
    */
-  async generatePoster(userId, userImageUrl) {
+  async generatePoster(userId, userImageUrl, posterTaskId = null) {
     const startTime = Date.now();
     console.log(`🚀 开始海报生成流程 - 用户: ${userId}`);
 
@@ -43,13 +43,13 @@ class PosterGenerator {
       // 第一步：生成昭和风图片
       console.log('📸 第一步：转换为昭和风格...');
       console.log(`   输入图片URL: ${userImageUrl}`);
-      const showaImageUrl = await this.generateShowaStyle(userImageUrl, userId);
+      const showaImageUrl = await this.generateShowaStyle(userImageUrl, userId, posterTaskId);
       console.log(`✅ 第一步完成，昭和风图片: ${showaImageUrl}`);
       
       // 第二步：选择随机模板并生成最终海报
       console.log('🎨 第二步：合成海报...');
       console.log(`   昭和风图片输入: ${showaImageUrl}`);
-      const finalPosterUrl = await this.generateFinalPoster(showaImageUrl, userId);
+      const finalPosterUrl = await this.generateFinalPoster(showaImageUrl, userId, posterTaskId);
       console.log(`✅ 第二步完成，最终海报: ${finalPosterUrl}`);
       
       const totalTime = (Date.now() - startTime) / 1000;
@@ -74,7 +74,7 @@ class PosterGenerator {
   /**
    * 第一步：将用户图片转换为昭和风格
    */
-  async generateShowaStyle(userImageUrl, userId) {
+  async generateShowaStyle(userImageUrl, userId, posterTaskId = null) {
     try {
       console.log(`📸 开始昭和风转换 - 用户: ${userId}`);
 
@@ -102,8 +102,22 @@ class PosterGenerator {
       });
 
       console.log(`✅ 昭和风生成任务已提交 - TaskID: ${taskId}`);
+      
+      // 保存第一步TaskID到数据库
+      if (posterTaskId && this.db) {
+        try {
+          await this.db.updatePosterTask(posterTaskId, {
+            kie_task_id_step1: taskId,
+            step: 1
+          });
+          console.log(`✅ 第一步TaskID已保存: ${taskId}`);
+        } catch (dbError) {
+          console.warn('⚠️ 保存第一步TaskID失败:', dbError.message);
+        }
+      }
 
       // 同步轮询等待结果
+      console.log('⏳ 开始轮询第一步结果...');
       const result = await this.pollTaskResult(taskId, 120000); // 增加到120秒超时
       
       if (!result.success) {
@@ -111,12 +125,25 @@ class PosterGenerator {
       }
 
       // 下载并存储昭和风图片到我们的存储
+      console.log('📥 下载并存储第一步结果...');
       const showaImageUrl = await this.posterImageService.downloadAndStoreShowaImage(
         result.imageUrl, 
         userId
       );
 
       console.log(`✅ 昭和风转换完成 - 图片URL: ${showaImageUrl}`);
+      
+      // 保存第一步结果到数据库
+      if (posterTaskId && this.db) {
+        try {
+          await this.db.updatePosterTask(posterTaskId, {
+            showa_image_url: showaImageUrl
+          });
+          console.log(`✅ 第一步结果已保存到数据库`);
+        } catch (dbError) {
+          console.warn('⚠️ 保存第一步结果失败:', dbError.message);
+        }
+      }
       return showaImageUrl;
 
     } catch (error) {
@@ -128,7 +155,7 @@ class PosterGenerator {
   /**
    * 第二步：使用昭和风图片和随机模板生成最终海报
    */
-  async generateFinalPoster(showaImageUrl, userId) {
+  async generateFinalPoster(showaImageUrl, userId, posterTaskId = null) {
     try {
       console.log(`🎨 开始海报合成 - 用户: ${userId}`);
 
@@ -161,8 +188,23 @@ class PosterGenerator {
       });
 
       console.log(`✅ 海报合成任务已提交 - TaskID: ${taskId}`);
+      
+      // 保存第二步TaskID到数据库
+      if (posterTaskId && this.db) {
+        try {
+          await this.db.updatePosterTask(posterTaskId, {
+            kie_task_id_step2: taskId,
+            step: 2,
+            template_used: template.template_name
+          });
+          console.log(`✅ 第二步TaskID已保存: ${taskId}`);
+        } catch (dbError) {
+          console.warn('⚠️ 保存第二步TaskID失败:', dbError.message);
+        }
+      }
 
       // 同步轮询等待结果
+      console.log('⏳ 开始轮询第二步结果...');
       const result = await this.pollTaskResult(taskId, 150000); // 增加到150秒超时
       
       if (!result.success) {
@@ -170,12 +212,26 @@ class PosterGenerator {
       }
 
       // 下载并存储最终海报到我们的存储
+      console.log('📥 下载并存储第二步最终结果...');
       const finalPosterUrl = await this.posterImageService.downloadAndStoreFinalPoster(
         result.imageUrl, 
         userId
       );
 
       console.log(`✅ 海报合成完成 - 图片URL: ${finalPosterUrl}`);
+      
+      // 保存最终结果到数据库
+      if (posterTaskId && this.db) {
+        try {
+          await this.db.updatePosterTask(posterTaskId, {
+            final_poster_url: finalPosterUrl,
+            status: 'completed'
+          });
+          console.log(`✅ 第二步最终结果已保存到数据库`);
+        } catch (dbError) {
+          console.warn('⚠️ 保存最终结果失败:', dbError.message);
+        }
+      }
       console.log(`📊 使用模板: ${template.template_name}`);
       
       return finalPosterUrl;
