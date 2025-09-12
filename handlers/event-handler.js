@@ -16,6 +16,9 @@ class EventHandler {
     this.videoService = new VideoService(db);
     this.userService = new UserService(db);
     
+    // 设置数据库引用
+    this.db = db;
+    
     // 初始化海报生成相关服务 (暂时禁用，调试用)
     // this.posterImageService = new PosterImageService();
     // this.posterGenerator = new PosterGenerator(db, this.posterImageService);
