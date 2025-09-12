@@ -583,9 +583,12 @@ class EventHandler {
   async handlePosterGeneration(event, user, imageUrl) {
     try {
       console.log(`🚀 开始海报生成流程 - 用户: ${user.line_user_id}`);
+      console.log(`📸 图片URL: ${imageUrl}`);
 
       // 双重检查配额（安全措施）
+      console.log('1️⃣ 双重检查配额...');
       const posterQuota = await this.db.checkPosterQuota(user.id);
+      console.log('💰 配额检查结果:', posterQuota);
       if (!posterQuota.hasQuota) {
         await this.lineAdapter.replyMessage(event.replyToken,
           MessageTemplates.createTextMessage(
@@ -596,10 +599,12 @@ class EventHandler {
       }
 
       // 立即切换到Processing Menu（不消耗replyToken）
-      console.log('🔄 切换到Processing Menu...');
+      console.log('2️⃣ 切换到Processing Menu...');
       await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
+      console.log('✅ Processing Menu切换成功');
 
       // 发送开始处理消息（无Quick Reply，明确告知用户已开始处理）
+      console.log('3️⃣ 发送开始处理消息...');
       await this.lineAdapter.replyMessage(event.replyToken,
         MessageTemplates.createTextMessage(
           '🎨 人気ポスター生成開始！\n\n' +
@@ -608,19 +613,26 @@ class EventHandler {
           '💡 生成中は他の操作をお控えください'
         )
       );
+      console.log('✅ 开始消息发送成功');
 
       // 记录任务开始时间
+      console.log('4️⃣ 记录任务开始时间...');
       this.userTaskStartTime.set(user.line_user_id, Date.now());
 
       // 创建基本的海报任务记录（让Processing Menu能查到）
+      console.log('5️⃣ 创建海报任务记录...');
       const posterTask = await this.db.createPosterTask(user.id, user.line_user_id, imageUrl);
+      console.log('✅ 海报任务记录创建成功, ID:', posterTask.id);
 
       // 清除用户状态
+      console.log('6️⃣ 清除用户状态...');
       await this.db.setUserState(user.id, 'idle');
+      console.log('✅ 用户状态已清除');
 
       // 同步执行海报生成流程（避免Vercel serverless异步问题）
-      console.log('🚀 开始同步海报生成流程...');
+      console.log('7️⃣ 开始同步海报生成流程...');
       await this.executePosterGenerationWithPolling(null, user, imageUrl, posterTask.id);
+      console.log('✅ 海报生成流程完成');
 
       return { success: true, message: 'Poster generation completed' };
 
