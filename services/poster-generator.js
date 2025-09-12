@@ -25,7 +25,7 @@ class PosterGenerator {
     // 生成参数
     this.defaultParams = {
       output_format: 'png',
-      image_size: 'auto'
+      image_size: 'auto' // 第一步保持auto，第二步会根据模板调整
     };
     
     console.log('🎨 海报生成器初始化完成');
@@ -134,12 +134,17 @@ class PosterGenerator {
 
       // 海报合成的Prompt
       const posterPrompt = `用[image2]的风格为[image1]的人物做一个杂志封面设计，增加老照片老书本的滤镜效果。
+
+最终输出应该采用[image2]模板的尺寸比例和格式。
+
 注意！不要改变角色的面部长相表情！`;
 
       // 调用 KIE.AI API 进行海报合成
+      // 第二步使用海报标准尺寸，而不是auto
       const taskId = await this.createKieAiTask({
         prompt: posterPrompt,
-        image_urls: [showaImageUrl, template.template_url] // 昭和风图片 + 模板
+        image_urls: [showaImageUrl, template.template_url], // 昭和风图片 + 模板
+        useTemplateSize: true // 标记使用模板尺寸
       });
 
       console.log(`⏳ 海报合成任务已提交 - TaskID: ${taskId}`);
@@ -173,6 +178,18 @@ class PosterGenerator {
    */
   async createKieAiTask(params) {
     try {
+      // 根据用途选择合适的尺寸
+      let imageSize = this.defaultParams.image_size; // 默认auto
+      
+      if (params.useTemplateSize) {
+        // 第二步海报合成：使用海报标准尺寸 3:4 (适合海报/杂志封面)
+        imageSize = '3:4';
+        console.log('📐 使用海报标准尺寸: 3:4 (Portrait)');
+      } else {
+        // 第一步昭和风转换：保持原图尺寸
+        console.log('📐 使用原图尺寸: auto');
+      }
+
       const requestData = {
         model: this.kieAi.model,
         // callBackUrl 可选，我们使用轮询方式
@@ -180,14 +197,15 @@ class PosterGenerator {
           prompt: params.prompt,
           image_urls: params.image_urls,
           output_format: this.defaultParams.output_format,
-          image_size: this.defaultParams.image_size
+          image_size: imageSize
         }
       };
 
       console.log('📡 调用 KIE.AI API:', {
         model: requestData.model,
         prompt: params.prompt.substring(0, 100) + '...',
-        imageCount: params.image_urls.length
+        imageCount: params.image_urls.length,
+        imageSize: imageSize
       });
 
       const response = await axios.post(
