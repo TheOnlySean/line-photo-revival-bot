@@ -157,7 +157,11 @@ async function handleCheckoutCompleted(session) {
 
     console.log(`📋 计划信息: ${planType}, 配额: ${monthlyQuota}`);
 
-    // 創建或更新訂閱記錄
+    // 設置海報配額（根據計劃類型）
+    const monthlyPosterQuota = planType === 'standard' ? -1 : 8; // Standard无限，Trial 8张
+    const postersUsedThisMonth = 0; // 新訂閱從0開始
+
+    // 創建或更新訂閱記錄（包含海报配额）
     const subscriptionRecord = await db.upsertSubscription(user.id, {
       stripeCustomerId: session.customer,
       stripeSubscriptionId: session.subscription,
@@ -167,6 +171,8 @@ async function handleCheckoutCompleted(session) {
       currentPeriodEnd: new Date(subscription.current_period_end * 1000),
       monthlyVideoQuota: monthlyQuota,
       videosUsedThisMonth: 0, // 新訂閱從0開始
+      monthlyPosterQuota: monthlyPosterQuota, // 新增：海报配额
+      postersUsedThisMonth: postersUsedThisMonth, // 新增：海报使用量
       cancelAtPeriodEnd: false // 新订阅默认不取消
     });
 
