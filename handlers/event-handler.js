@@ -2,6 +2,8 @@ const LineAdapter = require('../adapters/line-adapter');
 const VideoService = require('../core/video-service');
 const UserService = require('../core/user-service');
 const MessageTemplates = require('../utils/message-templates');
+const PosterGenerator = require('../services/poster-generator');
+const PosterImageService = require('../services/poster-image-service');
 const db = require('../config/database');
 
 /**
@@ -13,6 +15,10 @@ class EventHandler {
     this.lineAdapter = new LineAdapter();
     this.videoService = new VideoService(db);
     this.userService = new UserService(db);
+    
+    // 初始化海报生成相关服务
+    this.posterImageService = new PosterImageService();
+    this.posterGenerator = new PosterGenerator(db, this.posterImageService);
     
     // 添加用户操作防抖记录
     this.userLastActionTime = new Map();
@@ -239,14 +245,17 @@ class EventHandler {
 
       console.log('✅ 图片上传成功:', imageUrl);
 
-      // 根据用户状态决定后续流程
-      const prompts = this.videoService.getPresetPrompts();
-      
+      // 根据用户状态决定后续流程  
       switch (user.current_state) {
+        case 'awaiting_poster_image':
+          // 海报生成流程
+          return await this.handlePosterGeneration(event, user, imageUrl);
         case 'awaiting_wave_photo':
+          const prompts = this.videoService.getPresetPrompts();
           return await this.showGenerationConfirmation(event, user, imageUrl, prompts.wave);
         case 'awaiting_group_photo':
-          return await this.showGenerationConfirmation(event, user, imageUrl, prompts.group);
+          const prompts2 = this.videoService.getPresetPrompts();
+          return await this.showGenerationConfirmation(event, user, imageUrl, prompts2.group);
         case 'awaiting_photo':
           // 个性化流程，已有prompt
           if (user.current_prompt) {
@@ -257,7 +266,7 @@ class EventHandler {
         default:
           // 默认情况：显示动作选择
           await this.lineAdapter.replyMessage(event.replyToken, 
-            MessageTemplates.createTextMessage('📸 写真を受信しました！\n\n下部のメニューから動作を選択してください：\n\n👋 手振り - 自然な挨拶動画\n🤝 寄り添い - 温かい寄り添い動画\n🎨 個性化 - カスタム動画')
+            MessageTemplates.createTextMessage('📸 写真を受信しました！\n\n下部のメニューから動作を選択してください：\n\n👋 手振り - 自然な挨拶動画\n🎨 人気ポスター - 昭和風ポスター作成\n🎨 個性化 - カスタム動画')
           );
           return { success: true };
       }
@@ -331,6 +340,8 @@ class EventHandler {
           return await this.handleWaveVideoAction(event, user);
         case 'GROUP_VIDEO':
           return await this.handleGroupVideoAction(event, user);
+        case 'CREATE_POSTER':
+          return await this.handleCreatePosterAction(event, user);
         case 'PERSONALIZE':
           return await this.handlePersonalizeAction(event, user);
         case 'INPUT_CUSTOM_PROMPT':
@@ -469,6 +480,250 @@ class EventHandler {
   }
 
   // ===== 动作处理方法 =====
+
+  /**
+   * 处理海报生成按钮点击
+   */
+  async handleCreatePosterAction(event, user) {
+    try {
+      console.log(`🎨 用户 ${user.line_user_id} 点击了海报生成按钮`);
+
+      // 检查用户海报配额
+      const posterQuota = await this.db.checkPosterQuota(user.id);
+      if (!posterQuota.hasQuota) {
+        // 配额不足，显示升级提示
+        const quotaInfo = await this.userService.handleInsufficientQuota(user.id);
+        
+        let message;
+        if (posterQuota.planType === 'trial') {
+          message = MessageTemplates.createTextMessage(
+            `📸 海報作成配額を使い切りました！\n\n` +
+            `本月の残り配額: ${posterQuota.remaining}/${posterQuota.total}枚\n\n` +
+            `スタンダードプランにアップグレードすると、無制限で海報を作成できます！✨\n\n` +
+            `アップグレードをご希望の場合は、下部メニューの「クーポン配布中！」からお手続きください。`
+          );
+        } else {
+          // 无订阅用户
+          message = MessageTemplates.createTextMessage(
+            `📸 海報作成機能をご利用いただくには、プランへの加入が必要です。\n\n` +
+            `• トライアルプラン: 8枚/月\n` +
+            `• スタンダードプラン: 無制限 ♾️\n\n` +
+            `下部メニューの「クーポン配布中！」からプランをお選びください。`
+          );
+        }
+        
+        await this.lineAdapter.replyMessage(event.replyToken, message);
+        return { success: true };
+      }
+
+      // 有配额，设置用户状态为等待海报图片
+      await this.db.setUserState(user.id, 'awaiting_poster_image');
+      
+      // 发送上传提示消息（日文）
+      const instructionMessage = MessageTemplates.createTextMessage(
+        `🎨 人気ポスター作成\n\n` +
+        `昭和時代のスタイルで、あなたの写真を素敵なポスターに変身させます！✨\n\n` +
+        `📸 ポスターに使用したい写真を1枚送信してください。\n\n` +
+        `⏱️ 生成には約30秒かかります。\n\n` +
+        `💡 ヒント: 人物がはっきり写った写真が最適です！`
+      );
+
+      // 显示配额信息
+      let quotaText;
+      if (posterQuota.isUnlimited) {
+        quotaText = `📊 スタンダードプラン: 無制限生成 ♾️`;
+      } else {
+        quotaText = `📊 今月の残り配額: ${posterQuota.remaining}/${posterQuota.total}枚`;
+      }
+
+      const quotaMessage = MessageTemplates.createTextMessage(quotaText);
+
+      await this.lineAdapter.replyMessage(event.replyToken, [instructionMessage, quotaMessage]);
+      return { success: true };
+
+    } catch (error) {
+      console.error('❌ 处理海报生成按钮失败:', error);
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createErrorMessage('system')
+      );
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * 处理海报生成流程
+   * 用户上传图片后的核心海报生成逻辑
+   */
+  async handlePosterGeneration(event, user, imageUrl) {
+    try {
+      console.log(`🚀 开始海报生成流程 - 用户: ${user.line_user_id}`);
+
+      // 双重检查配额（安全措施）
+      const posterQuota = await this.db.checkPosterQuota(user.id);
+      if (!posterQuota.hasQuota) {
+        await this.lineAdapter.replyMessage(event.replyToken,
+          MessageTemplates.createTextMessage(
+            '❌ 申し訳ございませんが、海報配額が不足しています。\n\nプランをご確認ください。'
+          )
+        );
+        return { success: false, error: 'Insufficient poster quota' };
+      }
+
+      // 立即切换到Processing Menu并发送开始消息
+      console.log('🔄 切换到Processing Menu...');
+      await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
+      
+      // 发送生成开始消息
+      await this.lineAdapter.replyMessage(event.replyToken,
+        MessageTemplates.createTextMessage(
+          '🎨 人気ポスター生成開始！\n\n' +
+          '✨ あなたの写真を昭和時代のスタイルに変換中...\n\n' +
+          '⏱️ 約30秒でお送りします！\n\n' +
+          '💡 生成中は他の操作をお控えください'
+        )
+      );
+
+      // 记录任务开始时间
+      this.userTaskStartTime.set(user.line_user_id, Date.now());
+
+      // 清除用户状态
+      await this.db.setUserState(user.id, 'idle');
+
+      // 开始海报生成（异步处理）
+      this.executePosterGenerationWithPolling(user, imageUrl);
+
+      return { success: true, message: 'Poster generation started' };
+
+    } catch (error) {
+      console.error('❌ 处理海报生成失败:', error);
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createTextMessage(
+          '❌ 海報生成の開始に失敗しました。\n\n' +
+          'しばらくしてからもう一度お試しください。\n\n' +
+          '您這次生成的配額沒有被扣除請您放心'
+        )
+      );
+      return { success: false, error: error.message };
+    }
+  }
+
+  /**
+   * 执行海报生成并轮询结果
+   * 使用现有的同步轮询机制，确保在合理时间内完成
+   */
+  async executePosterGenerationWithPolling(user, imageUrl) {
+    const startTime = Date.now();
+    let finalResult = null;
+
+    try {
+      console.log(`🔄 开始同步海报生成流程 - 用户: ${user.line_user_id}`);
+
+      // 先将用户图片存储到我们的服务
+      const userImageUrl = await this.posterImageService.uploadUserOriginalImage(
+        await this.downloadImageBuffer(imageUrl), 
+        user.id
+      );
+
+      console.log('📤 用户图片已上传到存储服务:', userImageUrl);
+
+      // 执行完整的海报生成流程
+      const result = await this.posterGenerator.generatePoster(user.id, userImageUrl);
+
+      if (result.success) {
+        console.log('✅ 海报生成成功！');
+        
+        // 扣除用户配额
+        console.log('💰 扣除用户海报配额...');
+        await this.db.usePosterQuota(user.id);
+        
+        finalResult = {
+          success: true,
+          posterUrl: result.posterUrl
+        };
+      } else {
+        console.log('❌ 海报生成失败:', result.error);
+        finalResult = {
+          success: false,
+          error: result.error || '海报生成失败'
+        };
+      }
+
+    } catch (error) {
+      console.error('❌ 海报生成过程中出错:', error);
+      finalResult = {
+        success: false,
+        error: error.message || '生成过程中发生错误'
+      };
+    }
+
+    // 处理最终结果
+    const totalTime = (Date.now() - startTime) / 1000;
+    console.log(`⏱️ 海报生成总耗时: ${totalTime}秒`);
+
+    try {
+      if (finalResult.success) {
+        // 生成成功，发送海报
+        const successMessage = MessageTemplates.createTextMessage(
+          '🎉 人気ポスター完成！\n\n' +
+          'あなたの写真が昭和風の素敵なポスターに生まれ変わりました！✨\n\n' +
+          '他の写真でもお試しください！'
+        );
+
+        const imageMessage = {
+          type: 'image',
+          originalContentUrl: finalResult.posterUrl,
+          previewImageUrl: finalResult.posterUrl
+        };
+
+        // 使用pushMessage发送结果
+        await this.lineAdapter.pushMessage(user.line_user_id, [successMessage, imageMessage]);
+        
+      } else {
+        // 生成失败，恢复配额
+        console.log('🔄 恢复用户海报配额...');
+        await this.db.restorePosterQuota(user.id);
+        
+        const failMessage = MessageTemplates.createTextMessage(
+          '❌ 申し訳ございませんが、海報生成に失敗しました。\n\n' +
+          `エラー: ${finalResult.error}\n\n` +
+          'もう一度お試しください。\n\n' +
+          '您這次生成的配額沒有被扣除請您放心'
+        );
+        
+        await this.lineAdapter.pushMessage(user.line_user_id, failMessage);
+      }
+    } catch (sendError) {
+      console.error('❌ 发送海报生成结果失败:', sendError);
+    }
+
+    // 切换回主菜单
+    try {
+      await this.lineAdapter.switchToMainMenu(user.line_user_id);
+      console.log('✅ 已切换回主菜单');
+    } catch (menuError) {
+      console.error('❌ 切换回主菜单失败:', menuError);
+    }
+
+    // 清理任务开始时间记录
+    this.userTaskStartTime.delete(user.line_user_id);
+  }
+
+  /**
+   * 下载图片为Buffer（辅助函数）
+   */
+  async downloadImageBuffer(imageUrl) {
+    try {
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      return Buffer.from(arrayBuffer);
+    } catch (error) {
+      console.error('❌ 下载图片失败:', error);
+      throw error;
+    }
+  }
 
   async handleWaveVideoAction(event, user) {
     // 检查用户订阅状态

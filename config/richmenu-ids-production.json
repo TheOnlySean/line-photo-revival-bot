@@ -1,7 +1,7 @@
 {
-  "mainRichMenuId": "richmenu-d89cc34f23472f58a2a99496265592df",
-  "processingRichMenuId": "richmenu-64b946bf2b649102a37d0f72b29edda2",
+  "mainRichMenuId": "richmenu-5ae88936c1dabcc4ab6c92840640a5d7",
+  "processingRichMenuId": "richmenu-0034bae0fbfa73a2387c48c2d4f1c9dd",
   "environment": "production",
-  "updatedAt": "2025-07-28T13:59:05.907Z",
-  "note": "Fixed button actions: Website and Share now direct jump"
+  "updatedAt": "2025-09-12T09:13:21.717Z",
+  "note": "Updated with CREATE_POSTER button - force recreated via cURL"
 } 

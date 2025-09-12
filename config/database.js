@@ -87,45 +87,62 @@ class Database {
 
   // === 訂閱管理方法 ===
 
-  // 創建或更新訂閱（所有环境共用）
+  // 創建或更新訂閱（所有环境共用，现已包含海报配额支持）
   async upsertSubscription(userId, {
     stripeCustomerId, stripeSubscriptionId, planType, status,
     currentPeriodStart, currentPeriodEnd, monthlyVideoQuota, videosUsedThisMonth,
+    monthlyPosterQuota, postersUsedThisMonth,
     cancelAtPeriodEnd = false
   }) {
     try {
+      // 自动根据planType设置海报配额（如果未提供）
+      if (monthlyPosterQuota === undefined) {
+        monthlyPosterQuota = planType === 'standard' ? -1 : 8; // Standard无限，Trial 8张
+      }
+      if (postersUsedThisMonth === undefined) {
+        postersUsedThisMonth = 0; // 新订阅从0开始
+      }
+
       const existing = await this.query(
         'SELECT * FROM subscriptions WHERE user_id = $1',
         [userId]
       );
 
       if (existing.rows.length > 0) {
-        // 更新現有訂閱
+        // 更新現有訂閱（包含海报配额）
         const result = await this.query(
           `UPDATE subscriptions 
            SET stripe_customer_id = $2, stripe_subscription_id = $3, plan_type = $4,
                status = $5, current_period_start = $6, current_period_end = $7,
                monthly_video_quota = $8, videos_used_this_month = $9,
-               cancel_at_period_end = $10,
+               monthly_poster_quota = $10, posters_used_this_month = $11,
+               cancel_at_period_end = $12,
                updated_at = CURRENT_TIMESTAMP
            WHERE user_id = $1 
            RETURNING *`,
           [userId, stripeCustomerId, stripeSubscriptionId, planType, status, 
-           currentPeriodStart, currentPeriodEnd, monthlyVideoQuota, videosUsedThisMonth, cancelAtPeriodEnd]
+           currentPeriodStart, currentPeriodEnd, monthlyVideoQuota, videosUsedThisMonth,
+           monthlyPosterQuota, postersUsedThisMonth, cancelAtPeriodEnd]
         );
+        
+        console.log(`✅ 订阅更新成功 - 用户: ${userId}, 计划: ${planType}, 视频配额: ${monthlyVideoQuota}, 海报配额: ${monthlyPosterQuota === -1 ? '无限' : monthlyPosterQuota}`);
         return result.rows[0];
       } else {
-        // 創建新訂閱（environment仅作记录）
+        // 創建新訂閱（包含海报配额，environment仅作记录）
         const environment = process.env.VERCEL_ENV || process.env.NODE_ENV || 'development';
         const result = await this.query(
           `INSERT INTO subscriptions 
            (user_id, stripe_customer_id, stripe_subscription_id, plan_type, status,
-            current_period_start, current_period_end, monthly_video_quota, videos_used_this_month, cancel_at_period_end, environment)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+            current_period_start, current_period_end, monthly_video_quota, videos_used_this_month,
+            monthly_poster_quota, posters_used_this_month, cancel_at_period_end, environment)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
            RETURNING *`,
           [userId, stripeCustomerId, stripeSubscriptionId, planType, status,
-           currentPeriodStart, currentPeriodEnd, monthlyVideoQuota, videosUsedThisMonth, cancelAtPeriodEnd, environment]
+           currentPeriodStart, currentPeriodEnd, monthlyVideoQuota, videosUsedThisMonth,
+           monthlyPosterQuota, postersUsedThisMonth, cancelAtPeriodEnd, environment]
         );
+        
+        console.log(`✅ 新订阅创建成功 - 用户: ${userId}, 计划: ${planType}, 视频配额: ${monthlyVideoQuota}, 海报配额: ${monthlyPosterQuota === -1 ? '无限' : monthlyPosterQuota}`);
         return result.rows[0];
       }
     } catch (error) {
@@ -235,17 +252,25 @@ class Database {
     }
   }
 
-  // 重置月度配額（所有环境共用）
+  // 重置月度配額（所有环境共用，包含视频和海报配额）
   async resetMonthlyQuota(userId) {
     try {
       const result = await this.query(
         `UPDATE subscriptions 
          SET videos_used_this_month = 0,
+             posters_used_this_month = 0,
              updated_at = CURRENT_TIMESTAMP
          WHERE user_id = $1
          RETURNING *`,
         [userId]
       );
+      
+      if (result.rows.length > 0) {
+        const subscription = result.rows[0];
+        const posterQuotaDisplay = subscription.monthly_poster_quota === -1 ? '无限' : subscription.monthly_poster_quota;
+        console.log(`✅ 月度配额重置成功 - 用户: ${userId}, 视频: ${subscription.monthly_video_quota}, 海报: ${posterQuotaDisplay}`);
+      }
+      
       return result.rows[0];
     } catch (error) {
       console.error('❌ 重置月度配額失敗:', error);
@@ -277,6 +302,243 @@ class Database {
       }
     } catch (error) {
       console.error(`❌ 恢复用户 ${userId} 视频配额失败:`, error);
+      throw error;
+    }
+  }
+
+  // === 海报配额管理方法（与视频配额保持一致的结构） ===
+
+  // 检查用户是否有剩余海报配额
+  async checkPosterQuota(userId) {
+    try {
+      // 直接查询 active 状态的订阅
+      const result = await this.query(
+        'SELECT * FROM subscriptions WHERE user_id = $1 AND status = $2',
+        [userId, 'active']
+      );
+      
+      const subscription = result.rows[0];
+      
+      // 如果没有 active 订阅，返回无配额
+      if (!subscription) {
+        console.log(`🚫 用户 ${userId} 没有 active 订阅`);
+        return { hasQuota: false, remaining: 0, total: 0 };
+      }
+
+      // 检查配额是否过期
+      const now = new Date();
+      const periodEnd = new Date(subscription.current_period_end);
+      
+      if (now > periodEnd) {
+        console.log(`🚫 用户 ${userId} 订阅已过期 (${subscription.current_period_end})`);
+        return { hasQuota: false, remaining: 0, total: subscription.monthly_poster_quota };
+      }
+
+      // Standard用户无限海报配额（用-1表示无限）
+      if (subscription.monthly_poster_quota === -1) {
+        console.log(`📸 用户 ${userId} Standard计划海报配额检查: ✅ (无限制)`);
+        return {
+          hasQuota: true,
+          remaining: -1, // -1表示无限
+          total: -1,
+          used: subscription.posters_used_this_month,
+          planType: subscription.plan_type,
+          status: subscription.status,
+          isUnlimited: true
+        };
+      }
+
+      // Trial用户有限海报配额
+      const remaining = subscription.monthly_poster_quota - subscription.posters_used_this_month;
+      const hasQuota = remaining > 0;
+      
+      console.log(`📸 用户 ${userId} 海报配额检查: ${hasQuota ? '✅' : '❌'} (剩余: ${remaining}/${subscription.monthly_poster_quota})`);
+      
+      return {
+        hasQuota: hasQuota,
+        remaining: remaining,
+        total: subscription.monthly_poster_quota,
+        used: subscription.posters_used_this_month,
+        planType: subscription.plan_type,
+        status: subscription.status,
+        isUnlimited: false
+      };
+    } catch (error) {
+      console.error('❌ 檢查海報配額失敗:', error);
+      throw error;
+    }
+  }
+
+  // 使用海报配额
+  async usePosterQuota(userId) {
+    try {
+      console.log(`💰 开始扣除用户 ${userId} 的海报配额...`);
+      
+      // 先检查是否为Standard用户（无限配额）
+      const quotaCheck = await this.checkPosterQuota(userId);
+      if (quotaCheck.isUnlimited) {
+        console.log(`✅ Standard用户无限海报配额，无需扣除 - 用户: ${userId}`);
+        // 仍然记录使用次数以便统计
+        const result = await this.query(
+          `UPDATE subscriptions 
+           SET posters_used_this_month = posters_used_this_month + 1,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE user_id = $1 AND status = 'active'
+           RETURNING user_id, plan_type, posters_used_this_month, monthly_poster_quota`,
+          [userId]
+        );
+        return result.rows[0];
+      }
+      
+      // Trial用户扣除配额
+      const result = await this.query(
+        `UPDATE subscriptions 
+         SET posters_used_this_month = posters_used_this_month + 1,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = $1 AND status = 'active'
+         RETURNING user_id, plan_type, posters_used_this_month, monthly_poster_quota`,
+        [userId]
+      );
+      
+      if (result.rows.length > 0) {
+        const subscription = result.rows[0];
+        const quotaDisplay = subscription.monthly_poster_quota === -1 ? '无限' : subscription.monthly_poster_quota;
+        console.log(`✅ 海报配额扣除成功 - 用户: ${userId}, 计划: ${subscription.plan_type}, 已用: ${subscription.posters_used_this_month}/${quotaDisplay}`);
+        return subscription;
+      } else {
+        console.log(`⚠️ 未找到用户 ${userId} 的活跃订阅，无法扣除海报配额`);
+        return null;
+      }
+    } catch (error) {
+      console.error(`❌ 扣除用户 ${userId} 海报配额失败:`, error);
+      throw error;
+    }
+  }
+
+  // 恢复海报配额（用于生成失败时）
+  async restorePosterQuota(userId) {
+    try {
+      console.log(`🔄 开始恢复用户 ${userId} 的海报配额...`);
+      
+      const result = await this.query(
+        `UPDATE subscriptions 
+         SET posters_used_this_month = GREATEST(posters_used_this_month - 1, 0),
+             updated_at = CURRENT_TIMESTAMP
+         WHERE user_id = $1 AND status = 'active'
+         RETURNING user_id, plan_type, posters_used_this_month, monthly_poster_quota`,
+        [userId]
+      );
+      
+      if (result.rows.length > 0) {
+        const subscription = result.rows[0];
+        const quotaDisplay = subscription.monthly_poster_quota === -1 ? '无限' : subscription.monthly_poster_quota;
+        console.log(`✅ 海报配额恢复成功 - 用户: ${userId}, 计划: ${subscription.plan_type}, 已用: ${subscription.posters_used_this_month}/${quotaDisplay}`);
+        return subscription;
+      } else {
+        console.log(`⚠️ 未找到用户 ${userId} 的活跃订阅，无法恢复海报配额`);
+        return null;
+      }
+    } catch (error) {
+      console.error(`❌ 恢复用户 ${userId} 海报配额失败:`, error);
+      throw error;
+    }
+  }
+
+  // === 海报模板管理方法 ===
+
+  // 获取所有活跃的海报模板
+  async getActivePosterTemplates() {
+    try {
+      const result = await this.query(
+        'SELECT * FROM poster_templates WHERE is_active = true ORDER BY sort_order ASC, created_at ASC'
+      );
+      
+      console.log(`📸 获取到 ${result.rows.length} 个活跃海报模板`);
+      return result.rows;
+    } catch (error) {
+      console.error('❌ 获取海报模板失败:', error);
+      throw error;
+    }
+  }
+
+  // 随机选择一个海报模板
+  async getRandomPosterTemplate() {
+    try {
+      const result = await this.query(
+        'SELECT * FROM poster_templates WHERE is_active = true ORDER BY RANDOM() LIMIT 1'
+      );
+      
+      if (result.rows.length > 0) {
+        const template = result.rows[0];
+        console.log(`🎨 随机选择海报模板: ${template.template_name} (${template.style_category})`);
+        return template;
+      } else {
+        console.log('⚠️ 没有找到活跃的海报模板');
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ 随机选择海报模板失败:', error);
+      throw error;
+    }
+  }
+
+  // 根据分类获取海报模板
+  async getPosterTemplatesByCategory(category) {
+    try {
+      const result = await this.query(
+        'SELECT * FROM poster_templates WHERE is_active = true AND style_category = $1 ORDER BY sort_order ASC',
+        [category]
+      );
+      
+      console.log(`🎨 获取 ${category} 分类的海报模板: ${result.rows.length} 个`);
+      return result.rows;
+    } catch (error) {
+      console.error('❌ 根据分类获取海报模板失败:', error);
+      throw error;
+    }
+  }
+
+  // 更新海报模板URL（上传真实图片后使用）
+  async updatePosterTemplateUrl(templateName, newUrl) {
+    try {
+      const result = await this.query(
+        `UPDATE poster_templates 
+         SET template_url = $2, updated_at = CURRENT_TIMESTAMP 
+         WHERE template_name = $1 
+         RETURNING *`,
+        [templateName, newUrl]
+      );
+      
+      if (result.rows.length > 0) {
+        console.log(`✅ 海报模板URL更新成功: ${templateName}`);
+        return result.rows[0];
+      } else {
+        console.log(`⚠️ 未找到模板: ${templateName}`);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ 更新海报模板URL失败:', error);
+      throw error;
+    }
+  }
+
+  // 添加新的海报模板
+  async addPosterTemplate(templateData) {
+    try {
+      const { templateName, templateUrl, description, styleCategory, sortOrder = 0 } = templateData;
+      
+      const result = await this.query(
+        `INSERT INTO poster_templates 
+         (template_name, template_url, description, style_category, sort_order)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [templateName, templateUrl, description, styleCategory, sortOrder]
+      );
+      
+      console.log(`✅ 新海报模板添加成功: ${templateName}`);
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ 添加海报模板失败:', error);
       throw error;
     }
   }

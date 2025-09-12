@@ -31,14 +31,14 @@ async function updateRichMenus() {
       name: "写真復活 Main Menu (6 Buttons)",
       chatBarText: "メニュー",
       areas: [
-        // 第一行：手振り、寄り添い、個性化
+        // 第一行：手振り、昭和カバー、個性化
         {
           bounds: { x: 0, y: 0, width: 833, height: 843 },
           action: { type: "postback", data: "action=WAVE_VIDEO" }
         },
         {
           bounds: { x: 833, y: 0, width: 834, height: 843 },
-          action: { type: "postback", data: "action=GROUP_VIDEO" }
+          action: { type: "postback", data: "action=CREATE_POSTER" }
         },
         {
           bounds: { x: 1667, y: 0, width: 833, height: 843 },
