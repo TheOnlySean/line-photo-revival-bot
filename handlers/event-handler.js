@@ -29,8 +29,7 @@ class EventHandler {
     // 添加用户生成任务开始时间记录（用于2分钟保护机制）
     this.userTaskStartTime = new Map();
     
-    // 添加海报生成任务跟踪
-    this.activePosterTasks = new Map(); // lineUserId -> { status, startTime, taskType }
+    // 海报生成使用同步方式，不需要额外跟踪
     
     // 定期清理超过1小时没有操作的用户记录（防止内存泄漏）
     setInterval(() => {
@@ -46,7 +45,6 @@ class EventHandler {
       toDelete.forEach(userId => {
         this.userLastActionTime.delete(userId);
         this.userTaskStartTime.delete(userId); // 同时清理任务开始时间记录
-        this.activePosterTasks.delete(userId); // 同时清理海报任务记录
       });
       
       if (toDelete.length > 0) {
@@ -597,37 +595,21 @@ class EventHandler {
         return { success: false, error: 'Insufficient poster quota' };
       }
 
-      // 立即切换到Processing Menu并发送开始消息
+      // 立即切换到Processing Menu（不消耗replyToken）
       console.log('🔄 切换到Processing Menu...');
       await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
-      
-      // 发送生成开始消息
-      await this.lineAdapter.replyMessage(event.replyToken,
-        MessageTemplates.createTextMessage(
-          '🎨 人気ポスター生成開始！\n\n' +
-          '✨ あなたの写真を昭和時代のスタイルに変換中...\n\n' +
-          '⏱️ 約30秒でお送りします！\n\n' +
-          '💡 生成中は他の操作をお控えください'
-        )
-      );
 
       // 记录任务开始时间
       this.userTaskStartTime.set(user.line_user_id, Date.now());
-      
-      // 记录海报生成任务状态
-      this.activePosterTasks.set(user.line_user_id, {
-        status: 'processing',
-        startTime: Date.now(),
-        taskType: 'poster_generation'
-      });
 
       // 清除用户状态
       await this.db.setUserState(user.id, 'idle');
 
-      // 开始海报生成（异步处理）
-      this.executePosterGenerationWithPolling(user, imageUrl);
+      // 同步执行海报生成流程（保留replyToken供后续使用）
+      console.log('🚀 开始同步海报生成流程...');
+      await this.executePosterGenerationWithPolling(event.replyToken, user, imageUrl);
 
-      return { success: true, message: 'Poster generation started' };
+      return { success: true, message: 'Poster generation completed' };
 
     } catch (error) {
       console.error('❌ 处理海报生成失败:', error);
@@ -644,9 +626,9 @@ class EventHandler {
 
   /**
    * 执行海报生成并轮询结果
-   * 使用现有的同步轮询机制，确保在合理时间内完成
+   * 同步执行，使用replyToken发送结果（类似视频生成）
    */
-  async executePosterGenerationWithPolling(user, imageUrl) {
+  async executePosterGenerationWithPolling(replyToken, user, imageUrl) {
     const startTime = Date.now();
     let finalResult = null;
 
@@ -710,8 +692,8 @@ class EventHandler {
           previewImageUrl: finalResult.posterUrl
         };
 
-        // 使用pushMessage发送结果
-        await this.lineAdapter.pushMessage(user.line_user_id, [successMessage, imageMessage]);
+        // 使用replyMessage发送结果（同步）
+        await this.lineAdapter.replyMessage(replyToken, [successMessage, imageMessage]);
         
       } else {
         // 生成失败，恢复配额
@@ -725,10 +707,22 @@ class EventHandler {
           '您這次生成的配額沒有被扣除請您放心'
         );
         
-        await this.lineAdapter.pushMessage(user.line_user_id, failMessage);
+        await this.lineAdapter.replyMessage(replyToken, failMessage);
       }
     } catch (sendError) {
       console.error('❌ 发送海报生成结果失败:', sendError);
+      
+      // 如果replyMessage失败，尝试用pushMessage作为备用
+      try {
+        const errorMessage = MessageTemplates.createTextMessage(
+          '❌ 海報の送信に失敗しました。\n\n' +
+          'ネットワークエラーの可能性があります。\n\n' +
+          '您這次生成的配額沒有被扣除請您放心'
+        );
+        await this.lineAdapter.pushMessage(user.line_user_id, errorMessage);
+      } catch (pushError) {
+        console.error('❌ 备用pushMessage也失败:', pushError);
+      }
     }
 
     // 切换回主菜单
@@ -741,9 +735,6 @@ class EventHandler {
 
     // 清理任务开始时间记录
     this.userTaskStartTime.delete(user.line_user_id);
-    
-    // 清理海报生成任务记录
-    this.activePosterTasks.delete(user.line_user_id);
   }
 
   /**
@@ -1722,22 +1713,7 @@ class EventHandler {
     try {
       console.log('🔍 开始检查任务状态:', { userId: user.line_user_id });
       
-      // 0. 优先检查海报生成任务
-      const activePosterTask = this.activePosterTasks.get(user.line_user_id);
-      if (activePosterTask) {
-        const elapsedTime = Date.now() - activePosterTask.startTime;
-        console.log(`📸 发现活跃的海报生成任务，已运行 ${Math.floor(elapsedTime/1000)}秒`);
-        
-        await this.lineAdapter.replyMessage(event.replyToken, 
-          MessageTemplates.createTextMessage(
-            '🎨 昭和風ポスター生成中...\n\n' +
-            '✨ あなたの写真を昭和時代のスタイルに変換しています\n\n' +
-            `⏱️ 経過時間: ${Math.floor(elapsedTime/1000)}秒\n\n` +
-            '💡 もうすぐ完成します！お待ちください'
-          )
-        );
-        return { success: true, message: 'Poster task is actively processing' };
-      }
+      // 海报生成现在使用同步方式，不需要状态检查
       
       // 1. 检查视频任务（原有逻辑）
       console.log('🎬 检查视频生成任务...');
