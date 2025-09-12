@@ -618,13 +618,9 @@ class EventHandler {
       // 清除用户状态
       await this.db.setUserState(user.id, 'idle');
 
-      // 异步执行海报生成流程
-      console.log('🚀 开始异步海报生成流程...');
-      setImmediate(() => {
-        this.executePosterGenerationWithPolling(user, imageUrl, posterTask.id).catch(error => {
-          console.error('❌ 海报生成异步流程出错:', error);
-        });
-      });
+      // 同步执行海报生成流程（避免Vercel serverless异步问题）
+      console.log('🚀 开始同步海报生成流程...');
+      await this.executePosterGenerationWithPolling(null, user, imageUrl, posterTask.id);
 
       return { success: true, message: 'Poster generation completed' };
 
@@ -643,9 +639,9 @@ class EventHandler {
 
   /**
    * 执行海报生成并轮询结果
-   * 异步执行，使用pushMessage发送结果
+   * 同步执行，使用pushMessage发送结果
    */
-  async executePosterGenerationWithPolling(user, imageUrl, posterTaskId) {
+  async executePosterGenerationWithPolling(replyToken, user, imageUrl, posterTaskId) {
     const startTime = Date.now();
     let finalResult = null;
 
