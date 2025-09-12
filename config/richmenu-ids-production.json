@@ -1,7 +1,7 @@
 {
-  "mainRichMenuId": "richmenu-5ae88936c1dabcc4ab6c92840640a5d7",
-  "processingRichMenuId": "richmenu-0034bae0fbfa73a2387c48c2d4f1c9dd",
+  "mainRichMenuId": "richmenu-9bb9dfc7306defea7185e6563d80e302",
+  "processingRichMenuId": "richmenu-306dd161c5c79b4409966b0cbf234fbb",
   "environment": "production",
-  "updatedAt": "2025-09-12T09:13:21.717Z",
-  "note": "Updated with CREATE_POSTER button - force recreated via cURL"
+  "updatedAt": "2025-09-12T09:17:39.069Z",
+  "note": "Final deployment with complete poster generation functionality"
 } 
