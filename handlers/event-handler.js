@@ -605,9 +605,66 @@ class EventHandler {
       // 清除用户状态
       await this.db.setUserState(user.id, 'idle');
 
-      // 同步执行海报生成流程（保留replyToken供后续使用）
-      console.log('🚀 开始同步海报生成流程...');
-      await this.executePosterGenerationWithPolling(event.replyToken, user, imageUrl);
+      // 超级简化版本：先测试基本的KIE.AI调用
+      console.log('🚀 开始简化版海报生成测试...');
+      
+      try {
+        // 发送开始消息
+        await this.lineAdapter.replyMessage(event.replyToken,
+          MessageTemplates.createTextMessage(
+            '🎨 海報生成テスト開始！\n\n' +
+            '⏱️ KIE.AI APIテスト中...\n\n' +
+            '結果をお待ちください。'
+          )
+        );
+        
+        // 异步测试KIE.AI调用（不阻塞响应）
+        setImmediate(async () => {
+          try {
+            console.log('🤖 测试KIE.AI API调用...');
+            
+            // 简单测试：创建一个基本任务
+            const testTaskId = await this.posterGenerator.createKieAiTask({
+              prompt: "Transform this into vintage Showa style",
+              image_urls: [imageUrl]
+            });
+            
+            console.log('✅ KIE.AI任务创建成功:', testTaskId);
+            
+            // 发送成功消息
+            await this.lineAdapter.pushMessage(user.line_user_id, 
+              MessageTemplates.createTextMessage(
+                `✅ KIE.AI API 接続成功！\n\n` +
+                `Task ID: ${testTaskId}\n\n` +
+                `海報生成機能の基礎部分は正常です。`
+              )
+            );
+            
+          } catch (apiError) {
+            console.error('❌ KIE.AI API测试失败:', apiError);
+            
+            // 发送错误详情
+            await this.lineAdapter.pushMessage(user.line_user_id, 
+              MessageTemplates.createTextMessage(
+                `❌ KIE.AI API エラー:\n\n` +
+                `${apiError.message}\n\n` +
+                `詳細をログで確認してください。`
+              )
+            );
+          }
+          
+          // 切换回主菜单
+          await this.lineAdapter.switchToMainMenu(user.line_user_id);
+        });
+        
+      } catch (testError) {
+        console.error('❌ 海报生成测试失败:', testError);
+        await this.lineAdapter.replyMessage(event.replyToken,
+          MessageTemplates.createTextMessage(
+            `❌ テストエラー:\n\n${testError.message}`
+          )
+        );
+      }
 
       return { success: true, message: 'Poster generation completed' };
 
