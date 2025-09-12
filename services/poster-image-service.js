@@ -27,10 +27,25 @@ class PosterImageService {
   /**
    * 上传用户原始图片
    * 用于海报生成的第一步输入
+   * 支持Buffer或URL输入
    */
-  async uploadUserOriginalImage(imageBuffer, userId) {
+  async uploadUserOriginalImage(imageInput, userId) {
     try {
       console.log(`📤 上传用户原始图片 - 用户: ${userId}`);
+
+      // 检查输入类型：Buffer或URL
+      let imageBuffer;
+      if (typeof imageInput === 'string') {
+        // 输入是URL，需要下载
+        console.log('📥 输入是URL，直接使用（已经是Vercel Blob URL）');
+        return imageInput; // 如果已经是Vercel Blob URL，直接返回
+      } else if (Buffer.isBuffer(imageInput)) {
+        // 输入是Buffer，直接使用
+        console.log('📥 输入是Buffer，进行处理');
+        imageBuffer = imageInput;
+      } else {
+        throw new Error('无效的图片输入类型，需要Buffer或URL');
+      }
 
       // 生成唯一文件名，包含用户ID和时间戳
       const timestamp = Date.now();

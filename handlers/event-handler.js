@@ -652,11 +652,9 @@ class EventHandler {
     try {
       console.log(`🔄 开始同步海报生成流程 - 用户: ${user.line_user_id}`);
 
-      // 先将用户图片存储到我们的服务
-      const userImageUrl = await this.posterImageService.uploadUserOriginalImage(
-        await this.downloadImageBuffer(imageUrl), 
-        user.id
-      );
+      // 直接使用已上传的图片URL，避免重复下载上传
+      console.log('📤 直接使用用户已上传的图片URL:', imageUrl);
+      const userImageUrl = imageUrl; // 直接使用LINE Adapter已处理的URL
 
       console.log('📤 用户图片已上传到存储服务:', userImageUrl);
 
@@ -775,22 +773,7 @@ class EventHandler {
     this.userTaskStartTime.delete(user.line_user_id);
   }
 
-  /**
-   * 下载图片为Buffer（辅助函数）
-   */
-  async downloadImageBuffer(imageUrl) {
-    try {
-      const response = await fetch(imageUrl);
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-      const arrayBuffer = await response.arrayBuffer();
-      return Buffer.from(arrayBuffer);
-    } catch (error) {
-      console.error('❌ 下载图片失败:', error);
-      throw error;
-    }
-  }
+  // downloadImageBuffer函数已移除 - 直接使用LINE Adapter处理的URL，避免重复fetch操作
 
   async handleWaveVideoAction(event, user) {
     // 检查用户订阅状态
