@@ -612,13 +612,16 @@ class EventHandler {
       // 记录任务开始时间
       this.userTaskStartTime.set(user.line_user_id, Date.now());
 
+      // 创建基本的海报任务记录（让Processing Menu能查到）
+      const posterTask = await this.db.createPosterTask(user.id, user.line_user_id, imageUrl);
+
       // 清除用户状态
       await this.db.setUserState(user.id, 'idle');
 
-      // 异步执行海报生成流程（简化版本，不依赖数据库跟踪）
+      // 异步执行海报生成流程
       console.log('🚀 开始异步海报生成流程...');
       setImmediate(() => {
-        this.executePosterGenerationWithPolling(user, imageUrl).catch(error => {
+        this.executePosterGenerationWithPolling(user, imageUrl, posterTask.id).catch(error => {
           console.error('❌ 海报生成异步流程出错:', error);
         });
       });
@@ -640,9 +643,9 @@ class EventHandler {
 
   /**
    * 执行海报生成并轮询结果
-   * 异步执行，使用pushMessage发送结果（简化版本）
+   * 异步执行，使用pushMessage发送结果
    */
-  async executePosterGenerationWithPolling(user, imageUrl) {
+  async executePosterGenerationWithPolling(user, imageUrl, posterTaskId) {
     const startTime = Date.now();
     let finalResult = null;
 
@@ -667,12 +670,19 @@ class EventHandler {
         console.log('💰 扣除用户海报配额...');
         await this.db.usePosterQuota(user.id);
         
+        // 标记任务完成
+        await this.db.completePosterTask(posterTaskId, result.posterUrl);
+        
         finalResult = {
           success: true,
           posterUrl: result.posterUrl
         };
       } else {
         console.log('❌ 海报生成失败:', result.error);
+        
+        // 标记任务失败
+        await this.db.failPosterTask(posterTaskId, result.error || '海报生成失败');
+        
         finalResult = {
           success: false,
           error: result.error || '海报生成失败'
@@ -681,6 +691,14 @@ class EventHandler {
 
     } catch (error) {
       console.error('❌ 海报生成过程中出错:', error);
+      
+      // 标记任务失败
+      try {
+        await this.db.failPosterTask(posterTaskId, error.message || '生成过程中发生错误');
+      } catch (dbError) {
+        console.error('❌ 标记任务失败时出错:', dbError);
+      }
+      
       finalResult = {
         success: false,
         error: error.message || '生成过程中发生错误'
@@ -1729,7 +1747,23 @@ class EventHandler {
     try {
       console.log('🔍 开始检查任务状态:', { userId: user.line_user_id });
       
-      // 海报生成使用简单异步方式，Processing Menu显示通用消息
+      // 0. 检查海报生成任务
+      const activePosterTask = await this.db.getUserActivePosterTask(user.line_user_id);
+      if (activePosterTask) {
+        const elapsedTime = Date.now() - new Date(activePosterTask.created_at).getTime();
+        
+        console.log(`📸 发现活跃海报任务，运行时间: ${Math.floor(elapsedTime/1000)}秒`);
+        
+        await this.lineAdapter.replyMessage(event.replyToken, 
+          MessageTemplates.createTextMessage(
+            `🎨 人気ポスター生成中...\n\n` +
+            `✨ あなたの写真を昭和時代のスタイルに変換しています\n\n` +
+            `⏱️ 経過時間: ${Math.floor(elapsedTime/1000)}秒\n\n` +
+            `💡 1-2分で完成予定です！お待ちください`
+          )
+        );
+        return { success: true, message: 'Poster task is actively processing' };
+      }
       
       // 1. 检查视频任务（原有逻辑）
       console.log('🎬 检查视频生成任务...');
