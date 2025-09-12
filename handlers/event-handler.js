@@ -16,9 +16,9 @@ class EventHandler {
     this.videoService = new VideoService(db);
     this.userService = new UserService(db);
     
-    // 初始化海报生成相关服务
-    this.posterImageService = new PosterImageService();
-    this.posterGenerator = new PosterGenerator(db, this.posterImageService);
+    // 初始化海报生成相关服务 (暂时禁用，调试用)
+    // this.posterImageService = new PosterImageService();
+    // this.posterGenerator = new PosterGenerator(db, this.posterImageService);
     
     // 添加用户操作防抖记录
     this.userLastActionTime = new Map();
@@ -488,6 +488,17 @@ class EventHandler {
     try {
       console.log(`🎨 用户 ${user.line_user_id} 点击了海报生成按钮`);
 
+      // 临时简化版本 - 先确保基本功能工作
+      await this.lineAdapter.replyMessage(event.replyToken, 
+        MessageTemplates.createTextMessage(
+          '🎨 昭和風ポスター機能準備中！\n\n' +
+          'もうすぐご利用いただけます。\n\n' +
+          'しばらくお待ちください。✨'
+        )
+      );
+      return { success: true };
+
+      /* 暂时注释掉复杂逻辑，先确保基本action工作
       // 检查用户海报配额
       const posterQuota = await this.db.checkPosterQuota(user.id);
       if (!posterQuota.hasQuota) {
@@ -540,11 +551,16 @@ class EventHandler {
 
       await this.lineAdapter.replyMessage(event.replyToken, [instructionMessage, quotaMessage]);
       return { success: true };
+      */
 
     } catch (error) {
       console.error('❌ 处理海报生成按钮失败:', error);
       await this.lineAdapter.replyMessage(event.replyToken, 
-        MessageTemplates.createErrorMessage('system')
+        MessageTemplates.createTextMessage(
+          '❌ 海報機能でエラーが発生しました。\n\n' +
+          `詳細: ${error.message}\n\n` +
+          'しばらくしてから再度お試しください。'
+        )
       );
       return { success: false, error: error.message };
     }
