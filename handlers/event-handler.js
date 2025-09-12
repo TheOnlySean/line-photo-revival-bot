@@ -666,8 +666,8 @@ class EventHandler {
         status: 'processing'
       });
 
-      // 执行完整的海报生成流程
-      const result = await this.posterGenerator.generatePoster(user.id, userImageUrl);
+      // 执行完整的海报生成流程（传递posterTaskId用于数据库更新）
+      const result = await this.posterGenerator.generatePoster(user.id, userImageUrl, posterTaskId);
 
       if (result.success) {
         console.log('✅ 海报生成成功！');
