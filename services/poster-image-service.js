@@ -164,11 +164,27 @@ class PosterImageService {
     try {
       console.log('🖼️ 处理图片用于AI生成...');
 
-      const processedImage = await sharp(buffer)
-        .resize(1024, 1024, {
+      // 保持原始宽高比，只限制最大边长为1920px
+      const metadata = await sharp(buffer).metadata();
+      const maxDimension = 1920;
+      
+      let resizeOptions = {};
+      if (metadata.width > maxDimension || metadata.height > maxDimension) {
+        // 只有当图片太大时才resize，保持原始宽高比
+        resizeOptions = {
+          width: metadata.width > metadata.height ? maxDimension : undefined,
+          height: metadata.height >= metadata.width ? maxDimension : undefined,
           fit: 'inside',
           withoutEnlargement: true
-        })
+        };
+      }
+      
+      let sharpInstance = sharp(buffer);
+      if (Object.keys(resizeOptions).length > 0) {
+        sharpInstance = sharpInstance.resize(resizeOptions);
+      }
+      
+      const processedImage = await sharpInstance
         .jpeg({
           quality: 90, // 较高质量用于AI处理
           progressive: true
