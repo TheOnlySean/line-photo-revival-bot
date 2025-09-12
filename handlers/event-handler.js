@@ -19,9 +19,9 @@ class EventHandler {
     // 设置数据库引用
     this.db = db;
     
-    // 初始化海报生成相关服务 (暂时禁用，调试用)
-    // this.posterImageService = new PosterImageService();
-    // this.posterGenerator = new PosterGenerator(db, this.posterImageService);
+    // 初始化海报生成相关服务
+    this.posterImageService = new PosterImageService();
+    this.posterGenerator = new PosterGenerator(db, this.posterImageService);
     
     // 添加用户操作防抖记录
     this.userLastActionTime = new Map();
@@ -251,21 +251,8 @@ class EventHandler {
       // 根据用户状态决定后续流程  
       switch (user.current_state) {
         case 'awaiting_poster_image':
-          // 海报生成流程 (简化版本)
-          console.log('📸 用户上传了海报图片，开始处理...');
-          
-          // 暂时简化：只是确认收到图片并清理状态
-          await this.db.setUserState(user.id, 'idle');
-          
-          await this.lineAdapter.replyMessage(event.replyToken, 
-            MessageTemplates.createTextMessage(
-              '✅ 写真を受信しました！\n\n' +
-              '🎨 昭和風ポスター生成機能は準備中です。\n\n' +
-              'まもなく完全版をリリース予定です！\n\n' +
-              '📸 他の機能もぜひお試しください！'
-            )
-          );
-          return { success: true };
+          // 海报生成流程 - 完整版本
+          return await this.handlePosterGeneration(event, user, imageUrl);
         case 'awaiting_wave_photo':
           const prompts = this.videoService.getPresetPrompts();
           return await this.showGenerationConfirmation(event, user, imageUrl, prompts.wave);
