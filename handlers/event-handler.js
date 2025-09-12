@@ -555,7 +555,7 @@ class EventHandler {
         `🎨 人気ポスター作成\n\n` +
         `昭和時代のスタイルで、あなたの写真を素敵なポスターに変身させます！✨\n\n` +
         `${quotaText}\n\n` +
-        `⏱️ 生成には約30秒かかります。\n\n` +
+        `⏱️ 生成には約1-2分かかります。\n\n` +
         `📸 下記のボタンから写真をアップロードしてください：`
       );
 
@@ -599,6 +599,16 @@ class EventHandler {
       console.log('🔄 切换到Processing Menu...');
       await this.lineAdapter.switchToProcessingMenu(user.line_user_id);
 
+      // 发送开始处理消息（无Quick Reply，明确告知用户已开始处理）
+      await this.lineAdapter.replyMessage(event.replyToken,
+        MessageTemplates.createTextMessage(
+          '🎨 人気ポスター生成開始！\n\n' +
+          '✨ あなたの写真を昭和時代のスタイルに変換中...\n\n' +
+          '⏱️ 約1-2分でお送りします！\n\n' +
+          '💡 生成中は他の操作をお控えください'
+        )
+      );
+
       // 记录任务开始时间
       this.userTaskStartTime.set(user.line_user_id, Date.now());
 
@@ -608,9 +618,13 @@ class EventHandler {
       // 清除用户状态
       await this.db.setUserState(user.id, 'idle');
 
-      // 同步执行完整海报生成流程（保留replyToken供后续使用）
-      console.log('🚀 开始同步海报生成流程...');
-      await this.executePosterGenerationWithPolling(event.replyToken, user, imageUrl, posterTask.id);
+      // 异步执行海报生成流程（让用户立即看到开始消息）
+      console.log('🚀 开始异步海报生成流程...');
+      setImmediate(() => {
+        this.executePosterGenerationWithPolling(null, user, imageUrl, posterTask.id).catch(error => {
+          console.error('❌ 海报生成异步流程出错:', error);
+        });
+      });
 
       return { success: true, message: 'Poster generation completed' };
 
@@ -629,7 +643,7 @@ class EventHandler {
 
   /**
    * 执行海报生成并轮询结果
-   * 同步执行，使用replyToken发送结果，同时更新数据库任务状态
+   * 异步执行，使用pushMessage发送结果，同时更新数据库任务状态
    */
   async executePosterGenerationWithPolling(replyToken, user, imageUrl, posterTaskId) {
     const startTime = Date.now();
@@ -716,8 +730,8 @@ class EventHandler {
           previewImageUrl: finalResult.posterUrl
         };
 
-        // 使用replyMessage发送结果（同步）
-        await this.lineAdapter.replyMessage(replyToken, [successMessage, imageMessage]);
+        // 使用pushMessage发送结果（因为replyToken已使用）
+        await this.lineAdapter.pushMessage(user.line_user_id, [successMessage, imageMessage]);
         
       } else {
         // 生成失败，恢复配额
@@ -731,12 +745,12 @@ class EventHandler {
           '您這次生成的配額沒有被扣除請您放心'
         );
         
-        await this.lineAdapter.replyMessage(replyToken, failMessage);
+        await this.lineAdapter.pushMessage(user.line_user_id, failMessage);
       }
     } catch (sendError) {
       console.error('❌ 发送海报生成结果失败:', sendError);
       
-      // 如果replyMessage失败，尝试用pushMessage作为备用
+      // pushMessage失败时的错误处理
       try {
         const errorMessage = MessageTemplates.createTextMessage(
           '❌ 海報の送信に失敗しました。\n\n' +
@@ -1750,7 +1764,7 @@ class EventHandler {
             `🎨 人気ポスター生成中...\n\n` +
             `✨ ${stepText}\n\n` +
             `⏱️ 経過時間: ${Math.floor(elapsedTime/1000)}秒\n\n` +
-            `💡 もうすぐ完成します！お待ちください`
+            `💡 1-2分で完成予定です！お待ちください`
           )
         );
         return { success: true, message: 'Poster task is actively processing' };
