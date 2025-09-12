@@ -56,7 +56,7 @@ export default async function handler(req, res) {
         try {
           await lineAdapter.pushMessage(task.line_user_id, {
             type: 'text',
-            text: '❌ 申し訳ございません。海報生成でタイムアウトが発生しました。\n\n' +
+            text: '❌ 申し訳ございません。ポスター生成でタイムアウトが発生しました。\n\n' +
                   'ネットワークの問題か、処理時間が予想より長くかかった可能性があります。\n\n' +
                   'もう一度お試しください。\n\n' +
                   '您這次生成的配額沒有被扣除請您放心'

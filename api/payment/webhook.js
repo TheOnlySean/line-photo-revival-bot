@@ -157,7 +157,7 @@ async function handleCheckoutCompleted(session) {
 
     console.log(`📋 计划信息: ${planType}, 配额: ${monthlyQuota}`);
 
-    // 設置海報配額（根據計劃類型）
+    // 設置ポスター配額（根據計劃類型）
     const monthlyPosterQuota = planType === 'standard' ? -1 : 8; // Standard无限，Trial 8张
     const postersUsedThisMonth = 0; // 新訂閱從0開始
 

@@ -364,7 +364,7 @@ class Database {
         isUnlimited: false
       };
     } catch (error) {
-      console.error('❌ 檢查海報配額失敗:', error);
+      console.error('❌ 檢查ポスター配額失敗:', error);
       throw error;
     }
   }
