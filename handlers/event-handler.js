@@ -612,16 +612,13 @@ class EventHandler {
       // 记录任务开始时间
       this.userTaskStartTime.set(user.line_user_id, Date.now());
 
-      // 在数据库中创建海报任务记录（用于Processing Menu状态检查）
-      const posterTask = await this.db.createPosterTask(user.id, user.line_user_id, imageUrl);
-
       // 清除用户状态
       await this.db.setUserState(user.id, 'idle');
 
-      // 异步执行海报生成流程（让用户立即看到开始消息）
+      // 异步执行海报生成流程（简化版本，不依赖数据库跟踪）
       console.log('🚀 开始异步海报生成流程...');
       setImmediate(() => {
-        this.executePosterGenerationWithPolling(null, user, imageUrl, posterTask.id).catch(error => {
+        this.executePosterGenerationWithPolling(user, imageUrl).catch(error => {
           console.error('❌ 海报生成异步流程出错:', error);
         });
       });
@@ -643,29 +640,25 @@ class EventHandler {
 
   /**
    * 执行海报生成并轮询结果
-   * 异步执行，使用pushMessage发送结果，同时更新数据库任务状态
+   * 异步执行，使用pushMessage发送结果（简化版本）
    */
-  async executePosterGenerationWithPolling(replyToken, user, imageUrl, posterTaskId) {
+  async executePosterGenerationWithPolling(user, imageUrl) {
     const startTime = Date.now();
     let finalResult = null;
 
     try {
       console.log(`🔄 开始同步海报生成流程 - 用户: ${user.line_user_id}`);
 
-      // 直接使用已上传的图片URL，避免重复下载上传
-      console.log('📤 直接使用用户已上传的图片URL:', imageUrl);
-      const userImageUrl = imageUrl; // 直接使用LINE Adapter已处理的URL
+      // 先将用户图片存储到我们的服务（恢复原有流程）
+      const userImageUrl = await this.posterImageService.uploadUserOriginalImage(
+        await this.downloadImageBuffer(imageUrl), 
+        user.id
+      );
 
       console.log('📤 用户图片已上传到存储服务:', userImageUrl);
 
-      // 更新任务状态：开始第一步
-      await this.db.updatePosterTask(posterTaskId, {
-        step: 1,
-        status: 'processing'
-      });
-
-      // 执行完整的海报生成流程（传递posterTaskId用于数据库更新）
-      const result = await this.posterGenerator.generatePoster(user.id, userImageUrl, posterTaskId);
+      // 执行完整的海报生成流程（简化版本）
+      const result = await this.posterGenerator.generatePoster(user.id, userImageUrl);
 
       if (result.success) {
         console.log('✅ 海报生成成功！');
@@ -674,19 +667,12 @@ class EventHandler {
         console.log('💰 扣除用户海报配额...');
         await this.db.usePosterQuota(user.id);
         
-        // 更新任务状态为完成
-        await this.db.completePosterTask(posterTaskId, result.posterUrl);
-        
         finalResult = {
           success: true,
           posterUrl: result.posterUrl
         };
       } else {
         console.log('❌ 海报生成失败:', result.error);
-        
-        // 标记任务失败
-        await this.db.failPosterTask(posterTaskId, result.error || '海报生成失败');
-        
         finalResult = {
           success: false,
           error: result.error || '海报生成失败'
@@ -695,14 +681,6 @@ class EventHandler {
 
     } catch (error) {
       console.error('❌ 海报生成过程中出错:', error);
-      
-      // 标记任务失败
-      try {
-        await this.db.failPosterTask(posterTaskId, error.message || '生成过程中发生错误');
-      } catch (dbError) {
-        console.error('❌ 标记海报任务失败时出错:', dbError);
-      }
-      
       finalResult = {
         success: false,
         error: error.message || '生成过程中发生错误'
@@ -773,7 +751,24 @@ class EventHandler {
     this.userTaskStartTime.delete(user.line_user_id);
   }
 
-  // downloadImageBuffer函数已移除 - 直接使用LINE Adapter处理的URL，避免重复fetch操作
+  /**
+   * 下载图片为Buffer（辅助函数）- 恢复原有功能
+   */
+  async downloadImageBuffer(imageUrl) {
+    try {
+      console.log('📥 下载图片Buffer:', imageUrl);
+      const response = await fetch(imageUrl);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      const arrayBuffer = await response.arrayBuffer();
+      console.log('✅ 图片下载成功');
+      return Buffer.from(arrayBuffer);
+    } catch (error) {
+      console.error('❌ 下载图片失败:', error);
+      throw error;
+    }
+  }
 
   async handleWaveVideoAction(event, user) {
     // 检查用户订阅状态
@@ -1734,24 +1729,7 @@ class EventHandler {
     try {
       console.log('🔍 开始检查任务状态:', { userId: user.line_user_id });
       
-      // 0. 优先检查海报生成任务
-      const activePosterTask = await this.db.getUserActivePosterTask(user.line_user_id);
-      if (activePosterTask) {
-        const elapsedTime = Date.now() - new Date(activePosterTask.created_at).getTime();
-        const stepText = activePosterTask.step === 1 ? '昭和風変換中' : 'ポスター合成中';
-        
-        console.log(`📸 发现活跃海报任务 - 步骤: ${activePosterTask.step}, 已运行: ${Math.floor(elapsedTime/1000)}秒`);
-        
-        await this.lineAdapter.replyMessage(event.replyToken, 
-          MessageTemplates.createTextMessage(
-            `🎨 人気ポスター生成中...\n\n` +
-            `✨ ${stepText}\n\n` +
-            `⏱️ 経過時間: ${Math.floor(elapsedTime/1000)}秒\n\n` +
-            `💡 1-2分で完成予定です！お待ちください`
-          )
-        );
-        return { success: true, message: 'Poster task is actively processing' };
-      }
+      // 海报生成使用简单异步方式，Processing Menu显示通用消息
       
       // 1. 检查视频任务（原有逻辑）
       console.log('🎬 检查视频生成任务...');
