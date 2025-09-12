@@ -553,27 +553,25 @@ class EventHandler {
       console.log('✅ 用户有配额，设置等待状态');
       await this.db.setUserState(user.id, 'awaiting_poster_image');
       
-      // 发送上传提示消息（日文）
-      const instructionMessage = MessageTemplates.createTextMessage(
-        `🎨 人気ポスター作成\n\n` +
-        `昭和時代のスタイルで、あなたの写真を素敵なポスターに変身させます！✨\n\n` +
-        `📸 ポスターに使用したい写真を1枚送信してください。\n\n` +
-        `⏱️ 生成には約30秒かかります。\n\n` +
-        `💡 ヒント: 人物がはっきり写った写真が最適です！`
-      );
-
-      // 显示配额信息
+      // 构建配额信息文本
       let quotaText;
       if (posterQuota.isUnlimited) {
         quotaText = `📊 スタンダードプラン: 無制限生成 ♾️`;
       } else {
         quotaText = `📊 今月の残り配額: ${posterQuota.remaining}/${posterQuota.total}枚`;
       }
+      
+      // 使用Quick Reply创建照片选择SubMenu（与视频生成一致）
+      const photoSelectionMessage = this.lineAdapter.createPhotoOnlyQuickReply(
+        `🎨 人気ポスター作成\n\n` +
+        `昭和時代のスタイルで、あなたの写真を素敵なポスターに変身させます！✨\n\n` +
+        `${quotaText}\n\n` +
+        `⏱️ 生成には約30秒かかります。\n\n` +
+        `📸 下記のボタンから写真をアップロードしてください：`
+      );
 
-      const quotaMessage = MessageTemplates.createTextMessage(quotaText);
-
-      console.log('📤 发送海报生成引导消息');
-      await this.lineAdapter.replyMessage(event.replyToken, [instructionMessage, quotaMessage]);
+      console.log('📤 发送海报生成照片选择消息（带Quick Reply）');
+      await this.lineAdapter.replyMessage(event.replyToken, photoSelectionMessage);
       return { success: true };
 
     } catch (error) {
