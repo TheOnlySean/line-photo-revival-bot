@@ -42,11 +42,15 @@ class PosterGenerator {
     try {
       // 第一步：生成昭和风图片
       console.log('📸 第一步：转换为昭和风格...');
+      console.log(`   输入图片URL: ${userImageUrl}`);
       const showaImageUrl = await this.generateShowaStyle(userImageUrl, userId);
+      console.log(`✅ 第一步完成，昭和风图片: ${showaImageUrl}`);
       
       // 第二步：选择随机模板并生成最终海报
       console.log('🎨 第二步：合成海报...');
+      console.log(`   昭和风图片输入: ${showaImageUrl}`);
       const finalPosterUrl = await this.generateFinalPoster(showaImageUrl, userId);
+      console.log(`✅ 第二步完成，最终海报: ${finalPosterUrl}`);
       
       const totalTime = (Date.now() - startTime) / 1000;
       console.log(`✅ 海报生成完成 - 用户: ${userId}, 总耗时: ${totalTime}秒`);
@@ -88,12 +92,16 @@ class PosterGenerator {
 注意！不要改变角色的面部长相表情！`;
 
       // 调用 KIE.AI API 生成昭和风图片
+      console.log('📡 准备调用KIE.AI API进行昭和风转换...');
+      console.log(`   输入图片: ${userImageUrl}`);
+      console.log(`   Prompt: ${showaPrompt.substring(0, 100)}...`);
+      
       const taskId = await this.createKieAiTask({
         prompt: showaPrompt,
         image_urls: [userImageUrl]
       });
 
-      console.log(`⏳ 昭和风生成任务已提交 - TaskID: ${taskId}`);
+      console.log(`✅ 昭和风生成任务已提交 - TaskID: ${taskId}`);
 
       // 同步轮询等待结果
       const result = await this.pollTaskResult(taskId, 120000); // 增加到120秒超时
@@ -125,12 +133,16 @@ class PosterGenerator {
       console.log(`🎨 开始海报合成 - 用户: ${userId}`);
 
       // 随机选择一个海报模板
+      console.log('🎲 开始随机选择海报模板...');
       const template = await this.db.getRandomPosterTemplate();
+      
       if (!template) {
+        console.log('❌ 没有找到可用的海报模板');
         throw new Error('利用可能なポスターテンプレートがありません');
       }
 
-      console.log(`🎭 选中模板: ${template.template_name} (${template.style_category})`);
+      console.log(`🎭 随机选中模板: ${template.template_name} (${template.style_category})`);
+      console.log(`📍 模板URL: ${template.template_url}`);
 
       // 海报合成的Prompt（图片顺序已交换：image1=模板，image2=人物）
       const posterPrompt = `用[image1]的风格为[image2]的人物做一个杂志封面设计，增加老照片老书本的滤镜效果。
@@ -138,13 +150,17 @@ class PosterGenerator {
 注意！不要改变角色的面部长相表情！`;
 
       // 调用 KIE.AI API 进行海报合成
-      // 交换图片顺序：模板在前，人物在后，这样auto尺寸会采用模板尺寸
+      console.log('📡 准备调用KIE.AI API进行海报合成...');
+      console.log(`   图片1 (模板): ${template.template_url}`);
+      console.log(`   图片2 (人物): ${showaImageUrl}`);
+      console.log(`   Prompt: ${posterPrompt.substring(0, 100)}...`);
+      
       const taskId = await this.createKieAiTask({
         prompt: posterPrompt,
         image_urls: [template.template_url, showaImageUrl] // 模板优先，auto会采用模板尺寸
       });
 
-      console.log(`⏳ 海报合成任务已提交 - TaskID: ${taskId}`);
+      console.log(`✅ 海报合成任务已提交 - TaskID: ${taskId}`);
 
       // 同步轮询等待结果
       const result = await this.pollTaskResult(taskId, 150000); // 增加到150秒超时
