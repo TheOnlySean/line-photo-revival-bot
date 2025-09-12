@@ -99,7 +99,7 @@ class PosterGenerator {
       const result = await this.pollTaskResult(taskId, 120000); // 增加到120秒超时
       
       if (!result.success) {
-        throw new Error(`昭和风转换失败: ${result.error}`);
+        throw new Error(`昭和風変換が失敗しました: ${result.error}`);
       }
 
       // 下载并存储昭和风图片到我们的存储
@@ -127,7 +127,7 @@ class PosterGenerator {
       // 随机选择一个海报模板
       const template = await this.db.getRandomPosterTemplate();
       if (!template) {
-        throw new Error('没有可用的海报模板');
+        throw new Error('利用可能なポスターテンプレートがありません');
       }
 
       console.log(`🎭 选中模板: ${template.template_name} (${template.style_category})`);
@@ -150,7 +150,7 @@ class PosterGenerator {
       const result = await this.pollTaskResult(taskId, 150000); // 增加到150秒超时
       
       if (!result.success) {
-        throw new Error(`海报合成失败: ${result.error}`);
+        throw new Error(`ポスター合成が失敗しました: ${result.error}`);
       }
 
       // 下载并存储最终海报到我们的存储
@@ -210,7 +210,7 @@ class PosterGenerator {
         console.log(`✅ KIE.AI 任务创建成功 - TaskID: ${response.data.data.taskId}`);
         return response.data.data.taskId;
       } else {
-        throw new Error(`任务创建失败: ${response.data.message || '未知错误'}`);
+        throw new Error(`タスク作成が失敗しました: ${response.data.message || '不明なエラー'}`);
       }
 
     } catch (error) {
@@ -220,7 +220,7 @@ class PosterGenerator {
         console.error('API 响应:', error.response.status, error.response.data);
       }
       
-      throw new Error(`KIE.AI API调用失败: ${error.message}`);
+      throw new Error(`KIE.AI API呼び出しが失敗しました: ${error.message}`);
     }
   }
 
@@ -257,7 +257,7 @@ class PosterGenerator {
             const imageUrl = resultJson.resultUrls?.[0];
             
             if (!imageUrl) {
-              throw new Error('生成结果中没有图片URL');
+              throw new Error('生成結果に画像URLが含まれていません');
             }
 
             console.log(`✅ 任务完成 - 耗时: ${elapsedTime}秒`);
@@ -268,7 +268,7 @@ class PosterGenerator {
             };
           } 
           else if (taskData.state === 'fail') {
-            throw new Error(`生成失败: ${taskData.failMsg || '未知错误'}`);
+            throw new Error(`生成が失敗しました: ${taskData.failMsg || '不明なエラー'}`);
           }
           // 其他状态 (waiting, queuing, generating) 继续轮询
         } else {
@@ -284,10 +284,10 @@ class PosterGenerator {
       await new Promise(resolve => setTimeout(resolve, pollInterval));
     }
 
-    // 超时 - 提供更详细的错误信息
+    // 超时 - 提供更详细的错误信息（日语）
     const elapsedTime = (Date.now() - startTime) / 1000;
     console.error(`❌ 任务轮询超时 - TaskID: ${taskId}, 实际等待: ${elapsedTime}秒, 预期: ${maxWaitTime/1000}秒`);
-    throw new Error(`任务超时：等待了${elapsedTime.toFixed(1)}秒仍未完成。可能网络较慢或任务复杂度较高。`);
+    throw new Error(`処理時間が予想より長くかかっています。${elapsedTime.toFixed(1)}秒経過しました。ネットワークの問題またはタスクの複雑性が原因の可能性があります。`);
   }
 
   /**
@@ -313,7 +313,7 @@ class PosterGenerator {
       } else {
         return {
           success: false,
-          error: response.data.message || '查询失败'
+          error: response.data.message || 'ステータス確認が失敗しました'
         };
       }
 

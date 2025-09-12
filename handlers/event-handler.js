@@ -632,9 +632,9 @@ class EventHandler {
       console.error('❌ 处理海报生成失败:', error);
       await this.lineAdapter.replyMessage(event.replyToken, 
         MessageTemplates.createTextMessage(
-          '❌ 海報生成の開始に失敗しました。\n\n' +
+          '❌ ポスター生成の開始に失敗しました。\n\n' +
           'しばらくしてからもう一度お試しください。\n\n' +
-          '您這次生成的配額沒有被扣除請您放心'
+          'ご利用配額は消費されておりませんのでご安心ください。'
         )
       );
       return { success: false, error: error.message };
@@ -739,10 +739,10 @@ class EventHandler {
         await this.db.restorePosterQuota(user.id);
         
         const failMessage = MessageTemplates.createTextMessage(
-          '❌ 申し訳ございませんが、海報生成に失敗しました。\n\n' +
+          '❌ 申し訳ございませんが、ポスター生成に失敗しました。\n\n' +
           `エラー: ${finalResult.error}\n\n` +
           'もう一度お試しください。\n\n' +
-          '您這次生成的配額沒有被扣除請您放心'
+          'ご利用配額は消費されておりませんのでご安心ください。'
         );
         
         await this.lineAdapter.pushMessage(user.line_user_id, failMessage);
@@ -753,9 +753,9 @@ class EventHandler {
       // pushMessage失败时的错误处理
       try {
         const errorMessage = MessageTemplates.createTextMessage(
-          '❌ 海報の送信に失敗しました。\n\n' +
+          '❌ ポスターの送信に失敗しました。\n\n' +
           'ネットワークエラーの可能性があります。\n\n' +
-          '您這次生成的配額沒有被扣除請您放心'
+          'ご利用配額は消費されておりませんのでご安心ください。'
         );
         await this.lineAdapter.pushMessage(user.line_user_id, errorMessage);
       } catch (pushError) {
