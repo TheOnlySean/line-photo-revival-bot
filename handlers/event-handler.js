@@ -660,16 +660,20 @@ class EventHandler {
     try {
       console.log(`🔄 开始同步海报生成流程 - 用户: ${user.line_user_id}`);
 
-      // 先将用户图片存储到我们的服务（恢复原有流程）
-      const userImageUrl = await this.posterImageService.uploadUserOriginalImage(
-        await this.downloadImageBuffer(imageUrl), 
-        user.id
-      );
+      // A. 下载用户图片Buffer
+      console.log('A️⃣ 下载用户图片Buffer...');
+      const imageBuffer = await this.downloadImageBuffer(imageUrl);
+      console.log('✅ 图片Buffer下载成功，大小:', imageBuffer.length, 'bytes');
 
-      console.log('📤 用户图片已上传到存储服务:', userImageUrl);
+      // B. 上传图片到我们的存储
+      console.log('B️⃣ 上传图片到存储服务...');
+      const userImageUrl = await this.posterImageService.uploadUserOriginalImage(imageBuffer, user.id);
+      console.log('✅ 用户图片已上传到存储服务:', userImageUrl);
 
-      // 执行完整的海报生成流程（简化版本）
+      // C. 执行完整的海报生成流程
+      console.log('C️⃣ 调用海报生成器...');
       const result = await this.posterGenerator.generatePoster(user.id, userImageUrl);
+      console.log('✅ 海报生成器调用完成，结果:', result.success ? '成功' : '失败');
 
       if (result.success) {
         console.log('✅ 海报生成成功！');
