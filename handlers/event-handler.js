@@ -29,6 +29,9 @@ class EventHandler {
     // 添加用户生成任务开始时间记录（用于2分钟保护机制）
     this.userTaskStartTime = new Map();
     
+    // 添加海报生成任务跟踪
+    this.activePosterTasks = new Map(); // lineUserId -> { status, startTime, taskType }
+    
     // 定期清理超过1小时没有操作的用户记录（防止内存泄漏）
     setInterval(() => {
       const oneHourAgo = Date.now() - (60 * 60 * 1000);
@@ -43,6 +46,7 @@ class EventHandler {
       toDelete.forEach(userId => {
         this.userLastActionTime.delete(userId);
         this.userTaskStartTime.delete(userId); // 同时清理任务开始时间记录
+        this.activePosterTasks.delete(userId); // 同时清理海报任务记录
       });
       
       if (toDelete.length > 0) {
@@ -375,7 +379,7 @@ class EventHandler {
         case 'CANCEL_SUBSCRIPTION_CANCEL':
           return await this.handleCancelSubscriptionCancel(event, user);
         case 'CHECK_STATUS':
-          return await this.handleCheckVideoStatus(event, user);
+          return await this.handleCheckStatus(event, user);
         case 'NO_PHOTO':
           return await this.handleNoPhotoAction(event, user);
         // 注意：OFFICIAL_SITE 和 SHARE 现在使用URI action直接跳转，不再触发postback
@@ -609,6 +613,13 @@ class EventHandler {
 
       // 记录任务开始时间
       this.userTaskStartTime.set(user.line_user_id, Date.now());
+      
+      // 记录海报生成任务状态
+      this.activePosterTasks.set(user.line_user_id, {
+        status: 'processing',
+        startTime: Date.now(),
+        taskType: 'poster_generation'
+      });
 
       // 清除用户状态
       await this.db.setUserState(user.id, 'idle');
@@ -730,6 +741,9 @@ class EventHandler {
 
     // 清理任务开始时间记录
     this.userTaskStartTime.delete(user.line_user_id);
+    
+    // 清理海报生成任务记录
+    this.activePosterTasks.delete(user.line_user_id);
   }
 
   /**
@@ -1704,11 +1718,31 @@ class EventHandler {
     }
   }
 
-  async handleCheckVideoStatus(event, user) {
+  async handleCheckStatus(event, user) {
     try {
-      console.log('🔍 开始检查视频状态:', { userId: user.line_user_id });
+      console.log('🔍 开始检查任务状态:', { userId: user.line_user_id });
       
-      // 0. 防抖机制：防止用户快速重复点击CHECK_STATUS
+      // 0. 优先检查海报生成任务
+      const activePosterTask = this.activePosterTasks.get(user.line_user_id);
+      if (activePosterTask) {
+        const elapsedTime = Date.now() - activePosterTask.startTime;
+        console.log(`📸 发现活跃的海报生成任务，已运行 ${Math.floor(elapsedTime/1000)}秒`);
+        
+        await this.lineAdapter.replyMessage(event.replyToken, 
+          MessageTemplates.createTextMessage(
+            '🎨 昭和風ポスター生成中...\n\n' +
+            '✨ あなたの写真を昭和時代のスタイルに変換しています\n\n' +
+            `⏱️ 経過時間: ${Math.floor(elapsedTime/1000)}秒\n\n` +
+            '💡 もうすぐ完成します！お待ちください'
+          )
+        );
+        return { success: true, message: 'Poster task is actively processing' };
+      }
+      
+      // 1. 检查视频任务（原有逻辑）
+      console.log('🎬 检查视频生成任务...');
+      
+      // 防抖机制：防止用户快速重复点击CHECK_STATUS
       const userId = user.line_user_id;
       const currentTime = Date.now();
       const lastActionTime = this.userLastActionTime.get(userId) || 0;
@@ -1803,7 +1837,7 @@ class EventHandler {
         console.log('ℹ️ 用户没有pending任务');
         await this.lineAdapter.replyMessage(event.replyToken, {
           type: 'text',
-          text: '📋 現在生成中の動画はありません。\n\n🎬 新しい動画を生成したい場合は、メインメニューから開始してください。'
+          text: '📋 現在生成中のタスクはありません。\n\n🎬 動画やポスターを生成したい場合は、メインメニューから開始してください。'
         });
         await this.lineAdapter.switchToMainMenu(user.line_user_id);
         return { success: true, message: 'No pending tasks found' };
