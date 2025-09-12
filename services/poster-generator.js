@@ -96,7 +96,7 @@ class PosterGenerator {
       console.log(`⏳ 昭和风生成任务已提交 - TaskID: ${taskId}`);
 
       // 同步轮询等待结果
-      const result = await this.pollTaskResult(taskId, 60000); // 60秒超时
+      const result = await this.pollTaskResult(taskId, 120000); // 增加到120秒超时
       
       if (!result.success) {
         throw new Error(`昭和风转换失败: ${result.error}`);
@@ -147,7 +147,7 @@ class PosterGenerator {
       console.log(`⏳ 海报合成任务已提交 - TaskID: ${taskId}`);
 
       // 同步轮询等待结果
-      const result = await this.pollTaskResult(taskId, 90000); // 90秒超时
+      const result = await this.pollTaskResult(taskId, 150000); // 增加到150秒超时
       
       if (!result.success) {
         throw new Error(`海报合成失败: ${result.error}`);
@@ -229,7 +229,7 @@ class PosterGenerator {
    */
   async pollTaskResult(taskId, maxWaitTime = 120000) {
     const startTime = Date.now();
-    const pollInterval = 3000; // 3秒轮询一次
+    const pollInterval = 2000; // 缩短到2秒轮询一次，更及时
     
     console.log(`🔍 开始轮询任务状态 - TaskID: ${taskId}, 最大等待: ${maxWaitTime/1000}秒`);
 
@@ -284,8 +284,10 @@ class PosterGenerator {
       await new Promise(resolve => setTimeout(resolve, pollInterval));
     }
 
-    // 超时
-    throw new Error(`任务超时 - TaskID: ${taskId}, 等待时间: ${maxWaitTime/1000}秒`);
+    // 超时 - 提供更详细的错误信息
+    const elapsedTime = (Date.now() - startTime) / 1000;
+    console.error(`❌ 任务轮询超时 - TaskID: ${taskId}, 实际等待: ${elapsedTime}秒, 预期: ${maxWaitTime/1000}秒`);
+    throw new Error(`任务超时：等待了${elapsedTime.toFixed(1)}秒仍未完成。可能网络较慢或任务复杂度较高。`);
   }
 
   /**
