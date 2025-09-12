@@ -248,8 +248,21 @@ class EventHandler {
       // 根据用户状态决定后续流程  
       switch (user.current_state) {
         case 'awaiting_poster_image':
-          // 海报生成流程
-          return await this.handlePosterGeneration(event, user, imageUrl);
+          // 海报生成流程 (简化版本)
+          console.log('📸 用户上传了海报图片，开始处理...');
+          
+          // 暂时简化：只是确认收到图片并清理状态
+          await this.db.setUserState(user.id, 'idle');
+          
+          await this.lineAdapter.replyMessage(event.replyToken, 
+            MessageTemplates.createTextMessage(
+              '✅ 写真を受信しました！\n\n' +
+              '🎨 昭和風ポスター生成機能は準備中です。\n\n' +
+              'まもなく完全版をリリース予定です！\n\n' +
+              '📸 他の機能もぜひお試しください！'
+            )
+          );
+          return { success: true };
         case 'awaiting_wave_photo':
           const prompts = this.videoService.getPresetPrompts();
           return await this.showGenerationConfirmation(event, user, imageUrl, prompts.wave);
@@ -488,22 +501,28 @@ class EventHandler {
     try {
       console.log(`🎨 用户 ${user.line_user_id} 点击了海报生成按钮`);
 
-      // 临时简化版本 - 先确保基本功能工作
-      await this.lineAdapter.replyMessage(event.replyToken, 
-        MessageTemplates.createTextMessage(
-          '🎨 昭和風ポスター機能準備中！\n\n' +
-          'もうすぐご利用いただけます。\n\n' +
-          'しばらくお待ちください。✨'
-        )
-      );
-      return { success: true };
+      // 第一步：测试配额检查
+      let posterQuota;
+      try {
+        console.log('🔍 检查海报配额...');
+        posterQuota = await this.db.checkPosterQuota(user.id);
+        console.log('✅ 配额检查成功:', posterQuota);
+      } catch (quotaError) {
+        console.error('❌ 配额检查失败:', quotaError);
+        await this.lineAdapter.replyMessage(event.replyToken, 
+          MessageTemplates.createTextMessage(
+            '❌ 配額確認でエラーが発生しました。\n\n' +
+            `詳細: ${quotaError.message}\n\n` +
+            'しばらくしてから再度お試しください。'
+          )
+        );
+        return { success: false, error: quotaError.message };
+      }
 
-      /* 暂时注释掉复杂逻辑，先确保基本action工作
       // 检查用户海报配额
-      const posterQuota = await this.db.checkPosterQuota(user.id);
       if (!posterQuota.hasQuota) {
         // 配额不足，显示升级提示
-        const quotaInfo = await this.userService.handleInsufficientQuota(user.id);
+        console.log('📊 用户配额不足，显示升级提示');
         
         let message;
         if (posterQuota.planType === 'trial') {
@@ -528,6 +547,7 @@ class EventHandler {
       }
 
       // 有配额，设置用户状态为等待海报图片
+      console.log('✅ 用户有配额，设置等待状态');
       await this.db.setUserState(user.id, 'awaiting_poster_image');
       
       // 发送上传提示消息（日文）
@@ -549,9 +569,9 @@ class EventHandler {
 
       const quotaMessage = MessageTemplates.createTextMessage(quotaText);
 
+      console.log('📤 发送海报生成引导消息');
       await this.lineAdapter.replyMessage(event.replyToken, [instructionMessage, quotaMessage]);
       return { success: true };
-      */
 
     } catch (error) {
       console.error('❌ 处理海报生成按钮失败:', error);
