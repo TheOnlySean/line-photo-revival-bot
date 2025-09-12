@@ -543,6 +543,119 @@ class Database {
     }
   }
 
+  // === 海报生成任务跟踪方法 ===
+
+  // 创建海报生成任务记录
+  async createPosterTask(userId, lineUserId, originalImageUrl) {
+    try {
+      const result = await this.query(
+        `INSERT INTO poster_tasks (user_id, line_user_id, status, step, original_image_url, created_at)
+         VALUES ($1, $2, 'processing', 1, $3, NOW())
+         RETURNING *`,
+        [userId, lineUserId, originalImageUrl]
+      );
+      
+      console.log(`✅ 海报任务记录创建成功 - 用户: ${lineUserId}, ID: ${result.rows[0].id}`);
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ 创建海报任务记录失败:', error);
+      throw error;
+    }
+  }
+
+  // 更新海报任务状态
+  async updatePosterTask(taskId, updates) {
+    try {
+      const setClause = Object.keys(updates).map((key, index) => 
+        `${key} = $${index + 2}`
+      ).join(', ');
+      
+      const values = [taskId, ...Object.values(updates)];
+      
+      const result = await this.query(
+        `UPDATE poster_tasks 
+         SET ${setClause}, updated_at = NOW()
+         WHERE id = $1 
+         RETURNING *`,
+        values
+      );
+      
+      if (result.rows.length > 0) {
+        console.log(`✅ 海报任务更新成功 - ID: ${taskId}, 状态: ${updates.status || '未改变'}`);
+        return result.rows[0];
+      } else {
+        console.log(`⚠️ 未找到海报任务: ${taskId}`);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ 更新海报任务失败:', error);
+      throw error;
+    }
+  }
+
+  // 获取用户当前的海报生成任务
+  async getUserActivePosterTask(lineUserId) {
+    try {
+      const result = await this.query(
+        `SELECT * FROM poster_tasks 
+         WHERE line_user_id = $1 AND status = 'processing'
+         ORDER BY created_at DESC 
+         LIMIT 1`,
+        [lineUserId]
+      );
+      
+      if (result.rows.length > 0) {
+        const task = result.rows[0];
+        console.log(`📸 找到活跃海报任务 - 用户: ${lineUserId}, 步骤: ${task.step}`);
+        return task;
+      } else {
+        console.log(`📸 用户 ${lineUserId} 没有活跃的海报任务`);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ 获取用户海报任务失败:', error);
+      throw error;
+    }
+  }
+
+  // 完成海报任务
+  async completePosterTask(taskId, finalPosterUrl) {
+    try {
+      const result = await this.query(
+        `UPDATE poster_tasks 
+         SET status = 'completed', final_poster_url = $2, updated_at = NOW()
+         WHERE id = $1 
+         RETURNING *`,
+        [taskId, finalPosterUrl]
+      );
+      
+      console.log(`✅ 海报任务完成 - ID: ${taskId}`);
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ 完成海报任务失败:', error);
+      throw error;
+    }
+  }
+
+  // 标记海报任务失败
+  async failPosterTask(taskId, errorMessage) {
+    try {
+      const result = await this.query(
+        `UPDATE poster_tasks 
+         SET status = 'failed', error_message = $2, updated_at = NOW()
+         WHERE id = $1 
+         RETURNING *`,
+        [taskId, errorMessage]
+      );
+      
+      console.log(`❌ 海报任务失败 - ID: ${taskId}`);
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ 标记海报任务失败:', error);
+      throw error;
+    }
+  }
+
   // === 視頻記錄方法 ===
 
   // 創建視頻記錄
