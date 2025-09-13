@@ -320,29 +320,44 @@ class PosterImageService {
       console.log(`🔖 水印设置: 字体大小=${fontSize}, 位置=(${watermarkX}, ${watermarkY})`);
       console.log(`🔖 水印文字: "${watermarkText}"`);
       
-      // 创建文字水印（使用验证过的技术）
-      const textSvg = `
+      // 🔧 使用更简单的水印方式：文字背景矩形
+      console.log('🔧 创建简单的文字水印背景...');
+      
+      // 计算文字大小和背景矩形
+      const textWidth = watermarkText.length * fontSize * 0.6; // 估算文字宽度
+      const textHeight = fontSize * 1.2; // 文字高度
+      const rectX = width - textWidth - 20;
+      const rectY = height - textHeight - 10;
+      
+      console.log(`🔖 水印背景: 大小=${textWidth.toFixed(0)}x${textHeight.toFixed(0)}, 位置=(${rectX.toFixed(0)}, ${rectY.toFixed(0)})`);
+      
+      // 创建简单的矩形+文字水印
+      const simpleSvg = `
         <svg width="${width}" height="${height}">
+          <rect
+            x="${rectX}"
+            y="${rectY}"
+            width="${textWidth}"
+            height="${textHeight}"
+            fill="black"
+            fill-opacity="0.7"
+            rx="5"/>
           <text
-            x="${watermarkX}"
-            y="${watermarkY}"
+            x="${rectX + textWidth/2}"
+            y="${rectY + textHeight/2 + fontSize/3}"
             font-family="Arial, sans-serif"
-            font-size="${fontSize}"
+            font-size="${Math.floor(fontSize * 0.8)}"
             fill="white"
-            fill-opacity="0.9"
-            text-anchor="end"
-            dominant-baseline="bottom"
-            stroke="rgba(0,0,0,0.8)"
-            stroke-width="2">
+            text-anchor="middle">
             ${watermarkText}
           </text>
         </svg>
       `;
       
-      console.log('🔧 合成文字水印...');
+      console.log('🔧 合成简单文字水印（带背景）...');
       const watermarkedImage = await image
         .composite([{
-          input: Buffer.from(textSvg),
+          input: Buffer.from(simpleSvg),
           top: 0,
           left: 0
         }])
