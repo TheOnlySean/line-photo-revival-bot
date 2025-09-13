@@ -311,18 +311,62 @@ class Database {
   // 检查用户是否有剩余海报配额
   async checkPosterQuota(userId) {
     try {
-      // 直接查询 active 状态的订阅
-      const result = await this.query(
-        'SELECT * FROM subscriptions WHERE user_id = $1 AND status = $2',
+      // 首先查询任何状态的订阅记录（为了支持首次免费）
+      const allResult = await this.query(
+        'SELECT * FROM subscriptions WHERE user_id = $1 ORDER BY status = $2 DESC, created_at DESC LIMIT 1',
         [userId, 'active']
       );
       
-      const subscription = result.rows[0];
+      const subscription = allResult.rows[0];
       
-      // 如果没有 active 订阅，返回无配额
+      // 如果完全没有订阅记录，创建临时记录以支持首次免费
       if (!subscription) {
-        console.log(`🚫 用户 ${userId} 没有 active 订阅`);
-        return { hasQuota: false, remaining: 0, total: 0 };
+        console.log(`🎁 用户 ${userId} 没有订阅记录，检查首次免费资格...`);
+        // 检查是否已经生成过海报
+        const posterHistory = await this.query(
+          'SELECT COUNT(*) as count FROM poster_tasks WHERE user_id = $1 AND status = $2',
+          [userId, 'completed']
+        );
+        
+        const hasGeneratedBefore = parseInt(posterHistory.rows[0].count) > 0;
+        
+        if (!hasGeneratedBefore) {
+          console.log(`✨ 用户 ${userId} 可享受首次海报免费！`);
+          return {
+            hasQuota: true,
+            remaining: 1, // 首次免费算作1次配额
+            total: 0, // 实际没有付费配额
+            used: 0,
+            planType: 'none',
+            status: 'inactive',
+            isUnlimited: false,
+            isFirstFree: true // 标记为首次免费
+          };
+        } else {
+          console.log(`🚫 用户 ${userId} 已生成过海报且无订阅，无配额`);
+          return { hasQuota: false, remaining: 0, total: 0, planType: 'none' };
+        }
+      }
+      
+      // 如果没有 active 订阅但有其他状态的订阅记录，仍可检查首次免费
+      if (subscription.status !== 'active') {
+        console.log(`🎁 用户 ${userId} 有非active订阅记录，检查首次免费...`);
+        if (!subscription.first_poster_used) {
+          console.log(`✨ 用户 ${userId} 可享受首次海报免费！`);
+          return {
+            hasQuota: true,
+            remaining: subscription.monthly_poster_quota === -1 ? -1 : Math.max(0, subscription.monthly_poster_quota),
+            total: subscription.monthly_poster_quota,
+            used: subscription.posters_used_this_month,
+            planType: subscription.plan_type,
+            status: subscription.status,
+            isUnlimited: subscription.monthly_poster_quota === -1,
+            isFirstFree: true // 标记为首次免费
+          };
+        } else {
+          console.log(`🚫 用户 ${userId} 无active订阅且已使用首次免费`);
+          return { hasQuota: false, remaining: 0, total: subscription.monthly_poster_quota, planType: subscription.plan_type };
+        }
       }
 
       // 检查配额是否过期
@@ -394,21 +438,44 @@ class Database {
       
       // 🎁 首次免费处理 - 只标记已使用，不扣除配额
       if (quotaCheck.isFirstFree) {
-        console.log(`✨ 用户 ${userId} 首次免费使用，只标记已使用状态`);
-        const result = await this.query(
+        console.log(`✨ 用户 ${userId} 首次免费使用，标记已使用状态`);
+        
+        // 首先尝试更新现有记录
+        let result = await this.query(
           `UPDATE subscriptions 
            SET first_poster_used = TRUE,
                updated_at = CURRENT_TIMESTAMP
-           WHERE user_id = $1 AND status = 'active'
+           WHERE user_id = $1
            RETURNING user_id, plan_type, posters_used_this_month, monthly_poster_quota`,
           [userId]
         );
+        
+        // 如果没有现有记录，创建新记录（为完全无订阅的用户）
+        if (result.rows.length === 0) {
+          console.log(`📝 为用户 ${userId} 创建首次使用记录...`);
+          result = await this.query(
+            `INSERT INTO subscriptions (
+               user_id, plan_type, status, 
+               monthly_video_quota, videos_used_this_month,
+               monthly_poster_quota, posters_used_this_month,
+               first_poster_used,
+               current_period_start, current_period_end,
+               created_at, updated_at
+             ) VALUES (
+               $1, 'none', 'inactive',
+               0, 0, 0, 0, TRUE,
+               NOW(), NOW() + INTERVAL '30 days',
+               NOW(), NOW()
+             ) RETURNING user_id, plan_type, posters_used_this_month, monthly_poster_quota`,
+            [userId]
+          );
+        }
         
         if (result.rows.length > 0) {
           console.log(`✅ 首次免费标记成功 - 用户: ${userId}`);
           return result.rows[0];
         } else {
-          console.log(`⚠️ 未找到用户 ${userId} 的活跃订阅`);
+          console.log(`❌ 首次免费标记失败 - 用户: ${userId}`);
           return null;
         }
       }
