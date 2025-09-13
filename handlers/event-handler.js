@@ -216,27 +216,47 @@ class EventHandler {
 
       console.log('📸 用户状态:', user.current_state);
 
-      // 检查用户订阅配额
-      const quota = await this.videoService.checkVideoQuota(user.id);
-      if (!quota.hasQuota) {
-        const quotaInfo = await this.userService.handleInsufficientQuota(user.id);
-        const quotaMessage = MessageTemplates.createInsufficientQuotaCard({
-          remaining: quota.remaining,
-          total: quota.total,
-          planType: quotaInfo.planType,
-          needsUpgrade: quotaInfo.needsUpgrade,
-          resetDate: quotaInfo.resetDate
-        });
-        // 根据用户类型发送不同的消息
-        if (quotaInfo.planType === 'trial') {
-          // Trial用户已经是subscriber，只需要升级提示
-          await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
-        } else {
-          // 无订阅用户需要订阅选项卡片
-          const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
-          await this.lineAdapter.replyMessage(event.replyToken, [quotaMessage, planCarousel]);
+      // 🔧 根据用户状态检查相应的配额类型
+      if (user.current_state === 'awaiting_poster_image') {
+        // 海报生成：检查海报配额（包含首次免费逻辑）
+        console.log('📸 检查海报配额（包含首次免费）...');
+        const posterQuota = await this.db.checkPosterQuota(user.id);
+        if (!posterQuota.hasQuota) {
+          // 海报配额不足的专用消息
+          await this.lineAdapter.replyMessage(event.replyToken, 
+            MessageTemplates.createTextMessage(
+              '❌ 申し訳ございませんが、ポスター配額が不足しています。\n\nプランをご確認ください。'
+            )
+          );
+          return { success: true };
         }
-        return { success: true };
+        // 海报配额足够，继续处理
+        console.log('✅ 海报配额检查通过，继续生成流程');
+      } else {
+        // 视频生成：检查视频配额
+        console.log('🎬 检查视频配额...');
+        const quota = await this.videoService.checkVideoQuota(user.id);
+        if (!quota.hasQuota) {
+          const quotaInfo = await this.userService.handleInsufficientQuota(user.id);
+          const quotaMessage = MessageTemplates.createInsufficientQuotaCard({
+            remaining: quota.remaining,
+            total: quota.total,
+            planType: quotaInfo.planType,
+            needsUpgrade: quotaInfo.needsUpgrade,
+            resetDate: quotaInfo.resetDate
+          });
+          // 根据用户类型发送不同的消息
+          if (quotaInfo.planType === 'trial') {
+            // Trial用户已经是subscriber，只需要升级提示
+            await this.lineAdapter.replyMessage(event.replyToken, quotaMessage);
+          } else {
+            // 无订阅用户需要订阅选项卡片
+            const planCarousel = MessageTemplates.createPaymentOptionsCarousel(user.id);
+            await this.lineAdapter.replyMessage(event.replyToken, [quotaMessage, planCarousel]);
+          }
+          return { success: true };
+        }
+        console.log('✅ 视频配额检查通过，继续生成流程');
       }
 
       // 上传图片
