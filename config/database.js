@@ -334,6 +334,21 @@ class Database {
         return { hasQuota: false, remaining: 0, total: subscription.monthly_poster_quota };
       }
 
+      // 🎁 首次免费检查 - 优先级最高
+      if (!subscription.first_poster_used) {
+        console.log(`✨ 用户 ${userId} 可享受首次海报免费！`);
+        return {
+          hasQuota: true,
+          remaining: subscription.monthly_poster_quota === -1 ? -1 : subscription.monthly_poster_quota,
+          total: subscription.monthly_poster_quota,
+          used: subscription.posters_used_this_month,
+          planType: subscription.plan_type,
+          status: subscription.status,
+          isUnlimited: subscription.monthly_poster_quota === -1,
+          isFirstFree: true // 标记为首次免费
+        };
+      }
+
       // Standard用户无限海报配额（用-1表示无限）
       if (subscription.monthly_poster_quota === -1) {
         console.log(`📸 用户 ${userId} Standard计划海报配额检查: ✅ (无限制)`);
@@ -376,6 +391,27 @@ class Database {
       
       // 先检查是否为Standard用户（无限配额）
       const quotaCheck = await this.checkPosterQuota(userId);
+      
+      // 🎁 首次免费处理 - 只标记已使用，不扣除配额
+      if (quotaCheck.isFirstFree) {
+        console.log(`✨ 用户 ${userId} 首次免费使用，只标记已使用状态`);
+        const result = await this.query(
+          `UPDATE subscriptions 
+           SET first_poster_used = TRUE,
+               updated_at = CURRENT_TIMESTAMP
+           WHERE user_id = $1 AND status = 'active'
+           RETURNING user_id, plan_type, posters_used_this_month, monthly_poster_quota`,
+          [userId]
+        );
+        
+        if (result.rows.length > 0) {
+          console.log(`✅ 首次免费标记成功 - 用户: ${userId}`);
+          return result.rows[0];
+        } else {
+          console.log(`⚠️ 未找到用户 ${userId} 的活跃订阅`);
+          return null;
+        }
+      }
       if (quotaCheck.isUnlimited) {
         console.log(`✅ Standard用户无限海报配额，无需扣除 - 用户: ${userId}`);
         // 仍然记录使用次数以便统计

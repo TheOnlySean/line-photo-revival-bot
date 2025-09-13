@@ -542,22 +542,35 @@ class EventHandler {
       console.log('✅ 用户有配额，设置等待状态');
       await this.db.setUserState(user.id, 'awaiting_poster_image');
       
-      // 构建配额信息文本
-      let quotaText;
-      if (posterQuota.isUnlimited) {
-        quotaText = `📊 スタンダードプラン: 無制限生成 ♾️`;
+      // 🎁 首次免费特殊处理
+      let messageText;
+      if (posterQuota.isFirstFree) {
+        // 首次免费的特殊消息
+        messageText = 
+          `✨ 初回無料！昭和ポスター体験\n\n` +
+          `昭和時代のスタイルで、あなたの写真を素敵なポスターに変身させます！\n\n` +
+          `🎁 今回は無料でお試しいただけます\n` +
+          `⏱️ 生成には約1-2分かかります\n\n` +
+          `📸 下記のボタンから写真をアップロードしてください：`;
       } else {
-        quotaText = `📊 今月の残り配額: ${posterQuota.remaining}/${posterQuota.total}枚`;
+        // 正常配额的消息
+        let quotaText;
+        if (posterQuota.isUnlimited) {
+          quotaText = `📊 スタンダードプラン: 無制限生成 ♾️`;
+        } else {
+          quotaText = `📊 今月の残り配額: ${posterQuota.remaining}/${posterQuota.total}枚`;
+        }
+        
+        messageText = 
+          `🎨 人気ポスター作成\n\n` +
+          `昭和時代のスタイルで、あなたの写真を素敵なポスターに変身させます！✨\n\n` +
+          `${quotaText}\n\n` +
+          `⏱️ 生成には約1-2分かかります。\n\n` +
+          `📸 下記のボタンから写真をアップロードしてください：`;
       }
       
-      // 使用Quick Reply创建照片选择SubMenu（与视频生成一致）
-      const photoSelectionMessage = this.lineAdapter.createPhotoOnlyQuickReply(
-        `🎨 人気ポスター作成\n\n` +
-        `昭和時代のスタイルで、あなたの写真を素敵なポスターに変身させます！✨\n\n` +
-        `${quotaText}\n\n` +
-        `⏱️ 生成には約1-2分かかります。\n\n` +
-        `📸 下記のボタンから写真をアップロードしてください：`
-      );
+      // 使用Quick Reply创建照片选择SubMenu
+      const photoSelectionMessage = this.lineAdapter.createPhotoOnlyQuickReply(messageText);
 
       console.log('📤 发送海报生成照片选择消息（带Quick Reply）');
       await this.lineAdapter.replyMessage(event.replyToken, photoSelectionMessage);

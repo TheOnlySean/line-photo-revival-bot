@@ -106,15 +106,19 @@ class PosterImageService {
       }
 
       const arrayBuffer = await response.arrayBuffer();
-      const buffer = Buffer.from(arrayBuffer);
+      const originalBuffer = Buffer.from(arrayBuffer);
+
+      // ✨ 添加水印处理
+      console.log('🔖 开始添加水印...');
+      const watermarkedBuffer = await this.addWatermark(originalBuffer);
 
       // 生成文件名
       const timestamp = Date.now();
       const fileId = crypto.randomUUID();
       const fileName = `${this.paths.final}/${userId}_${timestamp}_${fileId}.jpg`;
 
-      // 上传到我们的存储
-      const blob = await put(fileName, buffer, {
+      // 上传带水印的图片到我们的存储
+      const blob = await put(fileName, watermarkedBuffer, {
         access: 'public',
         token: this.blobToken
       });
@@ -267,6 +271,73 @@ class PosterImageService {
     } catch (error) {
       console.error('❌ 获取图片信息失败:', error);
       return null;
+    }
+  }
+
+  /**
+   * 添加水印到图片
+   * @param {Buffer} imageBuffer - 原始图片Buffer
+   * @returns {Buffer} - 带水印的图片Buffer
+   */
+  async addWatermark(imageBuffer) {
+    try {
+      // 获取原图信息
+      const image = sharp(imageBuffer);
+      const { width, height } = await image.metadata();
+      
+      console.log(`🔖 图片尺寸: ${width}x${height}`);
+      
+      // 计算水印位置和大小
+      const watermarkText = 'LINE：@angelsphoto';
+      const fontSize = Math.max(24, Math.floor(Math.min(width, height) / 30)); // 动态计算字体大小
+      const padding = Math.floor(fontSize * 0.8); // 边距
+      
+      // 水印位置（右下角）
+      const watermarkX = width - padding;
+      const watermarkY = height - padding;
+      
+      console.log(`🔖 水印设置: 字体大小=${fontSize}, 位置=(${watermarkX}, ${watermarkY})`);
+      
+      // 创建SVG格式的水印文本
+      const svgWatermark = `
+        <svg width="${width}" height="${height}">
+          <text
+            x="${watermarkX}"
+            y="${watermarkY}"
+            font-family="Arial, sans-serif"
+            font-size="${fontSize}"
+            fill="white"
+            fill-opacity="0.7"
+            text-anchor="end"
+            dominant-baseline="bottom"
+            stroke="rgba(0,0,0,0.3)"
+            stroke-width="1">
+            ${watermarkText}
+          </text>
+        </svg>
+      `;
+      
+      // 将SVG转为Buffer
+      const watermarkBuffer = Buffer.from(svgWatermark);
+      
+      // 合成水印
+      const watermarkedImage = await image
+        .composite([{
+          input: watermarkBuffer,
+          top: 0,
+          left: 0
+        }])
+        .jpeg({ quality: 95 }) // 保持高质量
+        .toBuffer();
+      
+      console.log('✅ 水印添加成功');
+      return watermarkedImage;
+      
+    } catch (error) {
+      console.error('❌ 添加水印失败:', error);
+      // 如果水印添加失败，返回原图
+      console.log('⚠️ 水印添加失败，返回原图');
+      return imageBuffer;
     }
   }
 
