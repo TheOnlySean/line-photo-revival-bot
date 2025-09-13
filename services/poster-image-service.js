@@ -210,24 +210,42 @@ class PosterImageService {
   }
 
   /**
-   * 处理海报模板图片
+   * 处理海报模板图片（保持原图比例，不裁剪）
    */
   async processTemplateImage(buffer) {
     try {
-      console.log('🖼️ 处理海报模板图片...');
+      console.log('🖼️ 处理海报模板图片（保持原图比例）...');
 
-      const processedImage = await sharp(buffer)
-        .resize(1024, 1024, {
-          fit: 'cover', // 覆盖模式确保尺寸一致
-          position: 'center'
-        })
-        .jpeg({
-          quality: 85,
-          progressive: true
-        })
-        .toBuffer();
+      // 获取原图信息
+      const { width, height } = await sharp(buffer).metadata();
+      console.log(`📏 模板原图尺寸: ${width}x${height}`);
 
-      console.log('✅ 海报模板处理完成');
+      // 只有当图片过大时才调整尺寸，严格保持原图宽高比
+      let processedImage;
+      if (width > 2048 || height > 2048) {
+        console.log('📐 模板尺寸过大，调整至2048px以内（保持比例）...');
+        processedImage = await sharp(buffer)
+          .resize(2048, 2048, {
+            fit: 'inside', // 保持比例，不裁剪
+            withoutEnlargement: true
+          })
+          .jpeg({
+            quality: 95, // 保持高质量
+            progressive: true
+          })
+          .toBuffer();
+      } else {
+        console.log('📐 模板尺寸合适，保持原始质量和比例...');
+        processedImage = await sharp(buffer)
+          .jpeg({
+            quality: 95, // 保持高质量
+            progressive: true
+          })
+          .toBuffer();
+      }
+
+      const finalMeta = await sharp(processedImage).metadata();
+      console.log(`✅ 模板处理完成: ${finalMeta.width}x${finalMeta.height} (保持原始比例)`);
       return processedImage;
 
     } catch (error) {
