@@ -35,18 +35,22 @@ class PosterGenerator {
    * 完整的海报生成流程
    * 两步异步生成 + 同步轮询（简化版本）
    */
-  async generatePoster(userId, userImageUrl) {
+  async generatePoster(userId, userImageUrl, posterTaskId = null) {
     const startTime = Date.now();
     console.log(`🚀 开始海报生成流程 - 用户: ${userId}`);
 
     try {
       // 第一步：生成昭和风图片
       console.log('📸 第一步：转换为昭和风格...');
-      const showaImageUrl = await this.generateShowaStyle(userImageUrl, userId);
+      console.log(`   输入图片URL: ${userImageUrl}`);
+      const showaImageUrl = await this.generateShowaStyle(userImageUrl, userId, posterTaskId);
+      console.log(`✅ 第一步完成，昭和风图片: ${showaImageUrl}`);
       
       // 第二步：选择随机模板并生成最终海报
       console.log('🎨 第二步：合成海报...');
-      const finalPosterUrl = await this.generateFinalPoster(showaImageUrl, userId);
+      console.log(`   昭和风图片输入: ${showaImageUrl}`);
+      const finalPosterUrl = await this.generateFinalPoster(showaImageUrl, userId, posterTaskId);
+      console.log(`✅ 第二步完成，最终海报: ${finalPosterUrl}`);
       
       const totalTime = (Date.now() - startTime) / 1000;
       console.log(`✅ 海报生成完成 - 用户: ${userId}, 总耗时: ${totalTime}秒`);
