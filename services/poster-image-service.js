@@ -284,63 +284,57 @@ class PosterImageService {
    */
   async addWatermark(imageBuffer) {
     try {
-      // 获取原图信息
+      console.log('🔖 开始添加水印...');
       const image = sharp(imageBuffer);
       const { width, height } = await image.metadata();
       
       console.log(`🔖 图片尺寸: ${width}x${height}`);
       
-      // 计算水印位置和大小
-      const watermarkText = 'LINE：@angelsphoto';
-      const fontSize = Math.max(24, Math.floor(Math.min(width, height) / 30)); // 动态计算字体大小
-      const padding = Math.floor(fontSize * 0.8); // 边距
+      // 🚨 简化版本：直接在右下角画一个红色矩形（确保在生产环境可见）
+      const rectSize = Math.max(100, Math.floor(Math.min(width, height) / 15));
+      const rectX = width - rectSize - 20;
+      const rectY = height - rectSize - 20;
       
-      // 水印位置（右下角）
-      const watermarkX = width - padding;
-      const watermarkY = height - padding;
+      console.log(`🔖 红色矩形测试: 大小=${rectSize}x${rectSize}, 位置=(${rectX}, ${rectY})`);
       
-      console.log(`🔖 水印设置: 字体大小=${fontSize}, 位置=(${watermarkX}, ${watermarkY})`);
-      console.log(`🔖 水印文字: "${watermarkText}"`);
-      
-      // 创建SVG格式的水印文本（增强可见性）
-      const svgWatermark = `
+      // 创建红色矩形水印
+      const rectSvg = `
         <svg width="${width}" height="${height}">
-          <text
-            x="${watermarkX}"
-            y="${watermarkY}"
-            font-family="Arial, sans-serif"
-            font-size="${fontSize}"
+          <rect
+            x="${rectX}"
+            y="${rectY}"
+            width="${rectSize}"
+            height="${rectSize}"
             fill="red"
-            fill-opacity="1.0"
-            text-anchor="end"
-            dominant-baseline="bottom"
-            stroke="black"
-            stroke-width="3">
-            ${watermarkText}
+            fill-opacity="0.8"/>
+          <text
+            x="${rectX + rectSize/2}"
+            y="${rectY + rectSize/2}"
+            font-family="Arial, sans-serif"
+            font-size="20"
+            fill="white"
+            text-anchor="middle"
+            dominant-baseline="central">
+            TEST
           </text>
         </svg>
       `;
       
-      // 将SVG转为Buffer
-      const watermarkBuffer = Buffer.from(svgWatermark);
-      
-      // 合成水印
-      console.log('🔧 开始合成水印到图片...');
+      console.log('🔧 合成红色矩形水印...');
       const watermarkedImage = await image
         .composite([{
-          input: watermarkBuffer,
+          input: Buffer.from(rectSvg),
           top: 0,
           left: 0
         }])
-        .jpeg({ quality: 95 }) // 保持高质量
+        .jpeg({ quality: 95 })
         .toBuffer();
       
-      console.log(`✅ 水印合成成功！原图: ${(imageBuffer.length / 1024).toFixed(2)}KB → 水印图: ${(watermarkedImage.length / 1024).toFixed(2)}KB`);
+      console.log(`✅ 红色矩形水印添加成功！原图: ${(imageBuffer.length / 1024).toFixed(2)}KB → 水印图: ${(watermarkedImage.length / 1024).toFixed(2)}KB`);
       return watermarkedImage;
       
     } catch (error) {
       console.error('❌ 添加水印失败:', error);
-      // 如果水印添加失败，返回原图
       console.log('⚠️ 水印添加失败，返回原图');
       return imageBuffer;
     }
