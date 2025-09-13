@@ -693,19 +693,13 @@ class EventHandler {
     try {
       console.log(`🔄 开始同步海报生成流程 - 用户: ${user.line_user_id}`);
 
-      // A. 下载用户图片Buffer
-      console.log('A️⃣ 下载用户图片Buffer...');
-      const imageBuffer = await this.downloadImageBuffer(imageUrl);
-      console.log('✅ 图片Buffer下载成功，大小:', imageBuffer.length, 'bytes');
+      // 直接使用LINE Adapter上传的URL（避免重复下载上传）
+      console.log('A️⃣ 使用LINE Adapter上传的图片URL...');
+      console.log('✅ 图片URL可用:', imageUrl);
 
-      // B. 上传图片到我们的存储
-      console.log('B️⃣ 上传图片到存储服务...');
-      const userImageUrl = await this.posterImageService.uploadUserOriginalImage(imageBuffer, user.id);
-      console.log('✅ 用户图片已上传到存储服务:', userImageUrl);
-
-      // C. 执行完整的海报生成流程
-      console.log('C️⃣ 调用海报生成器...');
-      const result = await this.posterGenerator.generatePoster(user.id, userImageUrl, posterTaskId);
+      // B. 执行完整的海报生成流程（直接使用LINE的URL）
+      console.log('B️⃣ 调用海报生成器...');
+      const result = await this.posterGenerator.generatePoster(user.id, imageUrl, posterTaskId);
       console.log('✅ 海报生成器调用完成，结果:', result.success ? '成功' : '失败');
 
       if (result.success) {

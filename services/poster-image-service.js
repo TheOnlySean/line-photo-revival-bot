@@ -169,24 +169,42 @@ class PosterImageService {
    */
   async processImageForAI(buffer) {
     try {
-      console.log('🖼️ 处理图片用于AI生成...');
+      console.log('🖼️ 处理用户原始图片...');
 
-      const processedImage = await sharp(buffer)
-        .resize(1024, 1024, {
-          fit: 'inside',
-          withoutEnlargement: true
-        })
-        .jpeg({
-          quality: 90, // 较高质量用于AI处理
-          progressive: true
-        })
-        .toBuffer();
+      // 获取原图信息
+      const { width, height } = await sharp(buffer).metadata();
+      console.log(`📏 原图尺寸: ${width}x${height}`);
 
-      console.log('✅ AI用图片处理完成');
+      // 只有当图片过大时才调整尺寸，保持原图宽高比
+      let processedImage;
+      if (width > 1920 || height > 1920) {
+        console.log('📐 图片尺寸过大，调整至1920px以内...');
+        processedImage = await sharp(buffer)
+          .resize(1920, 1920, {
+            fit: 'inside',
+            withoutEnlargement: true
+          })
+          .jpeg({
+            quality: 95, // 保持高质量
+            progressive: true
+          })
+          .toBuffer();
+      } else {
+        console.log('📐 图片尺寸合适，保持原始质量...');
+        processedImage = await sharp(buffer)
+          .jpeg({
+            quality: 95, // 保持高质量
+            progressive: true
+          })
+          .toBuffer();
+      }
+
+      const finalMeta = await sharp(processedImage).metadata();
+      console.log(`✅ 图片处理完成: ${finalMeta.width}x${finalMeta.height}`);
       return processedImage;
 
     } catch (error) {
-      console.error('❌ AI用图片处理失败:', error);
+      console.error('❌ 图片处理失败:', error);
       throw new Error('图片处理失败');
     }
   }
