@@ -320,44 +320,30 @@ class PosterImageService {
       console.log(`🔖 水印设置: 字体大小=${fontSize}, 位置=(${watermarkX}, ${watermarkY})`);
       console.log(`🔖 水印文字: "${watermarkText}"`);
       
-      // 🔧 使用更简单的水印方式：文字背景矩形
-      console.log('🔧 创建简单的文字水印背景...');
+      // 🚨 临时：使用超明显的红色大文字（确保在生产环境可见）
+      console.log('🔧 创建超明显的红色文字水印...');
       
-      // 计算文字大小和背景矩形
-      const textWidth = watermarkText.length * fontSize * 0.6; // 估算文字宽度
-      const textHeight = fontSize * 1.2; // 文字高度
-      const rectX = width - textWidth - 20;
-      const rectY = height - textHeight - 10;
-      
-      console.log(`🔖 水印背景: 大小=${textWidth.toFixed(0)}x${textHeight.toFixed(0)}, 位置=(${rectX.toFixed(0)}, ${rectY.toFixed(0)})`);
-      
-      // 创建简单的矩形+文字水印
-      const simpleSvg = `
+      // 创建大红色文字水印
+      const bigRedSvg = `
         <svg width="${width}" height="${height}">
-          <rect
-            x="${rectX}"
-            y="${rectY}"
-            width="${textWidth}"
-            height="${textHeight}"
-            fill="black"
-            fill-opacity="0.7"
-            rx="5"/>
           <text
-            x="${rectX + textWidth/2}"
-            y="${rectY + textHeight/2 + fontSize/3}"
+            x="${watermarkX}"
+            y="${watermarkY}"
             font-family="Arial, sans-serif"
-            font-size="${Math.floor(fontSize * 0.8)}"
-            fill="white"
-            text-anchor="middle">
+            font-size="${fontSize}"
+            fill="red"
+            font-weight="bold"
+            text-anchor="end"
+            dominant-baseline="bottom">
             ${watermarkText}
           </text>
         </svg>
       `;
       
-      console.log('🔧 合成简单文字水印（带背景）...');
+      console.log('🔧 合成大红色文字水印...');
       const watermarkedImage = await image
         .composite([{
-          input: Buffer.from(simpleSvg),
+          input: Buffer.from(bigRedSvg),
           top: 0,
           left: 0
         }])
