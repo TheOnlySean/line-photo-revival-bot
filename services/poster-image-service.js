@@ -320,30 +320,50 @@ class PosterImageService {
       console.log(`🔖 水印设置: 字体大小=${fontSize}, 位置=(${watermarkX}, ${watermarkY})`);
       console.log(`🔖 水印文字: "${watermarkText}"`);
       
-      // 🚨 临时：使用超明显的红色大文字（确保在生产环境可见）
-      console.log('🔧 创建超明显的红色文字水印...');
+      // 🔧 避免SVG文字问题：使用纯图形水印标识
+      console.log('🔧 创建图形水印标识...');
       
-      // 创建大红色文字水印
-      const bigRedSvg = `
+      // 计算水印区域
+      const watermarkSize = Math.max(60, Math.floor(Math.min(width, height) / 20));
+      const logoX = width - watermarkSize - 15;
+      const logoY = height - watermarkSize - 15;
+      
+      console.log(`🔖 图形水印: 大小=${watermarkSize}x${watermarkSize}, 位置=(${logoX}, ${logoY})`);
+      
+      // 创建简单的图形标识水印（圆形+字母，避免复杂文字）
+      const logoSvg = `
         <svg width="${width}" height="${height}">
-          <text
-            x="${watermarkX}"
-            y="${watermarkY}"
-            font-family="Arial, sans-serif"
-            font-size="${fontSize}"
+          <circle
+            cx="${logoX + watermarkSize/2}"
+            cy="${logoY + watermarkSize/2}"
+            r="${watermarkSize/2}"
+            fill="white"
+            fill-opacity="0.8"
+            stroke="black"
+            stroke-width="2"/>
+          <circle
+            cx="${logoX + watermarkSize/2}"
+            cy="${logoY + watermarkSize/2}"
+            r="${watermarkSize/3}"
             fill="red"
+            fill-opacity="0.9"/>
+          <text
+            x="${logoX + watermarkSize/2}"
+            y="${logoY + watermarkSize/2 + 8}"
+            font-family="Arial, sans-serif"
+            font-size="20"
+            fill="white"
             font-weight="bold"
-            text-anchor="end"
-            dominant-baseline="bottom">
-            ${watermarkText}
+            text-anchor="middle">
+            L
           </text>
         </svg>
       `;
       
-      console.log('🔧 合成大红色文字水印...');
+      console.log('🔧 合成图形标识水印...');
       const watermarkedImage = await image
         .composite([{
-          input: Buffer.from(bigRedSvg),
+          input: Buffer.from(logoSvg),
           top: 0,
           left: 0
         }])
