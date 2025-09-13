@@ -290,47 +290,48 @@ class PosterImageService {
       
       console.log(`🔖 图片尺寸: ${width}x${height}`);
       
-      // 🚨 简化版本：直接在右下角画一个红色矩形（确保在生产环境可见）
-      const rectSize = Math.max(100, Math.floor(Math.min(width, height) / 15));
-      const rectX = width - rectSize - 20;
-      const rectY = height - rectSize - 20;
+      // 计算水印位置和大小
+      const watermarkText = 'LINE：@angelsphoto';
+      const fontSize = Math.max(28, Math.floor(Math.min(width, height) / 25)); // 稍微增大字体
+      const padding = Math.floor(fontSize * 0.6); // 减少边距，让水印更靠近边缘
       
-      console.log(`🔖 红色矩形测试: 大小=${rectSize}x${rectSize}, 位置=(${rectX}, ${rectY})`);
+      // 水印位置（右下角）
+      const watermarkX = width - padding;
+      const watermarkY = height - padding;
       
-      // 创建红色矩形水印
-      const rectSvg = `
+      console.log(`🔖 水印设置: 字体大小=${fontSize}, 位置=(${watermarkX}, ${watermarkY})`);
+      console.log(`🔖 水印文字: "${watermarkText}"`);
+      
+      // 创建文字水印（使用验证过的技术）
+      const textSvg = `
         <svg width="${width}" height="${height}">
-          <rect
-            x="${rectX}"
-            y="${rectY}"
-            width="${rectSize}"
-            height="${rectSize}"
-            fill="red"
-            fill-opacity="0.8"/>
           <text
-            x="${rectX + rectSize/2}"
-            y="${rectY + rectSize/2}"
+            x="${watermarkX}"
+            y="${watermarkY}"
             font-family="Arial, sans-serif"
-            font-size="20"
+            font-size="${fontSize}"
             fill="white"
-            text-anchor="middle"
-            dominant-baseline="central">
-            TEST
+            fill-opacity="0.9"
+            text-anchor="end"
+            dominant-baseline="bottom"
+            stroke="rgba(0,0,0,0.8)"
+            stroke-width="2">
+            ${watermarkText}
           </text>
         </svg>
       `;
       
-      console.log('🔧 合成红色矩形水印...');
+      console.log('🔧 合成文字水印...');
       const watermarkedImage = await image
         .composite([{
-          input: Buffer.from(rectSvg),
+          input: Buffer.from(textSvg),
           top: 0,
           left: 0
         }])
         .jpeg({ quality: 95 })
         .toBuffer();
       
-      console.log(`✅ 红色矩形水印添加成功！原图: ${(imageBuffer.length / 1024).toFixed(2)}KB → 水印图: ${(watermarkedImage.length / 1024).toFixed(2)}KB`);
+      console.log(`✅ 文字水印添加成功！原图: ${(imageBuffer.length / 1024).toFixed(2)}KB → 水印图: ${(watermarkedImage.length / 1024).toFixed(2)}KB`);
       return watermarkedImage;
       
     } catch (error) {
