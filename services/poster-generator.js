@@ -165,18 +165,18 @@ class PosterGenerator {
       console.log(`🎭 选中模板: ${template.template_name} (${template.style_category})`);
 
       // 海报合成的Prompt（强化尺寸要求：明确使用模板的尺寸和构图）
-      const posterPrompt = `用[image1]的风格为[image2]的人物做一个杂志封面设计，严格保持[image1]的尺寸、构图比例和设计框架。
+      const posterPrompt = `用[image2]的风格为[image1]的人物做一个杂志封面设计。
 
 重要要求：
 1. 在杂志的角落需要再放一张人物的缩小的照片，需要动作表情不同。
-2. 保持[image1]杂志上的文字和排版  
+2. 保持[image2]杂志上的文字和排版  
 3. 不要改变角色的面部特征及表情！`;
 
       // 调用 KIE.AI API 进行海报合成
       // 交换图片顺序：模板在前，人物在后，这样auto尺寸会采用模板尺寸
       const taskId = await this.createKieAiTask({
         prompt: posterPrompt,
-        image_urls: [template.template_url, showaImageUrl] // 模板优先，auto会采用模板尺寸
+        image_urls: [showaImageUrl, template.template_url] 
       });
 
       console.log(`⏳ 海报合成任务已提交 - TaskID: ${taskId}`);
