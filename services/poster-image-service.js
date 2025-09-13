@@ -308,8 +308,8 @@ class PosterImageService {
       
       console.log(`🔖 图片尺寸: ${width}x${height}`);
       
-      // 计算水印位置和大小
-      const watermarkText = 'LINE：@angelsphoto';
+      // 计算水印位置和大小（使用纯英文字符避免编码问题）
+      const watermarkText = 'LINE: @angelsphoto';
       const fontSize = Math.max(28, Math.floor(Math.min(width, height) / 25)); // 稍微增大字体
       const padding = Math.floor(fontSize * 0.6); // 减少边距，让水印更靠近边缘
       
