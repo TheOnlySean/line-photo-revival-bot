@@ -12,31 +12,67 @@ class PosterTemplateUploader {
   constructor() {
     this.posterImageService = new PosterImageService();
     
-    // 预定义的4个模板信息
+    // 扩展到10个模板的配置信息
     this.templateConfigs = [
       {
         name: 'vintage_magazine_01',
-        fileName: 'template1.jpg', // 您需要将模板图片命名为这些文件名
+        fileName: 'template1.JPG',
         description: '昭和时代经典杂志封面风格',
         category: 'vintage'
       },
       {
         name: 'retro_poster_01',
-        fileName: 'template2.jpg',
+        fileName: 'template2.JPG',
         description: '复古电影海报风格',
         category: 'retro'
       },
       {
         name: 'classic_photo_01',
-        fileName: 'template3.jpg',
+        fileName: 'template3.JPG',
         description: '经典人像摄影风格',
         category: 'classic'
       },
       {
         name: 'japanese_style_01',
-        fileName: 'template4.jpg',
+        fileName: 'template4.JPG',
         description: '日式传统海报设计',
         category: 'japanese'
+      },
+      {
+        name: 'modern_fashion_01',
+        fileName: 'template5.JPG',
+        description: '现代时尚杂志风格',
+        category: 'modern'
+      },
+      {
+        name: 'artistic_portrait_01',
+        fileName: 'template6.JPG',
+        description: '艺术人像摄影风格',
+        category: 'artistic'
+      },
+      {
+        name: 'youth_magazine_01',
+        fileName: 'template7.JPG',
+        description: '青春杂志封面风格',
+        category: 'youth'
+      },
+      {
+        name: 'elegant_style_01',
+        fileName: 'template8.JPG',
+        description: '优雅时尚风格',
+        category: 'elegant'
+      },
+      {
+        name: 'creative_design_01',
+        fileName: 'template9.JPG',
+        description: '创意设计海报风格',
+        category: 'creative'
+      },
+      {
+        name: 'premium_magazine_01',
+        fileName: 'template10.JPG',
+        description: '高端杂志封面风格',
+        category: 'premium'
       }
     ];
   }
