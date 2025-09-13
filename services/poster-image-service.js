@@ -51,7 +51,7 @@ class PosterImageService {
 
     } catch (error) {
       console.error('❌ 用户原始图片上传失败:', error);
-      throw new Error('用户图片上传失败');
+      throw new Error('ユーザー画像のアップロードに失敗しました');
     }
   }
 
@@ -88,7 +88,7 @@ class PosterImageService {
 
     } catch (error) {
       console.error('❌ 昭和风图片存储失败:', error);
-      throw new Error('昭和风图片处理失败');
+      throw new Error('昭和風画像の処理に失敗しました');
     }
   }
 
@@ -131,7 +131,7 @@ class PosterImageService {
 
     } catch (error) {
       console.error('❌ 最终海报存储失败:', error);
-      throw new Error('最终海报存储失败');
+      throw new Error('最終ポスターの保存に失敗しました');
     }
   }
 
@@ -205,7 +205,7 @@ class PosterImageService {
 
     } catch (error) {
       console.error('❌ 图片处理失败:', error);
-      throw new Error('图片处理失败');
+      throw new Error('画像の処理に失敗しました');
     }
   }
 
@@ -232,7 +232,7 @@ class PosterImageService {
 
     } catch (error) {
       console.error('❌ 海报模板处理失败:', error);
-      throw new Error('模板图片处理失败');
+      throw new Error('テンプレート画像の処理に失敗しました');
     }
   }
 
