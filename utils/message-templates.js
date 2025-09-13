@@ -365,8 +365,8 @@ class MessageTemplates {
     const standardUrl = userId ? `${standardBaseUrl}?client_reference_id=${userId}` : standardBaseUrl;
     
     // 使用 Vercel Blob Storage 中的图片 URL
-    const trialImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/trial-plan-card-N975LY0W25XEwRrP44qHVLcdEDvew5.jpg';
-    const standardImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/standard-plan-card-ANII7ezO1Gf1k5oltKBGKCJww2WaNn.jpg';
+    const trialImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/trial-plan-card-h6LiY9wt3aGTofiHXzoHYFAUe1P6vT.jpg';
+    const standardImageUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/payment-cards/standard-plan-card-TeUYMf2rbg77OeL4bZdhD1DbcnBt7M.jpg';
     
     return {
       type: 'flex',
