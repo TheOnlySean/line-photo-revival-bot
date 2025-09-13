@@ -110,7 +110,10 @@ class PosterImageService {
 
       // ✨ 添加水印处理
       console.log('🔖 开始添加水印...');
+      console.log(`🔖 原图Buffer大小: ${(originalBuffer.length / 1024).toFixed(2)} KB`);
       const watermarkedBuffer = await this.addWatermark(originalBuffer);
+      console.log(`🔖 水印处理后Buffer大小: ${(watermarkedBuffer.length / 1024).toFixed(2)} KB`);
+      console.log('🔖 水印处理完成，准备上传...');
 
       // 生成文件名
       const timestamp = Date.now();
@@ -297,8 +300,9 @@ class PosterImageService {
       const watermarkY = height - padding;
       
       console.log(`🔖 水印设置: 字体大小=${fontSize}, 位置=(${watermarkX}, ${watermarkY})`);
+      console.log(`🔖 水印文字: "${watermarkText}"`);
       
-      // 创建SVG格式的水印文本
+      // 创建SVG格式的水印文本（增强可见性）
       const svgWatermark = `
         <svg width="${width}" height="${height}">
           <text
@@ -306,12 +310,12 @@ class PosterImageService {
             y="${watermarkY}"
             font-family="Arial, sans-serif"
             font-size="${fontSize}"
-            fill="white"
-            fill-opacity="0.7"
+            fill="red"
+            fill-opacity="1.0"
             text-anchor="end"
             dominant-baseline="bottom"
-            stroke="rgba(0,0,0,0.3)"
-            stroke-width="1">
+            stroke="black"
+            stroke-width="3">
             ${watermarkText}
           </text>
         </svg>
@@ -321,6 +325,7 @@ class PosterImageService {
       const watermarkBuffer = Buffer.from(svgWatermark);
       
       // 合成水印
+      console.log('🔧 开始合成水印到图片...');
       const watermarkedImage = await image
         .composite([{
           input: watermarkBuffer,
@@ -330,7 +335,7 @@ class PosterImageService {
         .jpeg({ quality: 95 }) // 保持高质量
         .toBuffer();
       
-      console.log('✅ 水印添加成功');
+      console.log(`✅ 水印合成成功！原图: ${(imageBuffer.length / 1024).toFixed(2)}KB → 水印图: ${(watermarkedImage.length / 1024).toFixed(2)}KB`);
       return watermarkedImage;
       
     } catch (error) {
