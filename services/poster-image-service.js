@@ -302,75 +302,53 @@ class PosterImageService {
    */
   async addWatermark(imageBuffer) {
     try {
-      console.log('🔖 开始添加水印...');
+      console.log('🔖 开始添加QR码图片水印...');
       const image = sharp(imageBuffer);
       const { width, height } = await image.metadata();
       
-      console.log(`🔖 图片尺寸: ${width}x${height}`);
+      console.log(`🔖 原图尺寸: ${width}x${height}`);
       
-      // 计算水印位置和大小（使用纯英文字符避免编码问题）
-      const watermarkText = 'LINE: @angelsphoto';
-      const fontSize = Math.max(28, Math.floor(Math.min(width, height) / 25)); // 稍微增大字体
-      const padding = Math.floor(fontSize * 0.6); // 减少边距，让水印更靠近边缘
+      // QR码水印图片URL（已上传到Vercel Blob）
+      const qrWatermarkUrl = 'https://gvzacs1zhqba8qzq.public.blob.vercel-storage.com/watermark/qr-code-watermark-p9ts00Lkvvg0lGaY5e2dNPrsxORlBN.png';
       
-      // 水印位置（右下角）
-      const watermarkX = width - padding;
-      const watermarkY = height - padding;
+      // 下载QR码水印图片
+      console.log('📥 下载QR码水印图片...');
+      const qrResponse = await fetch(qrWatermarkUrl);
+      if (!qrResponse.ok) {
+        throw new Error(`QR码水印下载失败: ${qrResponse.status}`);
+      }
       
-      console.log(`🔖 水印设置: 字体大小=${fontSize}, 位置=(${watermarkX}, ${watermarkY})`);
-      console.log(`🔖 水印文字: "${watermarkText}"`);
+      const qrArrayBuffer = await qrResponse.arrayBuffer();
+      const qrBuffer = Buffer.from(qrArrayBuffer);
+      console.log(`📊 QR码水印大小: ${(qrBuffer.length / 1024).toFixed(2)} KB`);
       
-      // 🔧 避免SVG文字问题：使用纯图形水印标识
-      console.log('🔧 创建图形水印标识...');
+      // 计算QR码水印大小和位置
+      const watermarkSize = Math.max(80, Math.floor(Math.min(width, height) / 8)); // 图片的1/8大小
+      const watermarkX = width - watermarkSize - 20; // 右下角，留20px边距
+      const watermarkY = height - watermarkSize - 20;
       
-      // 计算水印区域
-      const watermarkSize = Math.max(60, Math.floor(Math.min(width, height) / 20));
-      const logoX = width - watermarkSize - 15;
-      const logoY = height - watermarkSize - 15;
+      console.log(`🔖 QR码水印设置: 大小=${watermarkSize}x${watermarkSize}, 位置=(${watermarkX}, ${watermarkY})`);
       
-      console.log(`🔖 图形水印: 大小=${watermarkSize}x${watermarkSize}, 位置=(${logoX}, ${logoY})`);
+      // 调整QR码水印大小并添加透明度
+      console.log('🔧 调整QR码水印大小...');
+      const resizedQrBuffer = await sharp(qrBuffer)
+        .resize(watermarkSize, watermarkSize)
+        .png() // 保持PNG格式支持透明度
+        .toBuffer();
       
-      // 创建简单的图形标识水印（圆形+字母，避免复杂文字）
-      const logoSvg = `
-        <svg width="${width}" height="${height}">
-          <circle
-            cx="${logoX + watermarkSize/2}"
-            cy="${logoY + watermarkSize/2}"
-            r="${watermarkSize/2}"
-            fill="white"
-            fill-opacity="0.8"
-            stroke="black"
-            stroke-width="2"/>
-          <circle
-            cx="${logoX + watermarkSize/2}"
-            cy="${logoY + watermarkSize/2}"
-            r="${watermarkSize/3}"
-            fill="red"
-            fill-opacity="0.9"/>
-          <text
-            x="${logoX + watermarkSize/2}"
-            y="${logoY + watermarkSize/2 + 8}"
-            font-family="Arial, sans-serif"
-            font-size="20"
-            fill="white"
-            font-weight="bold"
-            text-anchor="middle">
-            L
-          </text>
-        </svg>
-      `;
-      
-      console.log('🔧 合成图形标识水印...');
+      // 合成QR码水印到原图
+      console.log('🔧 合成QR码水印到海报...');
       const watermarkedImage = await image
         .composite([{
-          input: Buffer.from(logoSvg),
-          top: 0,
-          left: 0
+          input: resizedQrBuffer,
+          left: watermarkX,
+          top: watermarkY,
+          blend: 'over' // 正常叠加模式
         }])
         .jpeg({ quality: 95 })
         .toBuffer();
       
-      console.log(`✅ 文字水印添加成功！原图: ${(imageBuffer.length / 1024).toFixed(2)}KB → 水印图: ${(watermarkedImage.length / 1024).toFixed(2)}KB`);
+      console.log(`✅ QR码水印添加成功！原图: ${(imageBuffer.length / 1024).toFixed(2)}KB → 水印图: ${(watermarkedImage.length / 1024).toFixed(2)}KB`);
       return watermarkedImage;
       
     } catch (error) {
